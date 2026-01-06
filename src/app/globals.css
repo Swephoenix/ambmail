@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
 :root {
   --background: #ffffff;
@@ -23,4 +24,45 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Hide Next.js Dev Indicator */
+#nextjs-portal,
+[data-nextjs-toast],
+[data-nextjs-dev-indicator] {
+  display: none !important;
+}
+
+/* Email content styling */
+.email-content {
+  /* Contain the email styles and prevent them from affecting the rest of the UI */
+  font-family: inherit;
+  line-height: inherit;
+  color: inherit;
+  max-width: 100%;
+}
+
+/* Reset common email styles that might conflict with our UI */
+.email-content a {
+  @apply text-blue-600 underline hover:text-blue-800;
+}
+
+/* Style buttons and links to match our UI */
+.email-content button,
+.email-content input[type="button"],
+.email-content input[type="submit"] {
+  @apply inline-block px-4 py-2 bg-blue-600 text-white rounded-md no-underline hover:bg-blue-700 transition-colors border-0 cursor-pointer;
+}
+
+/* Handle specific inline styles from email templates that have complex styling */
+.email-content a[style*="background-color:"][style*="color:"][style*="padding:"] {
+  display: inline-block !important;
+  padding: 0.5rem 1rem !important;
+  background-color: #3b82f6 !important; /* bg-blue-600 */
+  color: white !important;
+  border-radius: 0.375rem !important; /* rounded-md */
+  text-decoration: none !important; /* no-underline */
+  border: 0 !important;
+  cursor: pointer !important;
+  transition: background-color 0.15s ease-in-out !important; /* transition-colors */
 }

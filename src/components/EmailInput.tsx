@@ -1,0 +1,162 @@
+'use client';
+
+import { useState, useRef, useEffect, KeyboardEvent } from 'react';
+import { X } from 'lucide-react';
+import { clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs: any[]) {
+  return twMerge(clsx(inputs));
+}
+
+interface EmailInputProps {
+  value: string[];
+  onChange: (emails: string[]) => void;
+  placeholder?: string;
+  className?: string;
+}
+
+export default function EmailInput({ value, onChange, placeholder, className }: EmailInputProps) {
+  const [inputValue, setInputValue] = useState('');
+  const [isFocused, setIsFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Email validation regex
+  const isValidEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  // Handle input changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputValue(e.target.value);
+  };
+
+  // Handle key events
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    // Handle comma, semicolon, or Enter as email separators
+    if (e.key === ',' || e.key === ';' || e.key === 'Enter') {
+      e.preventDefault();
+      addEmail(inputValue.trim());
+    } 
+    // Handle backspace to remove last email when input is empty
+    else if (e.key === 'Backspace' && inputValue === '' && value.length > 0) {
+      e.preventDefault();
+      removeEmail(value.length - 1);
+    }
+  };
+
+  // Add an email to the list
+  const addEmail = (email: string) => {
+    if (email && isValidEmail(email) && !value.includes(email)) {
+      onChange([...value, email]);
+      setInputValue('');
+    }
+  };
+
+  // Remove an email from the list
+  const removeEmail = (index: number) => {
+    const newEmails = [...value];
+    newEmails.splice(index, 1);
+    onChange(newEmails);
+  };
+
+  // Handle paste event to parse multiple emails
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pastedText = e.clipboardData.getData('text');
+    const emailArray = pastedText
+      .split(/[,\s;]+/) // Split by comma, semicolon, or whitespace
+      .map(email => email.trim())
+      .filter(email => email !== '');
+
+    const validEmails = emailArray.filter(email => isValidEmail(email) && !value.includes(email));
+    
+    if (validEmails.length > 0) {
+      onChange([...value, ...validEmails]);
+    }
+    
+    // Set any remaining text as input value if it's not a valid email
+    const remainingText = emailArray
+      .filter(email => !isValidEmail(email))
+      .join(' ');
+    
+    if (remainingText) {
+      setInputValue(remainingText);
+    }
+  };
+
+  // Handle click on container to focus input
+  const handleContainerClick = () => {
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  };
+
+  // Handle blur to add email if valid
+  const handleBlur = () => {
+    if (inputValue.trim() && isValidEmail(inputValue.trim())) {
+      addEmail(inputValue.trim());
+    }
+    setIsFocused(false);
+  };
+
+  // Handle focus
+  const handleFocus = () => {
+    setIsFocused(true);
+  };
+
+  // Handle double-click on bubble to edit
+  const handleBubbleDoubleClick = (email: string, index: number) => {
+    removeEmail(index);
+    setInputValue(email);
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  };
+
+  return (
+    <div 
+      ref={containerRef}
+      onClick={handleContainerClick}
+      className={cn(
+        "flex flex-wrap items-center gap-2 min-h-[44px] w-full p-2 border border-gray-300 rounded-lg bg-white transition-colors",
+        isFocused ? "ring-2 ring-blue-500 border-blue-500" : "focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-blue-500",
+        className
+      )}
+    >
+      {value.map((email, index) => (
+        <div 
+          key={index}
+          onDoubleClick={() => handleBubbleDoubleClick(email, index)}
+          className="flex items-center gap-1 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm"
+        >
+          <span>{email}</span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              removeEmail(index);
+            }}
+            className="text-blue-600 hover:text-blue-800 rounded-full hover:bg-blue-200 p-0.5 transition-colors"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      ))}
+      <input
+        ref={inputRef}
+        type="email"
+        value={inputValue}
+        onChange={handleInputChange}
+        onKeyDown={handleKeyDown as any} // Type assertion to handle React's keyboard event
+        onPaste={handlePaste}
+        onFocus={handleFocus}
+        onBlur={handleBlur}
+        placeholder={value.length === 0 ? placeholder : ''}
+        className="flex-1 min-w-[120px] border-none outline-none bg-transparent text-sm"
+      />
+    </div>
+  );
+}
