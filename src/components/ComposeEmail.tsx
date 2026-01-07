@@ -148,7 +148,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
       setBody(initialData.body || '');
       setIsDraftLoaded(true); // Mark as loaded to prevent multiple insertions
     }
-  }, [initialData, to, subject, body, draftUid, accountId, isSwitchingDraft, isDraftLoaded, accountSignature]);
+  }, [initialData, draftUid, accountId, isSwitchingDraft, isDraftLoaded, accountSignature]);
 
   const [isSending, setIsSending] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
@@ -203,18 +203,17 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
   const autoSavedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   // Ref to store the last saved content to avoid unnecessary saves
   const lastSavedContentRef = useRef({
-    to: initialData?.to
-      ? initialData.to
-          .split(/[,\s;]+/) // Split by comma, semicolon, or whitespace
-          .map(email => email.trim())
-          .filter(email => email !== '')
-      : [],
+    to: Array.isArray(initialData?.to) ? initialData.to :
+         typeof initialData?.to === 'string' ?
+           initialData.to.split(/[,\s;]+/).map(email => email.trim()).filter(email => email !== '') :
+           [],
     subject: initialData?.subject || '',
     body: initialData?.body || ''
   });
 
+  // Temporarily disable auto-save functionality to prevent field clearing issues
   // Save draft when component unmounts (when closing the email)
-  useEffect(() => {
+  /*useEffect(() => {
     return () => {
       // Only save if there's content and it has changed since last save
       const hasContent = to.length > 0 || subject.trim() || body.trim();
@@ -261,10 +260,11 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
         }
       }
     };
-  }, [to, subject, body, draftUid, accountId, isSending, isSwitchingDraft, accountSignature]);
+  }, [to, subject, body, draftUid, accountId, isSending, isSwitchingDraft, accountSignature]);*/
 
   // Function to manually save draft (useful when switching between emails)
-  const saveDraftNow = async () => {
+  // Temporarily disabled to prevent field clearing issues
+  /*const saveDraftNow = async () => {
     // If the signature is not already in the body, add it
     let finalBody = body;
     if (accountSignature && !body.includes(accountSignature)) {
@@ -316,7 +316,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
     } else if (!hasContentChanged) {
       console.log('Draft not saved - no changes detected');
     }
-  };
+  };*/
 
   useEffect(() => {
     if (inputValue && inputValue.length > 1) {
@@ -541,11 +541,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
 
           <div className="p-4 border-t border-gray-100 flex justify-between items-center bg-gray-50">
             <div className="text-sm text-gray-500 flex items-center gap-2">
-              {isSavingDraft ? (
-                <span className="text-blue-600">Sparar...</span>
-              ) : showAutoSaved ? (
-                <span className="text-green-600">Autosparat</span>
-              ) : null}
+              {/* Removed auto-save indicators to prevent field clearing issues */}
             </div>
             <button
               onClick={handleSend}
