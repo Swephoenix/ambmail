@@ -1,36 +1,80 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# UxMail
 
-## Getting Started
+UxMail är en modern e-postklient med stöd för flera konton, förhämtning av e-postmeddelanden, automatisk uppdatering och SPA-funktionalitet.
 
-First, run the development server:
+## Funktioner
 
+- **Flera e-postkonton**: Anslut och hantera flera e-postkonton samtidigt
+- **Förhämtning**: E-postmeddelanden hämtas automatiskt under splashskärmen
+- **Automatisk uppdatering**: Kontrollerar efter nya e-postmeddelanden varje minut
+- **SPA-funktionalitet**: Skriv e-post utan sidladdningar
+- **Förbättrad e-postinmatning**: Intelligenta förslag och bubblor för e-postadresser
+- **SQLite-databas**: Lokal databas för kontoinformation
+
+## Förutsättningar
+
+- Node.js (version 18 eller högre)
+- npm eller yarn
+
+## Installation
+
+1. Klona repot:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone https://github.com/Swephoenix/Uxmail.git
+cd Uxmail
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Installera beroenden:
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Skapa en `.env`-fil baserat på `.env.example`:
+```bash
+cp .env.example .env
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. Initiera databasen:
+```bash
+npx prisma db push
+```
 
-## Learn More
+5. Starta utvecklingsservern:
+```bash
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Applikationen kommer att vara tillgänglig på [http://localhost:3000](http://localhost:3000)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Användning
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Klicka på "Connect Account" för att lägga till ett e-postkonto
+2. Använd "+"-knappen för att skriva ett nytt e-postmeddelande
+3. E-postmeddelanden uppdateras automatiskt varje minut
+4. E-postmeddelanden förhämtas under splashskärmen för snabbare tillgång
 
-## Deploy on Vercel
+## Utveckling
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Projektet är byggt med:
+- Next.js 16.1.1
+- React 19.2.3
+- TypeScript
+- Prisma (med SQLite)
+- Tailwind CSS
+- Lucide React (ikoner)
+- Tiptap (rich text editor)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Deployment
+
+För att bygga projektet för produktion:
+```bash
+npm run build
+npm start
+```
+
+## Filstruktur
+
+- `src/app/` - Huvudapplikationen (Next.js App Router)
+- `src/components/` - Återanvändbara UI-komponenter
+- `prisma/` - Prisma-scheman och databasdefinitioner
+- `Newsplash/` - Ny splashskärmskomponent
