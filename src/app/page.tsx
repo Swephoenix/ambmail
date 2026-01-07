@@ -4,7 +4,7 @@ import { useState, useEffect, lazy, Suspense } from 'react';
 import Sidebar, { Account } from '@/components/Sidebar';
 import MailList, { EmailHeader } from '@/components/MailList';
 import MailView from '@/components/MailView';
-import SplashScreen from '@/components/SplashScreen';
+import SplashScreen from '../../Newsplash/SplashScreen';
 
 // Lazy load modal and compose components for better initial load performance
 const AddAccountModal = lazy(() => import('@/components/AddAccountModal'));
@@ -19,7 +19,7 @@ export default function Home() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
   const [activeFolder, setActiveFolder] = useState<string>('INBOX');
-  const [viewMode, setViewMode] = useState<'list' | 'conversation'>('list');
+  const [viewMode, setViewMode] = useState<'list'>('list');
   const [emails, setEmails] = useState<any[]>([]);
   const [selectedEmail, setSelectedEmail] = useState<any | null>(null);
   const [isLoadingList, setIsLoadingList] = useState(false);
@@ -43,6 +43,43 @@ export default function Home() {
   const [accountsCache, setAccountsCache] = useState<{data: Account[], timestamp: number} | null>(null);
   const ACCOUNTS_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
+  // Cache for email lists to avoid unnecessary API calls
+  const [emailCache, setEmailCache] = useState<Record<string, {data: any[], timestamp: number}>>({});
+  const EMAIL_LIST_CACHE_DURATION = 2 * 60 * 1000; // 2 minutes
+
+  // Function to fetch and cache emails for all accounts and folders
+  const fetchAndCacheAllEmails = async (accounts: Account[]) => {
+    // Define the folders we want to pre-fetch for each account
+    const foldersToFetch = ['INBOX', 'Drafts', 'Sent', 'Utkast', 'Skickat']; // Common folder names
+
+    // Process each account and folder combination
+    const fetchPromises = accounts.flatMap(account =>
+      foldersToFetch.map(async (folder) => {
+        const cacheKey = `${account.id}-${folder}-list`; // Fixed to 'list' mode only
+
+        // Only fetch if not already cached or cache is expired
+        if (!emailCache[cacheKey] || (Date.now() - emailCache[cacheKey].timestamp) >= EMAIL_LIST_CACHE_DURATION) {
+          try {
+            const res = await fetch(`/api/mail?accountId=${account.id}&folder=${encodeURIComponent(folder)}&view=list`);
+            const data = await res.json();
+            if (!data.error) {
+              // Update cache with fetched data
+              setEmailCache(prev => ({
+                ...prev,
+                [cacheKey]: { data, timestamp: Date.now() }
+              }));
+            }
+          } catch (error) {
+            console.error(`Failed to fetch emails for account ${account.id}, folder ${folder}:`, error);
+          }
+        }
+      })
+    );
+
+    // Wait for all fetch operations to complete
+    await Promise.all(fetchPromises);
+  };
+
   const fetchAccounts = async () => {
     // Check if we have cached data that's still valid
     if (accountsCache && (Date.now() - accountsCache.timestamp) < ACCOUNTS_CACHE_DURATION) {
@@ -50,7 +87,7 @@ export default function Home() {
       if (accountsCache.data.length > 0 && !activeAccountId) {
         setActiveAccountId(accountsCache.data[0].id);
       }
-      return;
+      return accountsCache.data;
     }
 
     const res = await fetch('/api/accounts');
@@ -61,16 +98,14 @@ export default function Home() {
     if (data.length > 0 && !activeAccountId) {
       setActiveAccountId(data[0].id);
     }
+
+    return data;
   };
 
-  // Cache for email lists to avoid unnecessary API calls
-  const [emailCache, setEmailCache] = useState<Record<string, {data: any[], timestamp: number}>>({});
-  const EMAIL_LIST_CACHE_DURATION = 2 * 60 * 1000; // 2 minutes
-
   const fetchEmails = async (accountId: string, folder: string) => {
-    const cacheKey = `${accountId}-${folder}-${viewMode}`;
+    const cacheKey = `${accountId}-${folder}-list`; // Fixed to 'list' mode only
 
-    // Check if we have cached data that's still valid
+    // Check if we have cached data that's still valid (including pre-fetched data)
     if (emailCache[cacheKey] && (Date.now() - emailCache[cacheKey].timestamp) < EMAIL_LIST_CACHE_DURATION) {
       setEmails(emailCache[cacheKey].data);
       setIsLoadingList(false);
@@ -80,7 +115,7 @@ export default function Home() {
     setIsLoadingList(true);
     try {
       // Use encodeURIComponent for folders like "Inbox.Sent" etc if needed
-      const res = await fetch(`/api/mail?accountId=${accountId}&folder=${encodeURIComponent(folder)}&view=${viewMode}`);
+      const res = await fetch(`/api/mail?accountId=${accountId}&folder=${encodeURIComponent(folder)}&view=list`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setEmails(data);
@@ -98,12 +133,6 @@ export default function Home() {
     }
   };
 
-  const changeViewMode = (mode: 'list' | 'conversation') => {
-    setViewMode(mode);
-    if (activeAccountId) {
-      fetchEmails(activeAccountId, activeFolder);
-    }
-  };
 
   const fetchEmailBody = async (accountId: string, uid: number) => {
     setIsLoadingBody(true);
@@ -157,7 +186,7 @@ export default function Home() {
       if (error.message.includes('Message not found')) {
         toast.error('Draft may have been moved or deleted. Refreshing list...');
         // Clear cache for this folder to ensure fresh data
-        const cacheKey = `${accountId}-${activeFolder}`;
+        const cacheKey = `${accountId}-${activeFolder}-list`;
         setEmailCache(prev => {
           const newCache = {...prev};
           delete newCache[cacheKey];
@@ -259,7 +288,7 @@ export default function Home() {
       // Remove deleted emails from the UI
       setEmails(prev => prev.filter(email => !selectedEmails.includes(email.uid)));
       // Clear cache for this folder to ensure fresh data on next load
-      const cacheKey = `${activeAccountId}-${activeFolder}`;
+      const cacheKey = `${activeAccountId}-${activeFolder}-list`;
       setEmailCache(prev => {
         const newCache = {...prev};
         delete newCache[cacheKey];
@@ -414,7 +443,7 @@ export default function Home() {
       // Remove moved emails from the current view
       setEmails(prev => prev.filter(email => !selectedEmails.includes(email.uid)));
       // Clear cache for this folder to ensure fresh data on next load
-      const cacheKey = `${activeAccountId}-${activeFolder}`;
+      const cacheKey = `${activeAccountId}-${activeFolder}-list`;
       setEmailCache(prev => {
         const newCache = {...prev};
         delete newCache[cacheKey];
@@ -467,16 +496,83 @@ export default function Home() {
     }
   };
 
+  // Start fetching accounts and emails as soon as the component mounts, even during splash screen
   useEffect(() => {
-    fetchAccounts();
+    const initializeApp = async () => {
+      // Fetch accounts first
+      const accountsData = await fetchAccounts();
+
+      // If we have accounts, start pre-fetching emails for all accounts and common folders
+      if (accountsData && accountsData.length > 0) {
+        await fetchAndCacheAllEmails(accountsData);
+      }
+    };
+
+    initializeApp();
   }, []);
+
+  // Function to handle splash screen finish with pre-loaded data
+  const handleSplashFinish = () => {
+    setShowSplash(false);
+  };
+
+  // Polling function to check for new emails every minute
+  useEffect(() => {
+    if (!activeAccountId) return; // Only poll if we have an active account
+
+    let pollInterval: NodeJS.Timeout;
+
+    const pollForNewEmails = async () => {
+      if (!activeAccountId) return;
+
+      try {
+        // Fetch the current emails for the active folder
+        const res = await fetch(`/api/mail?accountId=${activeAccountId}&folder=${encodeURIComponent(activeFolder)}&view=list`);
+        const newEmails = await res.json();
+
+        if (newEmails.error) {
+          console.error('Error fetching emails for polling:', newEmails.error);
+          return;
+        }
+
+        // Compare with current emails to see if there are new ones
+        // Create a map of current email UIDs for quick lookup
+        const currentEmailUids = new Set(emails.map(email => email.uid));
+
+        // Find new emails by checking which ones aren't in the current list
+        const newEmailsOnly = newEmails.filter((email: any) => !currentEmailUids.has(email.uid));
+
+        if (newEmailsOnly.length > 0) {
+          // There are new emails, update the state
+          setEmails(newEmails);
+
+          // Show a notification about new emails
+          toast(`${newEmailsOnly.length} new email(s) received`, {
+            icon: '✉️',
+          });
+        }
+      } catch (error) {
+        console.error('Polling error:', error);
+      }
+    };
+
+    // Start polling every minute (60,000 ms)
+    pollInterval = setInterval(pollForNewEmails, 60000);
+
+    // Clean up interval on component unmount or when activeAccountId changes
+    return () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+    };
+  }, [activeAccountId, activeFolder, emails]);
 
   useEffect(() => {
     if (activeAccountId) {
-      // If folder changes or account changes, we usually fetch. 
-      // But handleSidebarSelect does it explicitly. 
+      // If folder changes or account changes, we usually fetch.
+      // But handleSidebarSelect does it explicitly.
       // This effect runs on initial load if we set activeAccountId.
-      // We can rely on handleSidebarSelect for user interactions, 
+      // We can rely on handleSidebarSelect for user interactions,
       // but for initial load we need to fetch INBOX.
       if (emails.length === 0 && !isLoadingList) {
           fetchEmails(activeAccountId, activeFolder);
@@ -486,7 +582,7 @@ export default function Home() {
 
   return (
     <main className="flex h-screen w-full overflow-hidden bg-white relative">
-      {showSplash && <SplashScreen onFinish={() => setShowSplash(false)} />}
+      {showSplash && <SplashScreen onFinish={handleSplashFinish} />}
       
       <Sidebar
         accounts={accounts}
@@ -532,7 +628,7 @@ export default function Home() {
             isLoading={isLoadingList}
             onRefresh={() => {
               // Clear cache for this folder to ensure fresh data
-              const cacheKey = `${activeAccountId}-${activeFolder}-${viewMode}`;
+              const cacheKey = `${activeAccountId}-${activeFolder}-list`;
               setEmailCache(prev => {
                 const newCache = {...prev};
                 delete newCache[cacheKey];
@@ -546,8 +642,6 @@ export default function Home() {
             onSelectAll={handleSelectAll}
             onDeleteSelected={handleDeleteSelected}
             onMoveSelected={handleMoveSelected}
-            onViewModeChange={changeViewMode}
-            currentViewMode={viewMode}
           />
           <div className="flex-1 flex flex-col relative">
             <MailView
@@ -745,7 +839,7 @@ export default function Home() {
       )}
 
       {composeWindows.map((window) => (
-        <Suspense key={window.id} fallback={<div className="fixed inset-0 bg-white flex items-center justify-center z-50">Loading compose...</div>}>
+        <Suspense key={window.id} fallback={null}>
           <ComposeEmail
             windowId={window.id}
             accountId={window.accountId}

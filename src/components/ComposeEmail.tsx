@@ -133,6 +133,9 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
   const [accountSignature, setAccountSignature] = useState<string | null>(null);
   const [isSignatureInserted, setIsSignatureInserted] = useState(false);
 
+  // State for tracking input value separately from the email list
+  const [inputValue, setInputValue] = useState<string>('');
+
   // Fetch account signature when component mounts
   useEffect(() => {
     const fetchSignature = async () => {
@@ -335,16 +338,15 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
   };
 
   useEffect(() => {
-    if (to.length > 0 && to[to.length - 1]?.length > 1) {
-      // Use the last email in the array for suggestions
-      const lastEmail = to[to.length - 1];
-      fetch(`/api/contacts?q=${lastEmail}`)
+    if (inputValue && inputValue.length > 1) {
+      // Use the current input value for suggestions
+      fetch(`/api/contacts?q=${inputValue}`)
         .then(res => res.json())
         .then(setSuggestions);
     } else {
       setSuggestions([]);
     }
-  }, [to]);
+  }, [inputValue]);
 
   const handleSend = async () => {
     if (!to.length || !subject) {
@@ -502,6 +504,8 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
                     value={to}
                     onChange={setTo}
                     placeholder="recipient@example.com"
+                    inputValue={inputValue}
+                    onInputChange={setInputValue}
                   />
                 </div>
               </div>

@@ -17,7 +17,7 @@ export interface EmailHeader {
 }
 
 interface MailListProps {
-  emails: EmailHeader[] | EmailHeader[][];
+  emails: EmailHeader[];
   selectedEmailUid: number | null;
   onEmailSelect: (uid: number) => void;
   onToggleRead: (uid: number, isRead: boolean) => void;
@@ -30,8 +30,6 @@ interface MailListProps {
   onSelectAll?: () => void;
   onDeleteSelected?: () => void;
   onMoveSelected?: (targetFolder: string) => void;
-  onViewModeChange?: (mode: 'list' | 'conversation') => void;
-  currentViewMode?: 'list' | 'conversation';
 }
 
 export default function MailList({
@@ -46,19 +44,9 @@ export default function MailList({
   onEmailSelectToggle = () => {},
   onSelectAll = () => {},
   onDeleteSelected = () => {},
-  onMoveSelected = () => {},
-  onViewModeChange,
-  currentViewMode
+  onMoveSelected = () => {}
 }: MailListProps) {
-  const isAllSelected = emails.length > 0 && emails.every(email => {
-    if (Array.isArray(email)) {
-      // This is a conversation (array of emails), check the first email's UID
-      return email.length > 0 && selectedEmails.includes(email[0].uid);
-    } else {
-      // This is a single email
-      return selectedEmails.includes(email.uid);
-    }
-  });
+  const isAllSelected = emails.length > 0 && emails.every(email => selectedEmails.includes(email.uid));
 
   return (
     <div className="w-80 md:w-96 flex flex-col h-full border-r border-gray-200 bg-white">
@@ -70,20 +58,6 @@ export default function MailList({
           )}
         </div>
         <div className="flex items-center gap-2">
-          <div className="flex border border-gray-300 rounded-md overflow-hidden">
-            <button
-              className={`px-3 py-1 text-sm ${currentViewMode === 'list' ? 'bg-blue-100 text-blue-700' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-              onClick={() => onViewModeChange && onViewModeChange('list')}
-            >
-              List
-            </button>
-            <button
-              className={`px-3 py-1 text-sm ${currentViewMode === 'conversation' ? 'bg-blue-100 text-blue-700' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
-              onClick={() => onViewModeChange && onViewModeChange('conversation')}
-            >
-              Conversations
-            </button>
-          </div>
           {selectedEmails.length > 0 ? (
             <>
               <button
@@ -130,156 +104,80 @@ export default function MailList({
           <div className="p-8 text-center text-gray-500">No messages found</div>
         ) : (
           <>
-            {/* Check if we're displaying conversations (array of arrays) or individual emails */}
-            {Array.isArray(emails[0]) ? (
-              // Conversation view - emails is an array of conversation threads
-              (emails as EmailHeader[][]).map((conversation, index) => {
-                if (conversation.length === 0) return null;
-
-                // Get the latest email in the conversation for display
-                const latestEmail = conversation[conversation.length - 1];
-                const isRead = latestEmail.flags.includes('\\Seen');
-                const isSelected = selectedEmails.includes(latestEmail.uid);
-                const isAllRead = conversation.every(email => email.flags.includes('\\Seen'));
-
-                return (
-                  <div key={latestEmail.uid || index} className="relative group">
-                    <div
-                      className={`flex items-start p-4 border-b border-gray-100 hover:bg-blue-50 transition-colors ${
-                        selectedEmailUid === latestEmail.uid ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
-                      } ${isSelected ? 'bg-blue-100' : ''}`}
-                    >
-                      <button
-                        onClick={() => onEmailSelectToggle(latestEmail.uid)}
-                        className="mr-2 mt-1 p-1 hover:bg-gray-200 rounded"
-                        title={isSelected ? "Deselect" : "Select"}
-                      >
-                        {isSelected ? (
-                          <CheckCircle size={16} className="text-blue-600" />
-                        ) : (
-                          <Square size={16} className="text-gray-400" />
-                        )}
-                      </button>
-                      <button
-                        onClick={() => onEmailSelect(latestEmail.uid)}
-                        className="flex-1 text-left"
-                      >
-                        <div className="flex justify-between items-start mb-1">
-                          <div className="flex items-center gap-2 overflow-hidden">
-                            {!isAllRead && (
-                              <div className="w-2.5 h-2.5 bg-blue-600 rounded-full flex-shrink-0" />
-                            )}
-                            <span className={`text-sm truncate pr-2 ${isAllRead ? 'text-gray-600' : 'font-bold text-gray-900'}`}>
-                              {latestEmail.from}
-                            </span>
-                          </div>
-                          <span className="text-xs text-gray-500 whitespace-nowrap ml-2">
-                            {format(new Date(latestEmail.date), 'MMM d')}
-                          </span>
-                        </div>
-                        <div className={`text-sm truncate ${isAllRead ? 'text-gray-700' : 'font-bold text-gray-900'}`}>
-                          {latestEmail.subject}
-                        </div>
-                        <div className="text-xs text-gray-500 truncate mt-1">
-                          {conversation.length > 1
-                            ? `${conversation.length} messages • ${latestEmail.preview || 'No content'}`
-                            : latestEmail.preview || 'No content'
-                          }
-                        </div>
-                      </button>
-                    </div>
-
+            {emails.length > 0 && (
+              <div className="px-4 py-2 border-b border-gray-100 flex items-center">
+                <button
+                  onClick={onSelectAll}
+                  className="p-1 hover:bg-gray-100 rounded"
+                  title={isAllSelected ? "Deselect all" : "Select all"}
+                >
+                  {isAllSelected ? (
+                    <CheckCircle size={18} className="text-blue-600" />
+                  ) : (
+                    <Square size={18} className="text-gray-400" />
+                  )}
+                </button>
+              </div>
+            )}
+            {emails.map((email) => {
+              const isRead = email.flags.includes('\\Seen');
+              const isSelected = selectedEmails.includes(email.uid);
+              return (
+                <div key={email.uid} className="relative group">
+                  <div
+                    className={`flex items-start p-4 border-b border-gray-100 hover:bg-blue-50 transition-colors ${
+                      selectedEmailUid === email.uid ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+                    } ${isSelected ? 'bg-blue-100' : ''}`}
+                  >
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleRead(latestEmail.uid, isRead);
-                      }}
-                      className="absolute right-4 bottom-4 p-1.5 bg-white border border-gray-200 rounded-md shadow-sm opacity-0 group-hover:opacity-100 hover:bg-gray-50 transition-all z-10"
+                      onClick={() => onEmailSelectToggle(email.uid)}
+                      className="mr-2 mt-1 p-1 hover:bg-gray-200 rounded"
+                      title={isSelected ? "Deselect" : "Select"}
                     >
-                      <div className={`w-3 h-3 rounded-full border-2 ${isRead ? 'border-blue-600' : 'bg-blue-600 border-blue-600'}`} />
-                    </button>
-                  </div>
-                );
-              })
-            ) : (
-              // List view - emails is an array of individual emails
-              <>
-                {(emails as EmailHeader[]).length > 0 && (
-                  <div className="px-4 py-2 border-b border-gray-100 flex items-center">
-                    <button
-                      onClick={onSelectAll}
-                      className="p-1 hover:bg-gray-100 rounded"
-                      title={isAllSelected ? "Deselect all" : "Select all"}
-                    >
-                      {isAllSelected ? (
-                        <CheckCircle size={18} className="text-blue-600" />
+                      {isSelected ? (
+                        <CheckCircle size={16} className="text-blue-600" />
                       ) : (
-                        <Square size={18} className="text-gray-400" />
+                        <Square size={16} className="text-gray-400" />
                       )}
                     </button>
-                  </div>
-                )}
-                {(emails as EmailHeader[]).map((email) => {
-                  const isRead = email.flags.includes('\\Seen');
-                  const isSelected = selectedEmails.includes(email.uid);
-                  return (
-                    <div key={email.uid} className="relative group">
-                      <div
-                        className={`flex items-start p-4 border-b border-gray-100 hover:bg-blue-50 transition-colors ${
-                          selectedEmailUid === email.uid ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
-                        } ${isSelected ? 'bg-blue-100' : ''}`}
-                      >
-                        <button
-                          onClick={() => onEmailSelectToggle(email.uid)}
-                          className="mr-2 mt-1 p-1 hover:bg-gray-200 rounded"
-                          title={isSelected ? "Deselect" : "Select"}
-                        >
-                          {isSelected ? (
-                            <CheckCircle size={16} className="text-blue-600" />
-                          ) : (
-                            <Square size={16} className="text-gray-400" />
+                    <button
+                      onClick={() => onEmailSelect(email.uid)}
+                      className="flex-1 text-left"
+                    >
+                      <div className="flex justify-between items-start mb-1">
+                        <div className="flex items-center gap-2 overflow-hidden">
+                          {!isRead && (
+                            <div className="w-2.5 h-2.5 bg-blue-600 rounded-full flex-shrink-0" />
                           )}
-                        </button>
-                        <button
-                          onClick={() => onEmailSelect(email.uid)}
-                          className="flex-1 text-left"
-                        >
-                          <div className="flex justify-between items-start mb-1">
-                            <div className="flex items-center gap-2 overflow-hidden">
-                              {!isRead && (
-                                <div className="w-2.5 h-2.5 bg-blue-600 rounded-full flex-shrink-0" />
-                              )}
-                              <span className={`text-sm truncate pr-2 ${isRead ? 'text-gray-600' : 'font-bold text-gray-900'}`}>
-                                {email.from}
-                              </span>
-                            </div>
-                            <span className="text-xs text-gray-500 whitespace-nowrap ml-2">
-                              {format(new Date(email.date), 'MMM d')}
-                            </span>
-                          </div>
-                          <div className={`text-sm truncate ${isRead ? 'text-gray-700' : 'font-bold text-gray-900'}`}>
-                            {email.subject}
-                          </div>
-                          <div className="text-xs text-gray-500 truncate mt-1">
-                            {email.preview || 'No content'}
-                          </div>
-                        </button>
+                          <span className={`text-sm truncate pr-2 ${isRead ? 'text-gray-600' : 'font-bold text-gray-900'}`}>
+                            {email.from}
+                          </span>
+                        </div>
+                        <span className="text-xs text-gray-500 whitespace-nowrap ml-2">
+                          {format(new Date(email.date), 'MMM d')}
+                        </span>
                       </div>
+                      <div className={`text-sm truncate ${isRead ? 'text-gray-700' : 'font-bold text-gray-900'}`}>
+                        {email.subject}
+                      </div>
+                      <div className="text-xs text-gray-500 truncate mt-1">
+                        {email.preview || 'No content'}
+                      </div>
+                    </button>
+                  </div>
 
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onToggleRead(email.uid, isRead);
-                        }}
-                        className="absolute right-4 bottom-4 p-1.5 bg-white border border-gray-200 rounded-md shadow-sm opacity-0 group-hover:opacity-100 hover:bg-gray-50 transition-all z-10"
-                      >
-                        <div className={`w-3 h-3 rounded-full border-2 ${isRead ? 'border-blue-600' : 'bg-blue-600 border-blue-600'}`} />
-                      </button>
-                    </div>
-                  );
-                })}
-              </>
-            )}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleRead(email.uid, isRead);
+                    }}
+                    className="absolute right-4 bottom-4 p-1.5 bg-white border border-gray-200 rounded-md shadow-sm opacity-0 group-hover:opacity-100 hover:bg-gray-50 transition-all z-10"
+                  >
+                    <div className={`w-3 h-3 rounded-full border-2 ${isRead ? 'border-blue-600' : 'bg-blue-600 border-blue-600'}`} />
+                  </button>
+                </div>
+              );
+            })}
           </>
         )}
       </div>

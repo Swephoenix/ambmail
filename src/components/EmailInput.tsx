@@ -14,10 +14,15 @@ interface EmailInputProps {
   onChange: (emails: string[]) => void;
   placeholder?: string;
   className?: string;
+  onInputChange?: (value: string) => void;
+  inputValue?: string;
 }
 
-export default function EmailInput({ value, onChange, placeholder, className }: EmailInputProps) {
-  const [inputValue, setInputValue] = useState('');
+export default function EmailInput({ value, onChange, placeholder, className, onInputChange, inputValue: propInputValue }: EmailInputProps) {
+  const [localInputValue, setInputValue] = useState('');
+
+  // Use propInputValue if provided, otherwise use local state
+  const currentInputValue = propInputValue !== undefined ? propInputValue : localInputValue;
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -30,7 +35,14 @@ export default function EmailInput({ value, onChange, placeholder, className }: 
 
   // Handle input changes
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInputValue(e.target.value);
+    const newValue = e.target.value;
+    if (propInputValue !== undefined && onInputChange) {
+      // If using controlled input, call the callback
+      onInputChange(newValue);
+    } else {
+      // Otherwise, update local state
+      setInputValue(newValue);
+    }
   };
 
   // Handle key events
@@ -38,10 +50,10 @@ export default function EmailInput({ value, onChange, placeholder, className }: 
     // Handle comma, semicolon, or Enter as email separators
     if (e.key === ',' || e.key === ';' || e.key === 'Enter') {
       e.preventDefault();
-      addEmail(inputValue.trim());
-    } 
+      addEmail(currentInputValue.trim());
+    }
     // Handle backspace to remove last email when input is empty
-    else if (e.key === 'Backspace' && inputValue === '' && value.length > 0) {
+    else if (e.key === 'Backspace' && currentInputValue === '' && value.length > 0) {
       e.preventDefault();
       removeEmail(value.length - 1);
     }
@@ -83,7 +95,13 @@ export default function EmailInput({ value, onChange, placeholder, className }: 
       .join(' ');
     
     if (remainingText) {
-      setInputValue(remainingText);
+      if (propInputValue !== undefined && onInputChange) {
+        // If using controlled input, call the callback
+        onInputChange(remainingText);
+      } else {
+        // Otherwise, update local state
+        setInputValue(remainingText);
+      }
     }
   };
 
@@ -96,8 +114,8 @@ export default function EmailInput({ value, onChange, placeholder, className }: 
 
   // Handle blur to add email if valid
   const handleBlur = () => {
-    if (inputValue.trim() && isValidEmail(inputValue.trim())) {
-      addEmail(inputValue.trim());
+    if (currentInputValue.trim() && isValidEmail(currentInputValue.trim())) {
+      addEmail(currentInputValue.trim());
     }
     setIsFocused(false);
   };
@@ -148,7 +166,7 @@ export default function EmailInput({ value, onChange, placeholder, className }: 
       <input
         ref={inputRef}
         type="email"
-        value={inputValue}
+        value={currentInputValue}
         onChange={handleInputChange}
         onKeyDown={handleKeyDown as any} // Type assertion to handle React's keyboard event
         onPaste={handlePaste}
