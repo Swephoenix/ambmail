@@ -1,7 +1,7 @@
 'use client';
 
 import { useEditor, EditorContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
+import { StarterKit } from '@tiptap/starter-kit';
 import { Underline } from '@tiptap/extension-underline';
 import { TextAlign } from '@tiptap/extension-text-align';
 import { TextStyle } from '@tiptap/extension-text-style';
@@ -10,6 +10,7 @@ import { Link } from '@tiptap/extension-link';
 import { Image } from '@tiptap/extension-image';
 import { FontFamily } from '@tiptap/extension-font-family';
 import { Placeholder } from '@tiptap/extension-placeholder';
+import { FontSize } from './extensions/FontSize';
 import EditorToolbar from './EditorToolbar';
 import { useEffect } from 'react';
 
@@ -23,10 +24,26 @@ interface TiptapEditorProps {
 export default function TiptapEditor({ value, onChange, placeholder, signature }: TiptapEditorProps) {
   const editor = useEditor({
     extensions: [
-      StarterKit,
+      StarterKit.configure({
+        bold: false,
+        italic: false,
+        strike: false,
+        underline: false, // Disable to avoid conflict
+        code: false,
+        codeBlock: false,
+        heading: false,
+        listItem: false,
+        orderedList: false,
+        bulletList: false,
+        blockquote: false,
+        horizontalRule: false,
+        dropcursor: false,
+        gapcursor: false,
+        hardBreak: false,
+      }),
       Underline,
       TextAlign.configure({
-        types: ['heading', 'paragraph'],
+        types: ['paragraph', 'heading'],
       }),
       TextStyle,
       Color,
@@ -35,11 +52,12 @@ export default function TiptapEditor({ value, onChange, placeholder, signature }
       }),
       Image,
       FontFamily,
+      FontSize,
       Placeholder.configure({
         placeholder: placeholder || 'Write something...',
       }),
     ],
-    content: value || '<p style="font-family: serif"></p>',
+    content: value || '<p style="font-family: Arial, sans-serif; font-size: 12px;"></p>',
     immediatelyRender: false,
     editorProps: {
       attributes: {

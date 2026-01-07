@@ -11,6 +11,7 @@ export interface MailAccount {
   imapPort: number;
   smtpHost: string;
   smtpPort: number;
+  signature?: string | null;
   name?: string | null;
 }
 

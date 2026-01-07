@@ -80,9 +80,9 @@ export default function Home() {
     await Promise.all(fetchPromises);
   };
 
-  const fetchAccounts = async () => {
-    // Check if we have cached data that's still valid
-    if (accountsCache && (Date.now() - accountsCache.timestamp) < ACCOUNTS_CACHE_DURATION) {
+  const fetchAccounts = async (forceRefresh = false) => {
+    // Check if we have cached data that's still valid, unless forceRefresh is true
+    if (!forceRefresh && accountsCache && (Date.now() - accountsCache.timestamp) < ACCOUNTS_CACHE_DURATION) {
       setAccounts(accountsCache.data);
       if (accountsCache.data.length > 0 && !activeAccountId) {
         setActiveAccountId(accountsCache.data[0].id);
@@ -648,14 +648,27 @@ export default function Home() {
               email={selectedEmail}
               isLoading={isLoadingBody}
               onReply={async (email) => {
-                // Fetch account signature
+                // Determine which signature to use based on recipient's domain
                 let signature = '';
                 if (activeAccountId) {
                   try {
                     const res = await fetch(`/api/accounts/signature?accountId=${activeAccountId}`);
                     const data = await res.json();
                     if (res.ok) {
-                      signature = data.signature || '';
+                      // Get the user's email domain
+                      const currentUserAccount = accounts.find(acc => acc.id === activeAccountId);
+                      const userDomain = currentUserAccount?.email.split('@')[1]?.toLowerCase();
+
+                      // Extract recipient's domain
+                      const recipientEmail = extractEmail(email.from);
+                      const recipientDomain = recipientEmail.split('@')[1]?.toLowerCase();
+
+                      // Use internal signature if domains match, otherwise use external signature
+                      if (userDomain && recipientDomain && userDomain === recipientDomain) {
+                        signature = data.internalSignature || data.signature || '';
+                      } else {
+                        signature = data.externalSignature || data.signature || '';
+                      }
                     }
                   } catch (error) {
                     console.error('Failed to fetch signature:', error);
@@ -703,14 +716,27 @@ export default function Home() {
                 // Remove duplicates and empty strings
                 const uniqueRecipients = [...new Set(recipients.filter(recipient => recipient !== ''))];
 
-                // Fetch account signature
+                // Determine which signature to use based on recipient's domain
                 let signature = '';
                 if (activeAccountId) {
                   try {
                     const res = await fetch(`/api/accounts/signature?accountId=${activeAccountId}`);
                     const data = await res.json();
                     if (res.ok) {
-                      signature = data.signature || '';
+                      // Get the user's email domain
+                      const currentUserAccount = accounts.find(acc => acc.id === activeAccountId);
+                      const userDomain = currentUserAccount?.email.split('@')[1]?.toLowerCase();
+
+                      // Extract recipient's domain
+                      const recipientEmail = extractEmail(email.from);
+                      const recipientDomain = recipientEmail.split('@')[1]?.toLowerCase();
+
+                      // Use internal signature if domains match, otherwise use external signature
+                      if (userDomain && recipientDomain && userDomain === recipientDomain) {
+                        signature = data.internalSignature || data.signature || '';
+                      } else {
+                        signature = data.externalSignature || data.signature || '';
+                      }
                     }
                   } catch (error) {
                     console.error('Failed to fetch signature:', error);
@@ -742,14 +768,27 @@ export default function Home() {
                 setComposeWindows(prev => [...prev, newWindow]);
               }}
               onForward={async (email) => {
-                // Fetch account signature
+                // Determine which signature to use based on recipient's domain
                 let signature = '';
                 if (activeAccountId) {
                   try {
                     const res = await fetch(`/api/accounts/signature?accountId=${activeAccountId}`);
                     const data = await res.json();
                     if (res.ok) {
-                      signature = data.signature || '';
+                      // Get the user's email domain
+                      const currentUserAccount = accounts.find(acc => acc.id === activeAccountId);
+                      const userDomain = currentUserAccount?.email.split('@')[1]?.toLowerCase();
+
+                      // Extract recipient's domain
+                      const recipientEmail = extractEmail(email.from);
+                      const recipientDomain = recipientEmail.split('@')[1]?.toLowerCase();
+
+                      // Use internal signature if domains match, otherwise use external signature
+                      if (userDomain && recipientDomain && userDomain === recipientDomain) {
+                        signature = data.internalSignature || data.signature || '';
+                      } else {
+                        signature = data.externalSignature || data.signature || '';
+                      }
                     }
                   } catch (error) {
                     console.error('Failed to fetch signature:', error);
@@ -796,14 +835,15 @@ export default function Home() {
             
             <button
               onClick={async () => {
-                // Fetch account signature for new emails
+                // For new emails, use the external signature by default
                 let signature = '';
                 if (activeAccountId) {
                   try {
                     const res = await fetch(`/api/accounts/signature?accountId=${activeAccountId}`);
                     const data = await res.json();
                     if (res.ok) {
-                      signature = data.signature || '';
+                      // Use external signature for new emails by default
+                      signature = data.externalSignature || data.signature || '';
                     }
                   } catch (error) {
                     console.error('Failed to fetch signature:', error);
@@ -869,12 +909,24 @@ export default function Home() {
       ))}
 
       {showAddModal && (
-        <Suspense fallback={<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">Loading...</div>}>
+        <Suspense fallback={null}>
           <AddAccountModal
             onClose={() => setShowAddModal(false)}
-            onSuccess={() => {
+            onSuccess={async () => {
               setShowAddModal(false);
-              fetchAccounts();
+              const updatedAccounts = await fetchAccounts(true); // Force refresh to get the new account
+
+              // If this is the first account being added, set it as active and fetch its emails
+              if (updatedAccounts && updatedAccounts.length > 0) {
+                const newAccount = updatedAccounts[updatedAccounts.length - 1]; // Get the most recently added account
+                setActiveAccountId(newAccount.id);
+
+                // Fetch emails for the new account's INBOX
+                await fetchEmails(newAccount.id, 'INBOX');
+
+                // Update the cache for all folders of the new account
+                await fetchAndCacheAllEmails([newAccount]);
+              }
             }}
           />
         </Suspense>
@@ -940,7 +992,7 @@ export default function Home() {
       )}
 
       {showSignatureModal && currentSignatureAccount && (
-        <Suspense fallback={<div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">Loading...</div>}>
+        <Suspense fallback={null}>
           <SignatureModal
             isOpen={showSignatureModal}
             onClose={() => setShowSignatureModal(false)}

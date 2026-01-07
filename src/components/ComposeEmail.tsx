@@ -44,6 +44,9 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
   const [isSwitchingDraft, setIsSwitchingDraft] = useState(false); // Flag to track draft switching
   const [isDraftLoaded, setIsDraftLoaded] = useState(false); // Flag to track if this is an existing draft
 
+  // Signature state variables
+  const [accountSignature, setAccountSignature] = useState<string | null>(null);
+
   // Update state when initialData changes (for switching between drafts)
   // Automatically save current draft before switching to a new one
   useEffect(() => {
@@ -56,42 +59,66 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
 
       if (hasUnsavedContent && draftUid !== undefined) {
         // Auto-save the current draft before switching
-        const saveAndSwitch = async () => {
+        const saveCurrentDraft = async () => {
+          // If the signature is not already in the body, add it
+          let finalBody = body;
+          if (accountSignature && !body.includes(accountSignature)) {
+            finalBody = accountSignature + (body ? `<br /><br />${body}` : '');
+          }
+
           try {
             const toEmails = to.join(', ');
-            await fetch('/api/mail/draft', {
+            const res = await fetch('/api/mail/draft', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 accountId,
                 to: toEmails,
                 subject,
-                body,
+                body: finalBody,
                 uid: draftUid
               }),
             });
+            if (res.ok) {
+              const data = await res.json();
+              if (data.uid && data.uid !== draftUid) {
+                // Only update the draftUid if it has actually changed
+                setDraftUid(data.uid);
+                console.log('Draft saved successfully with new UID:', data.uid);
+              } else {
+                console.log('Draft saved with same UID or no UID returned');
+              }
+              setLastSaved(Date.now());
+              // Update the ref with current content
+              lastSavedContentRef.current = { to, subject, body: finalBody };
+            } else {
+              const errorData = await res.json();
+              console.error('Failed to save draft before switching:', errorData);
+            }
           } catch (e) {
-            console.error('Failed to save current draft before switching:', e);
-          } finally {
-            // Now switch to the new draft
-            setTo(initialData.to
-              ? initialData.to
-                  .split(/[,\s;]+/) // Split by comma, semicolon, or whitespace
-                  .map(email => email.trim())
-                  .filter(email => email !== '')
-              : []);
-            setSubject(initialData.subject || '');
-            setBody(initialData.body || '');
-            setDraftUid(initialData.uid);
-            setIsDraftLoaded(!!initialData.uid); // Set flag if we're loading an existing draft
-            setLastSaved(Date.now()); // Update last saved time to prevent immediate autosave
-
-            // Reset the switching flag after a short delay to allow state updates
-            setTimeout(() => setIsSwitchingDraft(false), 100);
+            console.error('Failed to save draft before switching', e);
           }
         };
 
-        saveAndSwitch();
+        saveCurrentDraft();
+
+        // Now switch to the new draft after a brief delay to allow save to complete
+        setTimeout(() => {
+          setTo(initialData.to
+            ? initialData.to
+                .split(/[,\s;]+/) // Split by comma, semicolon, or whitespace
+                .map(email => email.trim())
+                .filter(email => email !== '')
+            : []);
+          setSubject(initialData.subject || '');
+          setBody(initialData.body || '');
+          setDraftUid(initialData.uid);
+          setIsDraftLoaded(!!initialData.uid); // Set flag if we're loading an existing draft
+          setLastSaved(Date.now()); // Update last saved time to prevent immediate autosave
+
+          // Reset the switching flag after a short delay to allow state updates
+          setTimeout(() => setIsSwitchingDraft(false), 100);
+        }, 300); // Delay to allow the save to complete
       } else {
         // No unsaved content, safe to update
         setTo(initialData.to
@@ -121,7 +148,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
       setBody(initialData.body || '');
       setIsDraftLoaded(true); // Mark as loaded to prevent multiple insertions
     }
-  }, [initialData, to, subject, body, draftUid, accountId, isSwitchingDraft, isDraftLoaded]);
+  }, [initialData, to, subject, body, draftUid, accountId, isSwitchingDraft, isDraftLoaded, accountSignature]);
 
   const [isSending, setIsSending] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
@@ -130,7 +157,6 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [isMaximized, setIsMaximized] = useState(false);
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
-  const [accountSignature, setAccountSignature] = useState<string | null>(null);
   const [isSignatureInserted, setIsSignatureInserted] = useState(false);
 
   // State for tracking input value separately from the email list
@@ -155,8 +181,8 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
 
   // Insert signature when account signature is loaded and it's a new email (not a draft) and no initial signature was provided
   useEffect(() => {
+    // Only insert signature if it's not already in the initial body
     if (accountSignature && !isSignatureInserted && !initialData?.uid) {
-      // Only insert signature if it's not already in the initial body
       if (initialData?.body && initialData.body.includes(accountSignature)) {
         // Signature is already in the initial body, mark as inserted
         setIsSignatureInserted(true);
@@ -187,117 +213,72 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
     body: initialData?.body || ''
   });
 
-  // Auto-save draft with proper debouncing - now every 15 seconds
-  // Temporarily disabled right after loading an existing draft to prevent immediate re-saving
+  // Save draft when component unmounts (when closing the email)
   useEffect(() => {
-    // Check if content has actually changed since last save
-    const hasContentChanged =
-      JSON.stringify(lastSavedContentRef.current.to) !== JSON.stringify(to) ||
-      lastSavedContentRef.current.subject !== subject ||
-      lastSavedContentRef.current.body !== body;
+    return () => {
+      // Only save if there's content and it has changed since last save
+      const hasContent = to.length > 0 || subject.trim() || body.trim();
+      const hasContentChanged =
+        JSON.stringify(lastSavedContentRef.current.to) !== JSON.stringify(to) ||
+        lastSavedContentRef.current.subject !== subject ||
+        lastSavedContentRef.current.body !== body;
 
-    // Clear any existing timeout to prevent multiple simultaneous saves
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
+      if (hasContent && hasContentChanged && !isSending && !isSwitchingDraft) {
+        // If the signature is not already in the body, add it
+        let finalBody = body;
+        if (accountSignature && !body.includes(accountSignature)) {
+          finalBody = accountSignature + (body ? `<br /><br />${body}` : '');
+        }
 
-    const saveDraft = async () => {
-      // Only save if there's some content and it has changed since last save
-      // Temporarily disable auto-save right after loading an existing draft (for 3 seconds)
-      const isRecentlyLoaded = Date.now() - lastSaved < 3000;
-      if ((to || subject || body) && !isSending && !isSwitchingDraft && hasContentChanged && !isRecentlyLoaded) {
-        setIsSavingDraft(true);
         try {
           const toEmails = to.join(', ');
-          const res = await fetch('/api/mail/draft', {
+          const res = fetch('/api/mail/draft', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               accountId,
               to: toEmails,
               subject,
-              body,
+              body: finalBody,
               uid: draftUid
             }),
+          }).then(response => response.json()).then(data => {
+            if (data.uid && data.uid !== draftUid) {
+              // Only update the draftUid if it has actually changed
+              setDraftUid(data.uid);
+              console.log('Draft saved successfully with new UID:', data.uid);
+            } else {
+              console.log('Draft saved with same UID or no UID returned');
+            }
+            setLastSaved(Date.now());
+            // Update the ref with current content
+            lastSavedContentRef.current = { to, subject, body: finalBody };
+          }).catch(e => {
+            console.error('Failed to save draft on unmount', e);
           });
-          if (res.ok) {
-              const data = await res.json();
-              if (data.uid && data.uid !== draftUid) {
-                  // Only update the draftUid if it has actually changed
-                  setDraftUid(data.uid);
-                  console.log('Draft saved successfully with new UID:', data.uid);
-              } else {
-                  console.log('Draft saved with same UID or no UID returned');
-              }
-              setLastSaved(Date.now());
-              // Show the "autosparat" indicator
-              setShowAutoSaved(true);
-              // Hide the indicator after 1 second
-              if (autoSavedTimeoutRef.current) {
-                clearTimeout(autoSavedTimeoutRef.current);
-              }
-              autoSavedTimeoutRef.current = setTimeout(() => {
-                setShowAutoSaved(false);
-              }, 1000);
-              // Update the ref with current content
-              lastSavedContentRef.current = { to, subject, body };
-          } else {
-            const errorData = await res.json();
-            console.error('Failed to save draft:', errorData);
-            // Optionally show an error message to the user
-          }
         } catch (e) {
-          console.error('Failed to save draft', e);
-          // Optionally show an error message to the user
-        } finally {
-          setIsSavingDraft(false);
+          console.error('Failed to save draft on unmount', e);
         }
-      } else {
-        console.log('Draft not saved - conditions not met:', {
-          hasTo: !!to,
-          hasSubject: !!subject,
-          hasBody: !!body,
-          isSending,
-          isSwitchingDraft,
-          isRecentlyLoaded: Date.now() - lastSaved < 3000,
-          hasContentChanged
-        });
-      }
-      // Reset the ref after execution
-      timeoutRef.current = null;
-    };
-
-    // Only set timeout if content has changed and we're not switching drafts
-    // Temporarily disable auto-save right after loading an existing draft (for 3 seconds)
-    const isRecentlyLoaded = Date.now() - lastSaved < 3000;
-    if (hasContentChanged && !isSwitchingDraft && !isRecentlyLoaded) {
-      // Set a new timeout - now every 15 seconds (15,000 ms) to reduce frequency
-      timeoutRef.current = setTimeout(saveDraft, 15000); // Auto-save every 15 seconds
-    }
-
-    // Cleanup function to clear timeout when dependencies change
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-        timeoutRef.current = null;
-      }
-      if (autoSavedTimeoutRef.current) {
-        clearTimeout(autoSavedTimeoutRef.current);
-        autoSavedTimeoutRef.current = null;
       }
     };
-  }, [to, subject, body, draftUid, accountId, isSending, isSwitchingDraft, lastSaved]);
+  }, [to, subject, body, draftUid, accountId, isSending, isSwitchingDraft, accountSignature]);
 
   // Function to manually save draft (useful when switching between emails)
   const saveDraftNow = async () => {
+    // If the signature is not already in the body, add it
+    let finalBody = body;
+    if (accountSignature && !body.includes(accountSignature)) {
+      finalBody = accountSignature + (body ? `<br /><br />${body}` : '');
+    }
+
     // Check if content has actually changed since last save
     const hasContentChanged =
       JSON.stringify(lastSavedContentRef.current.to) !== JSON.stringify(to) ||
       lastSavedContentRef.current.subject !== subject ||
-      lastSavedContentRef.current.body !== body;
+      lastSavedContentRef.current.body !== finalBody;
 
     // Allow manual saving even for existing drafts
-    if ((to.length > 0 || subject.trim() || body.trim()) && !isSavingDraft && hasContentChanged) {
+    if ((to.length > 0 || subject.trim() || finalBody.trim()) && !isSavingDraft && hasContentChanged) {
       setIsSavingDraft(true);
       try {
         const toEmails = to.join(', ');
@@ -308,7 +289,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
             accountId,
             to: toEmails,
             subject,
-            body,
+            body: finalBody,
             uid: draftUid
           }),
         });
@@ -325,7 +306,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
           autoSavedTimeoutRef.current = setTimeout(() => {
             setShowAutoSaved(false);
           }, 1000);
-          lastSavedContentRef.current = { to, subject, body };
+          lastSavedContentRef.current = { to, subject, body: finalBody };
         }
       } catch (e) {
         console.error('Failed to save draft', e);
@@ -357,13 +338,19 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
     // Join the email array into a comma-separated string
     const toEmails = to.join(', ');
 
-    console.log('Sending email with data:', { accountId, to: toEmails, subject, body: body.substring(0, 100) + '...' });
+    // If the signature is not already in the body, add it
+    let finalBody = body;
+    if (accountSignature && !body.includes(accountSignature)) {
+      finalBody = accountSignature + (body ? `<br /><br />${body}` : '');
+    }
+
+    console.log('Sending email with data:', { accountId, to: toEmails, subject, body: finalBody.substring(0, 100) + '...' });
     setIsSending(true);
     try {
       const res = await fetch('/api/mail/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountId, to: toEmails, subject, body }),
+        body: JSON.stringify({ accountId, to: toEmails, subject, body: finalBody }),
       });
 
       const result = await res.json();
@@ -532,12 +519,14 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
             </div>
             <div className="flex items-center border-b border-gray-100 pb-4">
               <span className="text-gray-500 w-16 text-sm font-medium pt-1">Subject:</span>
-              <input
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                className="flex-1 focus:outline-none text-sm py-3 font-medium ml-3"
-                placeholder="What's this about?"
-              />
+              <div className="flex-1 ml-3">
+                <input
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                  placeholder="What's this about?"
+                />
+              </div>
             </div>
           </div>
 

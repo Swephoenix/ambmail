@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, KeyboardEvent } from 'react';
+import { useState, useRef, KeyboardEvent } from 'react';
 import { X } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -20,6 +20,7 @@ interface EmailInputProps {
 
 export default function EmailInput({ value, onChange, placeholder, className, onInputChange, inputValue: propInputValue }: EmailInputProps) {
   const [localInputValue, setInputValue] = useState('');
+  const [isProcessingEnter, setIsProcessingEnter] = useState(false);
 
   // Use propInputValue if provided, otherwise use local state
   const currentInputValue = propInputValue !== undefined ? propInputValue : localInputValue;
@@ -37,25 +38,9 @@ export default function EmailInput({ value, onChange, placeholder, className, on
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     if (propInputValue !== undefined && onInputChange) {
-      // If using controlled input, call the callback
       onInputChange(newValue);
     } else {
-      // Otherwise, update local state
       setInputValue(newValue);
-    }
-  };
-
-  // Handle key events
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    // Handle comma, semicolon, or Enter as email separators
-    if (e.key === ',' || e.key === ';' || e.key === 'Enter') {
-      e.preventDefault();
-      addEmail(currentInputValue.trim());
-    }
-    // Handle backspace to remove last email when input is empty
-    else if (e.key === 'Backspace' && currentInputValue === '' && value.length > 0) {
-      e.preventDefault();
-      removeEmail(value.length - 1);
     }
   };
 
@@ -63,7 +48,12 @@ export default function EmailInput({ value, onChange, placeholder, className, on
   const addEmail = (email: string) => {
     if (email && isValidEmail(email) && !value.includes(email)) {
       onChange([...value, email]);
-      setInputValue('');
+      // Only clear the input if not controlled externally
+      if (propInputValue === undefined) {
+        setInputValue('');
+      } else if (onInputChange) {
+        onInputChange('');
+      }
     }
   };
 
@@ -74,32 +64,55 @@ export default function EmailInput({ value, onChange, placeholder, className, on
     onChange(newEmails);
   };
 
+  // Handle key events
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (currentInputValue.trim() && isValidEmail(currentInputValue.trim())) {
+        // Set the processing flag to prevent blur from adding the same email
+        setIsProcessingEnter(true);
+        addEmail(currentInputValue.trim());
+
+        // Reset the flag after a short delay
+        setTimeout(() => {
+          setIsProcessingEnter(false);
+        }, 150); // Slightly longer than typical blur delay
+      }
+    } else if (e.key === ',' || e.key === ';') {
+      e.preventDefault();
+      if (currentInputValue.trim() && isValidEmail(currentInputValue.trim())) {
+        addEmail(currentInputValue.trim());
+      }
+    } else if (e.key === 'Backspace' && currentInputValue === '' && value.length > 0) {
+      e.preventDefault();
+      removeEmail(value.length - 1);
+    }
+  };
+
   // Handle paste event to parse multiple emails
   const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
     e.preventDefault();
     const pastedText = e.clipboardData.getData('text');
     const emailArray = pastedText
-      .split(/[,\s;]+/) // Split by comma, semicolon, or whitespace
+      .split(/[,\s;]+/)
       .map(email => email.trim())
       .filter(email => email !== '');
 
     const validEmails = emailArray.filter(email => isValidEmail(email) && !value.includes(email));
-    
+
     if (validEmails.length > 0) {
       onChange([...value, ...validEmails]);
     }
-    
+
     // Set any remaining text as input value if it's not a valid email
     const remainingText = emailArray
       .filter(email => !isValidEmail(email))
       .join(' ');
-    
+
     if (remainingText) {
       if (propInputValue !== undefined && onInputChange) {
-        // If using controlled input, call the callback
         onInputChange(remainingText);
       } else {
-        // Otherwise, update local state
         setInputValue(remainingText);
       }
     }
@@ -112,9 +125,10 @@ export default function EmailInput({ value, onChange, placeholder, className, on
     }
   };
 
-  // Handle blur to add email if valid
+  // Handle blur to add email if valid (but not if we just processed Enter)
   const handleBlur = () => {
-    if (currentInputValue.trim() && isValidEmail(currentInputValue.trim())) {
+    // Only add email if we're not in the middle of processing Enter
+    if (!isProcessingEnter && currentInputValue.trim() && isValidEmail(currentInputValue.trim())) {
       addEmail(currentInputValue.trim());
     }
     setIsFocused(false);
@@ -128,14 +142,19 @@ export default function EmailInput({ value, onChange, placeholder, className, on
   // Handle double-click on bubble to edit
   const handleBubbleDoubleClick = (email: string, index: number) => {
     removeEmail(index);
-    setInputValue(email);
+    const newInputValue = email;
+    if (propInputValue !== undefined && onInputChange) {
+      onInputChange(newInputValue);
+    } else {
+      setInputValue(newInputValue);
+    }
     if (inputRef.current) {
       inputRef.current.focus();
     }
   };
 
   return (
-    <div 
+    <div
       ref={containerRef}
       onClick={handleContainerClick}
       className={cn(
@@ -145,7 +164,7 @@ export default function EmailInput({ value, onChange, placeholder, className, on
       )}
     >
       {value.map((email, index) => (
-        <div 
+        <div
           key={index}
           onDoubleClick={() => handleBubbleDoubleClick(email, index)}
           className="flex items-center gap-1 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm"
@@ -168,7 +187,7 @@ export default function EmailInput({ value, onChange, placeholder, className, on
         type="email"
         value={currentInputValue}
         onChange={handleInputChange}
-        onKeyDown={handleKeyDown as any} // Type assertion to handle React's keyboard event
+        onKeyDown={handleKeyDown as any}
         onPaste={handlePaste}
         onFocus={handleFocus}
         onBlur={handleBlur}

@@ -14,9 +14,9 @@ export async function PUT(req: Request) {
       data: { signature },
     });
 
-    return NextResponse.json({ 
-      success: true, 
-      signature: updatedAccount.signature 
+    return NextResponse.json({
+      success: true,
+      signature: updatedAccount.signature
     });
   } catch (error: any) {
     console.error('Update signature error:', error);
