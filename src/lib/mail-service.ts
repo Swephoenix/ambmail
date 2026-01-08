@@ -26,7 +26,7 @@ export async function getImapConnection(account: MailAccount) {
       port: account.imapPort,
       tls: true,
       authTimeout: 3000,
-      tlsOptions: { rejectUnauthorized: false } 
+      tlsOptions: { rejectUnauthorized: true } 
     }
   };
 
@@ -45,7 +45,7 @@ export async function getSmtpTransporter(account: MailAccount) {
       pass: decrypt(account.password), // Changed from 'password' to 'pass'
     },
     tls: {
-      rejectUnauthorized: false
+      rejectUnauthorized: true
     }
   } as any); // Use any to bypass strict type checking for this simple implementation
 }

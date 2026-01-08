@@ -508,7 +508,12 @@ export default function Home() {
       }
     };
 
-    initializeApp();
+    // Delay initialization to ensure splash screen animation starts smoothly and isn't blocked by initial fetch
+    const timer = setTimeout(() => {
+      initializeApp();
+    }, 1000);
+
+    return () => clearTimeout(timer);
   }, []);
 
   // Function to handle splash screen finish with pre-loaded data
@@ -830,6 +835,42 @@ export default function Home() {
                 if (folderName && activeAccountId) {
                   handleMoveEmail(email.uid, folderName);
                 }
+              }}
+              onComposeTo={async (address) => {
+                // For new emails, use the external signature by default
+                let signature = '';
+                if (activeAccountId) {
+                  try {
+                    const res = await fetch(`/api/accounts/signature?accountId=${activeAccountId}`);
+                    const data = await res.json();
+                    if (res.ok) {
+                      // Use external signature for new emails by default
+                      signature = data.externalSignature || data.signature || '';
+                    }
+                  } catch (error) {
+                    console.error('Failed to fetch signature:', error);
+                  }
+                }
+
+                // Set initial data with signature and recipient
+                const newComposeData = {
+                  to: address,
+                  subject: '',
+                  body: signature || '',
+                  uid: undefined
+                };
+
+                setComposeInitialData(newComposeData);
+
+                // Add a new compose window to the array
+                const newWindow = {
+                  id: `compose-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                  accountId: activeAccountId!,
+                  initialData: newComposeData,
+                  minimized: false
+                };
+
+                setComposeWindows(prev => [...prev, newWindow]);
               }}
             />
             

@@ -48,6 +48,18 @@ export async function GET(req: Request) {
 
     const parsed = await simpleParser(source);
 
+    // Helper to extract structured recipients
+    const getRecipients = (addrObj: any): any[] => {
+      if (!addrObj) return [];
+      if (Array.isArray(addrObj)) {
+        return addrObj.flatMap(obj => obj.value || []);
+      }
+      return addrObj.value || [];
+    };
+
+    const toRecipients = getRecipients(parsed.to);
+    const ccRecipients = getRecipients(parsed.cc);
+
     // Handle the case where to can be an array of addresses
     let to = '';
     if (parsed.to && Array.isArray(parsed.to)) {
@@ -70,6 +82,8 @@ export async function GET(req: Request) {
       from: parsed.from?.text,
       to,
       cc,
+      toRecipients, // New structured field
+      ccRecipients, // New structured field
       date: parsed.date,
       body: parsed.html || parsed.textAsHtml || parsed.text,
       attachments: parsed.attachments.length
