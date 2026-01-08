@@ -27,6 +27,7 @@
     "crypto-js": "^4.2.0",
     "date-fns": "^4.1.0",
     "emoji-picker-react": "^4.16.1",
+    "imap": "^0.8.19",
     "imap-simple": "^5.1.0",
     "lucide-react": "^0.562.0",
     "mailparser": "^3.9.1",
@@ -37,7 +38,13 @@
     "react-hook-form": "^7.70.0",
     "react-hot-toast": "^2.6.0",
     "tailwind-merge": "^3.4.0",
+    "utf7": "^1.0.2",
     "zod": "^4.3.5"
+  },
+  "overrides": {
+    "utf7": {
+      "semver": "^5.7.2"
+    }
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
