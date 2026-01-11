@@ -1,0 +1,1077 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E-postsignaturer - Kopiera & Klistra</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            color: #fff;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            padding: 40px 20px;
+            margin-bottom: 40px;
+        }
+        
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #00d4ff, #7c3aed);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        header p {
+            color: #a0aec0;
+            font-size: 1.1rem;
+        }
+        
+        .instructions {
+            background: rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 40px;
+            border-left: 4px solid #10b981;
+        }
+        
+        .instructions h3 {
+            margin-top: 0;
+            color: #10b981;
+        }
+        
+        .instructions ol {
+            color: #cbd5e0;
+            line-height: 1.8;
+        }
+        
+        .signature-card {
+            background: #fff;
+            border-radius: 16px;
+            margin-bottom: 40px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .card-header {
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .card-header h2 {
+            margin: 0;
+            color: #fff;
+            font-size: 1.3rem;
+        }
+        
+        .card-header .badge {
+            background: rgba(255,255,255,0.2);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+        }
+        
+        .preview-section {
+            padding: 40px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .preview-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #718096;
+            font-weight: 600;
+        }
+        
+        .preview-box {
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        }
+        
+        /* Huvudknappen för att kopiera signaturen */
+        .copy-signature-btn {
+            background: linear-gradient(90deg, #10b981, #059669);
+            border: none;
+            color: #fff;
+            padding: 14px 28px;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+        }
+        
+        .copy-signature-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.5);
+        }
+        
+        .copy-signature-btn.copied {
+            background: linear-gradient(90deg, #8b5cf6, #7c3aed);
+        }
+        
+        .copy-signature-btn .icon {
+            font-size: 1.2rem;
+        }
+        
+        .code-section {
+            padding: 30px;
+            background: #1e1e1e;
+        }
+        
+        .code-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .code-label {
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #a0aec0;
+            font-weight: 600;
+        }
+        
+        .code-toggle-btn {
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            color: #a0aec0;
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+        }
+        
+        .code-toggle-btn:hover {
+            background: rgba(255,255,255,0.2);
+            color: #fff;
+        }
+        
+        .copy-code-btn {
+            background: linear-gradient(90deg, #00d4ff, #00b4d8);
+            border: none;
+            color: #000;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.85rem;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .copy-code-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 212, 255, 0.4);
+        }
+        
+        .copy-code-btn.copied {
+            background: linear-gradient(90deg, #10b981, #059669);
+            color: #fff;
+        }
+        
+        .code-box {
+            background: #2d2d2d;
+            border-radius: 8px;
+            padding: 20px;
+            overflow-x: auto;
+            max-height: 300px;
+            overflow-y: auto;
+            display: none;
+        }
+        
+        .code-box.visible {
+            display: block;
+        }
+        
+        .code-box pre {
+            margin: 0;
+            color: #e2e8f0;
+            font-family: 'Fira Code', 'Consolas', monospace;
+            font-size: 0.85rem;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        
+        .code-box::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        .code-box::-webkit-scrollbar-track {
+            background: #1e1e1e;
+            border-radius: 4px;
+        }
+        
+        .code-box::-webkit-scrollbar-thumb {
+            background: #4a5568;
+            border-radius: 4px;
+        }
+        
+        .edit-section {
+            background: #f0f4f8;
+            padding: 30px;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .edit-toggle {
+            background: none;
+            border: 2px solid #667eea;
+            color: #667eea;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .edit-toggle:hover {
+            background: #667eea;
+            color: #fff;
+        }
+        
+        .edit-fields {
+            display: none;
+        }
+        
+        .edit-fields.visible {
+            display: block;
+        }
+        
+        .edit-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+        
+        .edit-field {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .edit-field label {
+            font-size: 0.8rem;
+            color: #4a5568;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        
+        .edit-field input {
+            padding: 10px 15px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            transition: border-color 0.3s;
+        }
+        
+        .edit-field input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .update-btn {
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border: none;
+            color: #fff;
+            padding: 12px 30px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .update-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: linear-gradient(90deg, #10b981, #059669);
+            color: #fff;
+            padding: 16px 32px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 1rem;
+            box-shadow: 0 10px 40px rgba(16, 185, 129, 0.4);
+            z-index: 1000;
+            opacity: 0;
+            transition: all 0.4s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 40px 20px;
+            color: #718096;
+        }
+        
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 1.8rem;
+            }
+            
+            .preview-section, .code-section, .edit-section {
+                padding: 20px;
+            }
+            
+            .preview-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .copy-signature-btn {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📧 E-postsignaturer</h1>
+            <p>Välj en signatur, anpassa den och kopiera direkt till din e-postklient</p>
+        </header>
+        
+        <div class="instructions">
+            <h3>✅ Superenkelt - 3 steg:</h3>
+            <ol>
+                <li><strong>Anpassa</strong> - Klicka "Redigera" och fyll i dina uppgifter</li>
+                <li><strong>Kopiera</strong> - Klicka på den gröna knappen "📋 Kopiera signatur"</li>
+                <li><strong>Klistra in</strong> - Gå till din e-postklient och klistra in (Ctrl+V / Cmd+V)</li>
+            </ol>
+        </div>
+
+        <!-- Signatur 1: Modern Professionell -->
+        <div class="signature-card" id="sig1">
+            <div class="card-header">
+                <h2>✨ Modern Professionell</h2>
+                <span class="badge">Populär</span>
+            </div>
+            
+            <div class="preview-section">
+                <div class="preview-header">
+                    <span class="preview-label">👁️ Förhandsvisning</span>
+                    <button class="copy-signature-btn" onclick="copySignature('sig1-preview', this)">
+                        <span class="icon">📋</span> Kopiera signatur
+                    </button>
+                </div>
+                <div class="preview-box" id="sig1-preview"></div>
+            </div>
+            
+            <div class="edit-section">
+                <button class="edit-toggle" onclick="toggleEdit('sig1-fields', this)">✏️ Redigera uppgifter</button>
+                <div class="edit-fields" id="sig1-fields">
+                    <div class="edit-grid">
+                        <div class="edit-field">
+                            <label>Namn</label>
+                            <input type="text" id="sig1-name" value="Anna Andersson" oninput="updateSignature1()">
+                        </div>
+                        <div class="edit-field">
+                            <label>Titel</label>
+                            <input type="text" id="sig1-title" value="Marknadschef" oninput="updateSignature1()">
+                        </div>
+                        <div class="edit-field">
+                            <label>Företag</label>
+                            <input type="text" id="sig1-company" value="Företaget AB" oninput="updateSignature1()">
+                        </div>
+                        <div class="edit-field">
+                            <label>Telefon</label>
+                            <input type="text" id="sig1-phone" value="+46 70 123 45 67" oninput="updateSignature1()">
+                        </div>
+                        <div class="edit-field">
+                            <label>E-post</label>
+                            <input type="text" id="sig1-email" value="anna@foretaget.se" oninput="updateSignature1()">
+                        </div>
+                        <div class="edit-field">
+                            <label>Webbplats</label>
+                            <input type="text" id="sig1-web" value="www.foretaget.se" oninput="updateSignature1()">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="code-section">
+                <div class="code-header">
+                    <span class="code-label">HTML-kod (för avancerade användare)</span>
+                    <button class="code-toggle-btn" onclick="toggleCode('sig1-code-box', this)">👁️ Visa kod</button>
+                </div>
+                <div class="code-box" id="sig1-code-box">
+                    <div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
+                        <button class="copy-code-btn" onclick="copyCode('sig1-code', this)">
+                            <span>📋</span> Kopiera kod
+                        </button>
+                    </div>
+                    <pre id="sig1-code"></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Signatur 2: Minimalistisk -->
+        <div class="signature-card" id="sig2">
+            <div class="card-header" style="background: linear-gradient(90deg, #2d3748, #4a5568);">
+                <h2>🎯 Minimalistisk</h2>
+                <span class="badge">Enkel</span>
+            </div>
+            
+            <div class="preview-section">
+                <div class="preview-header">
+                    <span class="preview-label">👁️ Förhandsvisning</span>
+                    <button class="copy-signature-btn" onclick="copySignature('sig2-preview', this)">
+                        <span class="icon">📋</span> Kopiera signatur
+                    </button>
+                </div>
+                <div class="preview-box" id="sig2-preview"></div>
+            </div>
+            
+            <div class="edit-section">
+                <button class="edit-toggle" onclick="toggleEdit('sig2-fields', this)">✏️ Redigera uppgifter</button>
+                <div class="edit-fields" id="sig2-fields">
+                    <div class="edit-grid">
+                        <div class="edit-field">
+                            <label>Namn</label>
+                            <input type="text" id="sig2-name" value="Erik Eriksson" oninput="updateSignature2()">
+                        </div>
+                        <div class="edit-field">
+                            <label>Titel</label>
+                            <input type="text" id="sig2-title" value="Utvecklare" oninput="updateSignature2()">
+                        </div>
+                        <div class="edit-field">
+                            <label>Telefon</label>
+                            <input type="text" id="sig2-phone" value="+46 70 987 65 43" oninput="updateSignature2()">
+                        </div>
+                        <div class="edit-field">
+                            <label>E-post</label>
+                            <input type="text" id="sig2-email" value="erik@techbolaget.se" oninput="updateSignature2()">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="code-section">
+                <div class="code-header">
+                    <span class="code-label">HTML-kod (för avancerade användare)</span>
+                    <button class="code-toggle-btn" onclick="toggleCode('sig2-code-box', this)">👁️ Visa kod</button>
+                </div>
+                <div class="code-box" id="sig2-code-box">
+                    <div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
+                        <button class="copy-code-btn" onclick="copyCode('sig2-code', this)">
+                            <span>📋</span> Kopiera kod
+                        </button>
+                    </div>
+                    <pre id="sig2-code"></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Signatur 3: Färgglad Kreativ -->
+        <div class="signature-card" id="sig3">
+            <div class="card-header" style="background: linear-gradient(90deg, #f093fb, #f5576c);">
+                <h2>🎨 Färgglad Kreativ</h2>
+                <span class="badge">Unik</span>
+            </div>
+            
+            <div class="preview-section">
+                <div class="preview-header">
+                    <span class="preview-label">👁️ Förhandsvisning</span>
+                    <button class="copy-signature-btn" onclick="copySignature('sig3-preview', this)">
+                        <span class="icon">📋</span> Kopiera signatur
+                    </button>
+                </div>
+                <div class="preview-box" id="sig3-preview"></div>
+            </div>
+            
+            <div class="edit-section">
+                <button class="edit-toggle" onclick="toggleEdit('sig3-fields', this)">✏️ Redigera uppgifter</button>
+                <div class="edit-fields" id="sig3-fields">
+                    <div class="edit-grid">
+                        <div class="edit-field">
+                            <label>Namn</label>
+                            <input type="text" id="sig3-name" value="Lisa Lindqvist" oninput="updateSignature3()">
+                        </div>
+                        <div class="edit-field">
+                            <label>Titel</label>
+                            <input type="text" id="sig3-title" value="Kreativ Direktör" oninput="updateSignature3()">
+                        </div>
+                        <div class="edit-field">
+                            <label>Företag</label>
+                            <input type="text" id="sig3-company" value="Designbyrån" oninput="updateSignature3()">
+                        </div>
+                        <div class="edit-field">
+                            <label>Telefon</label>
+                            <input type="text" id="sig3-phone" value="+46 70 111 22 33" oninput="updateSignature3()">
+                        </div>
+                        <div class="edit-field">
+                            <label>E-post</label>
+                            <input type="text" id="sig3-email" value="lisa@designbyran.se" oninput="updateSignature3()">
+                        </div>
+                        <div class="edit-field">
+                            <label>Slogan</label>
+                            <input type="text" id="sig3-slogan" value="Kreativitet utan gränser ✨" oninput="updateSignature3()">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="code-section">
+                <div class="code-header">
+                    <span class="code-label">HTML-kod (för avancerade användare)</span>
+                    <button class="code-toggle-btn" onclick="toggleCode('sig3-code-box', this)">👁️ Visa kod</button>
+                </div>
+                <div class="code-box" id="sig3-code-box">
+                    <div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
+                        <button class="copy-code-btn" onclick="copyCode('sig3-code', this)">
+                            <span>📋</span> Kopiera kod
+                        </button>
+                    </div>
+                    <pre id="sig3-code"></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Signatur 4: Klassisk Affär -->
+        <div class="signature-card" id="sig4">
+            <div class="card-header" style="background: linear-gradient(90deg, #1a365d, #2c5282);">
+                <h2>💼 Klassisk Affär</h2>
+                <span class="badge">Tidlös</span>
+            </div>
+            
+            <div class="preview-section">
+                <div class="preview-header">
+                    <span class="preview-label">👁️ Förhandsvisning</span>
+                    <button class="copy-signature-btn" onclick="copySignature('sig4-preview', this)">
+                        <span class="icon">📋</span> Kopiera signatur
+                    </button>
+                </div>
+                <div class="preview-box" id="sig4-preview"></div>
+            </div>
+            
+            <div class="edit-section">
+                <button class="edit-toggle" onclick="toggleEdit('sig4-fields', this)">✏️ Redigera uppgifter</button>
+                <div class="edit-fields" id="sig4-fields">
+                    <div class="edit-grid">
+                        <div class="edit-field">
+                            <label>Namn</label>
+                            <input type="text" id="sig4-name" value="Magnus Magnusson" oninput="updateSignature4()">
+                        </div>
+                        <div class="edit-field">
+                            <label>Titel</label>
+                            <input type="text" id="sig4-title" value="VD" oninput="updateSignature4()">
+                        </div>
+                        <div class="edit-field">
+                            <label>Företag</label>
+                            <input type="text" id="sig4-company" value="Konsultfirman AB" oninput="updateSignature4()">
+                        </div>
+                        <div class="edit-field">
+                            <label>Telefon</label>
+                            <input type="text" id="sig4-phone" value="+46 8 123 45 67" oninput="updateSignature4()">
+                        </div>
+                        <div class="edit-field">
+                            <label>Mobil</label>
+                            <input type="text" id="sig4-mobile" value="+46 70 123 45 67" oninput="updateSignature4()">
+                        </div>
+                        <div class="edit-field">
+                            <label>E-post</label>
+                            <input type="text" id="sig4-email" value="magnus@konsultfirman.se" oninput="updateSignature4()">
+                        </div>
+                        <div class="edit-field">
+                            <label>Adress</label>
+                            <input type="text" id="sig4-address" value="Storgatan 1, 111 22 Stockholm" oninput="updateSignature4()">
+                        </div>
+                        <div class="edit-field">
+                            <label>Webbplats</label>
+                            <input type="text" id="sig4-web" value="www.konsultfirman.se" oninput="updateSignature4()">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="code-section">
+                <div class="code-header">
+                    <span class="code-label">HTML-kod (för avancerade användare)</span>
+                    <button class="code-toggle-btn" onclick="toggleCode('sig4-code-box', this)">👁️ Visa kod</button>
+                </div>
+                <div class="code-box" id="sig4-code-box">
+                    <div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
+                        <button class="copy-code-btn" onclick="copyCode('sig4-code', this)">
+                            <span>📋</span> Kopiera kod
+                        </button>
+                    </div>
+                    <pre id="sig4-code"></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Signatur 5: Tech Modern -->
+        <div class="signature-card" id="sig5">
+            <div class="card-header" style="background: linear-gradient(90deg, #0ea5e9, #8b5cf6);">
+                <h2>🚀 Tech Modern</h2>
+                <span class="badge">Trendig</span>
+            </div>
+            
+            <div class="preview-section">
+                <div class="preview-header">
+                    <span class="preview-label">👁️ Förhandsvisning</span>
+                    <button class="copy-signature-btn" onclick="copySignature('sig5-preview', this)">
+                        <span class="icon">📋</span> Kopiera signatur
+                    </button>
+                </div>
+                <div class="preview-box" id="sig5-preview"></div>
+            </div>
+            
+            <div class="edit-section">
+                <button class="edit-toggle" onclick="toggleEdit('sig5-fields', this)">✏️ Redigera uppgifter</button>
+                <div class="edit-fields" id="sig5-fields">
+                    <div class="edit-grid">
+                        <div class="edit-field">
+                            <label>Namn</label>
+                            <input type="text" id="sig5-name" value="Sofia Svensson" oninput="updateSignature5()">
+                        </div>
+                        <div class="edit-field">
+                            <label>Titel</label>
+                            <input type="text" id="sig5-title" value="CTO" oninput="updateSignature5()">
+                        </div>
+                        <div class="edit-field">
+                            <label>Företag</label>
+                            <input type="text" id="sig5-company" value="TechStartup" oninput="updateSignature5()">
+                        </div>
+                        <div class="edit-field">
+                            <label>Telefon</label>
+                            <input type="text" id="sig5-phone" value="+46 70 555 44 33" oninput="updateSignature5()">
+                        </div>
+                        <div class="edit-field">
+                            <label>E-post</label>
+                            <input type="text" id="sig5-email" value="sofia@techstartup.io" oninput="updateSignature5()">
+                        </div>
+                        <div class="edit-field">
+                            <label>LinkedIn</label>
+                            <input type="text" id="sig5-linkedin" value="linkedin.com/in/sofiasvensson" oninput="updateSignature5()">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="code-section">
+                <div class="code-header">
+                    <span class="code-label">HTML-kod (för avancerade användare)</span>
+                    <button class="code-toggle-btn" onclick="toggleCode('sig5-code-box', this)">👁️ Visa kod</button>
+                </div>
+                <div class="code-box" id="sig5-code-box">
+                    <div style="display: flex; justify-content: flex-end; margin-bottom: 10px;">
+                        <button class="copy-code-btn" onclick="copyCode('sig5-code', this)">
+                            <span>📋</span> Kopiera kod
+                        </button>
+                    </div>
+                    <pre id="sig5-code"></pre>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>💡 Tips: Testa alltid din signatur genom att skicka ett mejl till dig själv!</p>
+        </footer>
+    </div>
+
+    <!-- Toast notification -->
+    <div class="toast" id="toast">
+        <span>✅</span> <span id="toast-message">Signatur kopierad!</span>
+    </div>
+
+    <script>
+        // Toast notification
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toast-message');
+            toastMessage.textContent = message;
+            toast.classList.add('show');
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+
+        // Kopiera den renderade signaturen (formaterad)
+        function copySignature(previewId, button) {
+            const previewElement = document.getElementById(previewId);
+            
+            // Skapa en range och selection för att kopiera formaterat innehåll
+            const range = document.createRange();
+            range.selectNodeContents(previewElement);
+            
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            
+            try {
+                // Kopiera med formatering
+                document.execCommand('copy');
+                
+                // Uppdatera knappen
+                const originalText = button.innerHTML;
+                button.innerHTML = '<span class="icon">✅</span> Kopierad!';
+                button.classList.add('copied');
+                
+                showToast('Signatur kopierad! Klistra in med Ctrl+V / Cmd+V');
+                
+                setTimeout(() => {
+                    button.innerHTML = originalText;
+                    button.classList.remove('copied');
+                }, 2500);
+            } catch (err) {
+                showToast('Kunde inte kopiera. Försök markera manuellt.');
+            }
+            
+            selection.removeAllRanges();
+        }
+
+        // Kopiera HTML-kod
+        function copyCode(elementId, button) {
+            const code = document.getElementById(elementId).textContent;
+            navigator.clipboard.writeText(code).then(() => {
+                button.classList.add('copied');
+                button.innerHTML = '<span>✅</span> Kopierad!';
+                
+                showToast('HTML-kod kopierad!');
+                
+                setTimeout(() => {
+                    button.classList.remove('copied');
+                    button.innerHTML = '<span>📋</span> Kopiera kod';
+                }, 2000);
+            });
+        }
+
+        // Toggle edit fields
+        function toggleEdit(fieldsId, button) {
+            const fields = document.getElementById(fieldsId);
+            fields.classList.toggle('visible');
+            
+            if (fields.classList.contains('visible')) {
+                button.textContent = '✖️ Stäng redigering';
+            } else {
+                button.textContent = '✏️ Redigera uppgifter';
+            }
+        }
+
+        // Toggle code visibility
+        function toggleCode(codeBoxId, button) {
+            const codeBox = document.getElementById(codeBoxId);
+            codeBox.classList.toggle('visible');
+            
+            if (codeBox.classList.contains('visible')) {
+                button.textContent = '🙈 Dölj kod';
+            } else {
+                button.textContent = '👁️ Visa kod';
+            }
+        }
+
+        // Signatur 1: Modern Professionell
+        function generateSignature1(name, title, company, phone, email, web) {
+            return `<table cellpadding="0" cellspacing="0" border="0" style="font-family: Arial, Helvetica, sans-serif;">
+    <tr>
+        <td style="padding-right: 20px; border-right: 3px solid #667eea;">
+            <table cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                    <td style="font-size: 20px; font-weight: bold; color: #1a202c; padding-bottom: 5px;">${name}</td>
+                </tr>
+                <tr>
+                    <td style="font-size: 14px; color: #667eea; font-weight: 600; padding-bottom: 3px;">${title}</td>
+                </tr>
+                <tr>
+                    <td style="font-size: 14px; color: #718096;">${company}</td>
+                </tr>
+            </table>
+        </td>
+        <td style="padding-left: 20px;">
+            <table cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                    <td style="font-size: 13px; color: #4a5568; padding-bottom: 5px;">
+                        📱 <a href="tel:${phone.replace(/\s/g, '')}" style="color: #4a5568; text-decoration: none;">${phone}</a>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-size: 13px; color: #4a5568; padding-bottom: 5px;">
+                        ✉️ <a href="mailto:${email}" style="color: #667eea; text-decoration: none;">${email}</a>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-size: 13px; color: #4a5568;">
+                        🌐 <a href="https://${web}" style="color: #667eea; text-decoration: none;">${web}</a>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>`;
+        }
+
+        function updateSignature1() {
+            const name = document.getElementById('sig1-name').value;
+            const title = document.getElementById('sig1-title').value;
+            const company = document.getElementById('sig1-company').value;
+            const phone = document.getElementById('sig1-phone').value;
+            const email = document.getElementById('sig1-email').value;
+            const web = document.getElementById('sig1-web').value;
+            
+            const html = generateSignature1(name, title, company, phone, email, web);
+            document.getElementById('sig1-preview').innerHTML = html;
+            document.getElementById('sig1-code').textContent = html;
+        }
+
+        // Signatur 2: Minimalistisk
+        function generateSignature2(name, title, phone, email) {
+            return `<table cellpadding="0" cellspacing="0" border="0" style="font-family: 'Helvetica Neue', Arial, sans-serif;">
+    <tr>
+        <td>
+            <p style="margin: 0 0 5px 0; font-size: 16px; font-weight: 600; color: #1a1a1a;">${name}</p>
+            <p style="margin: 0 0 10px 0; font-size: 13px; color: #666666;">${title}</p>
+            <p style="margin: 0; font-size: 12px; color: #888888;">
+                <a href="tel:${phone.replace(/\s/g, '')}" style="color: #888888; text-decoration: none;">${phone}</a>
+                &nbsp;•&nbsp;
+                <a href="mailto:${email}" style="color: #888888; text-decoration: none;">${email}</a>
+            </p>
+        </td>
+    </tr>
+</table>`;
+        }
+
+        function updateSignature2() {
+            const name = document.getElementById('sig2-name').value;
+            const title = document.getElementById('sig2-title').value;
+            const phone = document.getElementById('sig2-phone').value;
+            const email = document.getElementById('sig2-email').value;
+            
+            const html = generateSignature2(name, title, phone, email);
+            document.getElementById('sig2-preview').innerHTML = html;
+            document.getElementById('sig2-code').textContent = html;
+        }
+
+        // Signatur 3: Färgglad Kreativ
+        function generateSignature3(name, title, company, phone, email, slogan) {
+            return `<table cellpadding="0" cellspacing="0" border="0" style="font-family: Arial, Helvetica, sans-serif;">
+    <tr>
+        <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; border-radius: 10px;">
+            <table cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                    <td style="font-size: 22px; font-weight: bold; color: #ffffff; padding-bottom: 5px;">${name}</td>
+                </tr>
+                <tr>
+                    <td style="font-size: 14px; color: rgba(255,255,255,0.9); padding-bottom: 3px;">${title} @ ${company}</td>
+                </tr>
+                <tr>
+                    <td style="padding-top: 15px; padding-bottom: 15px;">
+                        <table cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                                <td style="font-size: 13px; color: #ffffff; padding-right: 15px;">
+                                    📱 ${phone}
+                                </td>
+                                <td style="font-size: 13px; color: #ffffff;">
+                                    ✉️ ${email}
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-size: 12px; color: rgba(255,255,255,0.8); font-style: italic; border-top: 1px solid rgba(255,255,255,0.3); padding-top: 12px;">
+                        "${slogan}"
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>`;
+        }
+
+        function updateSignature3() {
+            const name = document.getElementById('sig3-name').value;
+            const title = document.getElementById('sig3-title').value;
+            const company = document.getElementById('sig3-company').value;
+            const phone = document.getElementById('sig3-phone').value;
+            const email = document.getElementById('sig3-email').value;
+            const slogan = document.getElementById('sig3-slogan').value;
+            
+            const html = generateSignature3(name, title, company, phone, email, slogan);
+            document.getElementById('sig3-preview').innerHTML = html;
+            document.getElementById('sig3-code').textContent = html;
+        }
+
+        // Signatur 4: Klassisk Affär
+        function generateSignature4(name, title, company, phone, mobile, email, address, web) {
+            return `<table cellpadding="0" cellspacing="0" border="0" style="font-family: Georgia, 'Times New Roman', serif;">
+    <tr>
+        <td style="border-bottom: 2px solid #1a365d; padding-bottom: 15px;">
+            <span style="font-size: 22px; font-weight: bold; color: #1a365d;">${name}</span>
+        </td>
+    </tr>
+    <tr>
+        <td style="padding-top: 12px;">
+            <p style="margin: 0 0 3px 0; font-size: 14px; color: #2c5282; font-weight: 600;">${title}</p>
+            <p style="margin: 0 0 15px 0; font-size: 14px; color: #4a5568;">${company}</p>
+            
+            <table cellpadding="0" cellspacing="0" border="0" style="font-family: Arial, sans-serif;">
+                <tr>
+                    <td style="font-size: 12px; color: #718096; padding-bottom: 4px; width: 60px;">Telefon:</td>
+                    <td style="font-size: 12px; color: #2d3748; padding-bottom: 4px;">${phone}</td>
+                </tr>
+                <tr>
+                    <td style="font-size: 12px; color: #718096; padding-bottom: 4px;">Mobil:</td>
+                    <td style="font-size: 12px; color: #2d3748; padding-bottom: 4px;">${mobile}</td>
+                </tr>
+                <tr>
+                    <td style="font-size: 12px; color: #718096; padding-bottom: 4px;">E-post:</td>
+                    <td style="font-size: 12px; padding-bottom: 4px;">
+                        <a href="mailto:${email}" style="color: #2c5282; text-decoration: none;">${email}</a>
+                    </td>
+                </tr>
+                <tr>
+                    <td style="font-size: 12px; color: #718096; padding-bottom: 4px;">Adress:</td>
+                    <td style="font-size: 12px; color: #2d3748; padding-bottom: 4px;">${address}</td>
+                </tr>
+                <tr>
+                    <td style="font-size: 12px; color: #718096;">Webb:</td>
+                    <td style="font-size: 12px;">
+                        <a href="https://${web}" style="color: #2c5282; text-decoration: none;">${web}</a>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>`;
+        }
+
+        function updateSignature4() {
+            const name = document.getElementById('sig4-name').value;
+            const title = document.getElementById('sig4-title').value;
+            const company = document.getElementById('sig4-company').value;
+            const phone = document.getElementById('sig4-phone').value;
+            const mobile = document.getElementById('sig4-mobile').value;
+            const email = document.getElementById('sig4-email').value;
+            const address = document.getElementById('sig4-address').value;
+            const web = document.getElementById('sig4-web').value;
+            
+            const html = generateSignature4(name, title, company, phone, mobile, email, address, web);
+            document.getElementById('sig4-preview').innerHTML = html;
+            document.getElementById('sig4-code').textContent = html;
+        }
+
+        // Signatur 5: Tech Modern
+        function generateSignature5(name, title, company, phone, email, linkedin) {
+            return `<table cellpadding="0" cellspacing="0" border="0" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+    <tr>
+        <td>
+            <table cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                    <td style="padding-right: 15px; vertical-align: top;">
+                        <table cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                                <td style="width: 60px; height: 60px; background: linear-gradient(135deg, #0ea5e9, #8b5cf6); border-radius: 12px; text-align: center; vertical-align: middle;">
+                                    <span style="font-size: 24px; color: white; font-weight: bold;">${name.charAt(0)}</span>
+                                </td>
+                            </tr>
+                        </table>
+                    </td>
+                    <td style="vertical-align: top;">
+                        <p style="margin: 0 0 4px 0; font-size: 18px; font-weight: 700; color: #0f172a;">${name}</p>
+                        <p style="margin: 0 0 10px 0; font-size: 13px; color: #0ea5e9; font-weight: 500;">${title} • ${company}</p>
+                        <table cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                                <td style="padding-right: 20px;">
+                                    <a href="tel:${phone.replace(/\s/g, '')}" style="font-size: 12px; color: #64748b; text-decoration: none;">📱 ${phone}</a>
+                                </td>
+                                <td style="padding-right: 20px;">
+                                    <a href="mailto:${email}" style="font-size: 12px; color: #64748b; text-decoration: none;">✉️ ${email}</a>
+                                </td>
+                            </tr>
+                        </table>
+                        <p style="margin: 8px 0 0 0;">
+                            <a href="https://${linkedin}" style="display: inline-block; background: #0077b5; color: white; font-size: 11px; padding: 5px 12px; border-radius: 4px; text-decoration: none; font-weight: 500;">LinkedIn →</a>
+                        </p>
+                    </td>
+                </tr>
+            </table>
+        </td>
+    </tr>
+</table>`;
+        }
+
+        function updateSignature5() {
+            const name = document.getElementById('sig5-name').value;
+            const title = document.getElementById('sig5-title').value;
+            const company = document.getElementById('sig5-company').value;
+            const phone = document.getElementById('sig5-phone').value;
+            const email = document.getElementById('sig5-email').value;
+            const linkedin = document.getElementById('sig5-linkedin').value;
+            
+            const html = generateSignature5(name, title, company, phone, email, linkedin);
+            document.getElementById('sig5-preview').innerHTML = html;
+            document.getElementById('sig5-code').textContent = html;
+        }
+
+        // Initiera alla signaturer vid sidladdning
+        document.addEventListener('DOMContentLoaded', function() {
+            updateSignature1();
+            updateSignature2();
+            updateSignature3();
+            updateSignature4();
+            updateSignature5();
+        });
+    </script>
+</body>
+</html>
