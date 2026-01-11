@@ -1,0 +1,16 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: uxmail_postgres
+    environment:
+      POSTGRES_USER: uxmail
+      POSTGRES_PASSWORD: uxmailpassword
+      POSTGRES_DB: uxmail_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data:

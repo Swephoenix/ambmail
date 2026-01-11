@@ -9,7 +9,7 @@ UxMail är en modern e-postklient med stöd för flera konton, förhämtning av 
 - **Automatisk uppdatering**: Kontrollerar efter nya e-postmeddelanden varje minut
 - **SPA-funktionalitet**: Skriv e-post utan sidladdningar
 - **Förbättrad e-postinmatning**: Intelligenta förslag och bubblor för e-postadresser
-- **SQLite-databas**: Lokal databas för kontoinformation
+- **PostgreSQL-databas**: Lokal databas för kontoinformation via Docker
 
 ## Förutsättningar
 
@@ -59,7 +59,7 @@ Projektet är byggt med:
 - Next.js 16.1.1
 - React 19.2.3
 - TypeScript
-- Prisma (med SQLite)
+- Prisma (med PostgreSQL)
 - Tailwind CSS
 - Lucide React (ikoner)
 - Tiptap (rich text editor)

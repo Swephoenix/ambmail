@@ -21,9 +21,9 @@ else
     exit 1
 fi
 
-# Check if npm is installed
-if ! command -v npm &> /dev/null; then
-    echo "npm is not installed. Please install npm and try again."
+# Check if Docker is installed
+if ! command -v docker &> /dev/null; then
+    echo "Docker is not installed. Please install Docker to run the PostgreSQL database."
     exit 1
 fi
 
@@ -40,9 +40,17 @@ else
     echo ".env file already exists, skipping creation"
 fi
 
+# Start Database
+echo "Starting database via Docker..."
+docker compose up -d
+
+# Wait for DB to be ready (naive wait, but usually prisma retries or fails fast, user can re-run)
+echo "Waiting for database to initialize..."
+sleep 5
+
 # Initialize database
-echo "Initializing database..."
-npx prisma db push
+echo "Running migrations..."
+npx prisma migrate dev
 
 echo "Installation complete!"
 echo "To start the development server, run: npm run dev"
