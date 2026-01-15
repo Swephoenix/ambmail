@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, Send, Maximize2, Minimize2, ExternalLink, FileSignature } from 'lucide-react';
+import { X, Send, Maximize2, Minimize2, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
 import TiptapEditor from './TiptapEditor';
 import EmailInput from './EmailInput';
@@ -186,12 +186,13 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
       if (initialData?.body && initialData.body.includes(accountSignature)) {
         // Signature is already in the initial body, mark as inserted
         setIsSignatureInserted(true);
-      } else if (!initialData?.body && body === accountSignature) {
-        // Signature was set as the initial body for a new email, mark as inserted
+      } else if (!initialData?.body && !body) {
+        // Ensure the cursor starts above the signature
+        setBody(`<p></p>${accountSignature}`);
         setIsSignatureInserted(true);
       } else if (body && !body.includes(accountSignature)) {
-        // Signature is not in the body yet, add it at the beginning
-        setBody(prevBody => accountSignature + (prevBody ? `<br /><br />${prevBody}` : ''));
+        // Signature is not in the body yet, add it at the end
+        setBody(prevBody => prevBody ? `${prevBody}<br /><br />${accountSignature}` : accountSignature);
         setIsSignatureInserted(true);
       }
     }
@@ -225,9 +226,9 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
       if (hasContent && hasContentChanged && !isSending && !isSwitchingDraft) {
         // If the signature is not already in the body, add it
         let finalBody = body;
-        if (accountSignature && !body.includes(accountSignature)) {
-          finalBody = accountSignature + (body ? `<br /><br />${body}` : '');
-        }
+          if (accountSignature && !body.includes(accountSignature)) {
+            finalBody = body ? `${body}<br /><br />${accountSignature}` : accountSignature;
+          }
 
         try {
           const toEmails = to.join(', ');
@@ -268,7 +269,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
     // If the signature is not already in the body, add it
     let finalBody = body;
     if (accountSignature && !body.includes(accountSignature)) {
-      finalBody = accountSignature + (body ? `<br /><br />${body}` : '');
+      finalBody = body ? `${body}<br /><br />${accountSignature}` : accountSignature;
     }
 
     // Check if content has actually changed since last save

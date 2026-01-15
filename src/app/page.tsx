@@ -680,10 +680,10 @@ export default function Home() {
                   }
                 }
 
-                // Prepend signature to the body if it exists
+                // Place the cursor above the signature and quoted text
                 const bodyWithSignature = signature
-                  ? `${signature}<br /><br /><div class="email-reply"><br /><br />On ${new Date(email.date).toLocaleString()}, ${email.from} wrote:<br />${email.body}</div>`
-                  : `<div class="email-reply"><br /><br />On ${new Date(email.date).toLocaleString()}, ${email.from} wrote:<br />${email.body}</div>`;
+                  ? `<p></p>${signature}<br /><br /><div class="email-reply"><br /><br />On ${new Date(email.date).toLocaleString()}, ${email.from} wrote:<br />${email.body}</div>`
+                  : `<p></p><div class="email-reply"><br /><br />On ${new Date(email.date).toLocaleString()}, ${email.from} wrote:<br />${email.body}</div>`;
 
                 const newComposeData = {
                   to: extractEmail(email.from), // Extract just the email address from "Name <email@domain.com>" format
@@ -748,10 +748,10 @@ export default function Home() {
                   }
                 }
 
-                // Prepend signature to the body if it exists
+                // Place the cursor above the signature and quoted text
                 const bodyWithSignature = signature
-                  ? `${signature}<br /><br /><div class="email-reply"><br /><br />On ${new Date(email.date).toLocaleString()}, ${email.from} wrote:<br />${email.body}</div>`
-                  : `<div class="email-reply"><br /><br />On ${new Date(email.date).toLocaleString()}, ${email.from} wrote:<br />${email.body}</div>`;
+                  ? `<p></p>${signature}<br /><br /><div class="email-reply"><br /><br />On ${new Date(email.date).toLocaleString()}, ${email.from} wrote:<br />${email.body}</div>`
+                  : `<p></p><div class="email-reply"><br /><br />On ${new Date(email.date).toLocaleString()}, ${email.from} wrote:<br />${email.body}</div>`;
 
                 const newComposeData = {
                   to: uniqueRecipients.join(', '),
@@ -800,10 +800,10 @@ export default function Home() {
                   }
                 }
 
-                // Prepend signature to the body if it exists
+                // Place the cursor above the signature and forwarded content
                 const bodyWithSignature = signature
-                  ? `${signature}<br /><br /><div class="email-forward"><br /><br />---------- Forwarded message ----------<br />From: ${email.from}<br />Date: ${new Date(email.date).toLocaleString()}<br />Subject: ${email.subject}<br />${email.body}</div>`
-                  : `<div class="email-forward"><br /><br />---------- Forwarded message ----------<br />From: ${email.from}<br />Date: ${new Date(email.date).toLocaleString()}<br />Subject: ${email.subject}<br />${email.body}</div>`;
+                  ? `<p></p>${signature}<br /><br /><div class="email-forward"><br /><br />---------- Forwarded message ----------<br />From: ${email.from}<br />Date: ${new Date(email.date).toLocaleString()}<br />Subject: ${email.subject}<br />${email.body}</div>`
+                  : `<p></p><div class="email-forward"><br /><br />---------- Forwarded message ----------<br />From: ${email.from}<br />Date: ${new Date(email.date).toLocaleString()}<br />Subject: ${email.subject}<br />${email.body}</div>`;
 
                 const newComposeData = {
                   to: '',
@@ -856,7 +856,7 @@ export default function Home() {
                 const newComposeData = {
                   to: address,
                   subject: '',
-                  body: signature || '',
+                  body: signature ? `<p></p>${signature}` : '',
                   uid: undefined
                 };
 
@@ -895,7 +895,7 @@ export default function Home() {
                 const newComposeData = {
                   to: '',
                   subject: '',
-                  body: signature || '',
+                  body: signature ? `<p></p>${signature}` : '',
                   uid: undefined
                 };
 

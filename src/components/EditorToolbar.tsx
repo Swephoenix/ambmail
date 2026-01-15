@@ -443,6 +443,13 @@ export default function EditorToolbar({ editor, onInsertSignature }: EditorToolb
       {/* Insert Group */}
       <div className="flex gap-0.5 shrink-0 items-center">
         <ToolbarButton
+          onClick={() => onInsertSignature()}
+          title="Insert Signature"
+        >
+          <FileSignature size={18} />
+        </ToolbarButton>
+
+        <ToolbarButton
           onClick={setLink}
           isActive={editor.isActive('link')}
           title="Insert Link"
