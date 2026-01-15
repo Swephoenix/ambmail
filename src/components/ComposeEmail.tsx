@@ -507,6 +507,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
                         if (!to.includes(s.email)) {
                           setTo([...to, s.email]);
                         }
+                        setInputValue('');
                         setSuggestions([]);
                       }}
                       className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm flex justify-between"
