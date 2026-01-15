@@ -23,6 +23,35 @@ export async function POST(req: Request) {
     }
 
     connection.end();
+    const cached = await prisma.emailMessage.findUnique({
+      where: {
+        account_folder_uid: {
+          accountId,
+          folder,
+          uid,
+        },
+      },
+    });
+    if (cached) {
+      const nextFlags = new Set(cached.flags || []);
+      if (action === 'add') {
+        nextFlags.add(flag);
+      } else {
+        nextFlags.delete(flag);
+      }
+      await prisma.emailMessage.update({
+        where: {
+          account_folder_uid: {
+            accountId,
+            folder,
+            uid,
+          },
+        },
+        data: {
+          flags: Array.from(nextFlags),
+        },
+      });
+    }
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('Flag Update Error:', error);

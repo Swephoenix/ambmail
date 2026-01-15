@@ -77,4 +77,3 @@ npm start
 - `src/app/` - Huvudapplikationen (Next.js App Router)
 - `src/components/` - Återanvändbara UI-komponenter
 - `prisma/` - Prisma-scheman och databasdefinitioner
-- `Newsplash/` - Ny splashskärmskomponent

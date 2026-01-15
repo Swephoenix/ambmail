@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getImapConnection, fetchEmails, groupEmailsIntoConversations } from '@/lib/mail-service';
+import { groupEmailsIntoConversations } from '@/lib/mail-service';
+import { getCachedEmailList, mapCachedEmail, shouldSyncFolder, syncFolderFromImap } from '@/lib/mail-cache';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -14,18 +15,27 @@ export async function GET(req: Request) {
   if (!account) return NextResponse.json({ error: 'Account not found' }, { status: 404 });
 
   try {
-    const connection = await getImapConnection(account as any);
-    const emails = await fetchEmails(connection, folder);
-    connection.end();
+    let cachedEmails = await getCachedEmailList(accountId, folder);
+
+    if (cachedEmails.length === 0) {
+      await syncFolderFromImap(account as any, folder);
+      cachedEmails = await getCachedEmailList(accountId, folder);
+    } else if (await shouldSyncFolder(accountId, folder)) {
+      void syncFolderFromImap(account as any, folder).catch((error) => {
+        console.error('Background sync error:', error);
+      });
+    }
+
+    const emails = cachedEmails.map(mapCachedEmail);
 
     if (view === 'conversation') {
       const conversations = groupEmailsIntoConversations(emails);
       return NextResponse.json(conversations);
-    } else {
-      return NextResponse.json(emails);
     }
+
+    return NextResponse.json(emails);
   } catch (error: any) {
-    console.error('IMAP Error:', error);
+    console.error('Mail cache error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }

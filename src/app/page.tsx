@@ -4,7 +4,6 @@ import { useState, useEffect, lazy, Suspense } from 'react';
 import Sidebar, { Account } from '@/components/Sidebar';
 import MailList, { EmailHeader } from '@/components/MailList';
 import MailView from '@/components/MailView';
-import SplashScreen from '../../Newsplash/SplashScreen';
 
 // Lazy load modal and compose components for better initial load performance
 const AddAccountModal = lazy(() => import('@/components/AddAccountModal'));
@@ -15,7 +14,6 @@ import { Plus } from 'lucide-react';
 import Image from 'next/image';
 
 export default function Home() {
-  const [showSplash, setShowSplash] = useState(true);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
   const [activeFolder, setActiveFolder] = useState<string>('INBOX');
@@ -496,7 +494,7 @@ export default function Home() {
     }
   };
 
-  // Start fetching accounts and emails as soon as the component mounts, even during splash screen
+  // Start fetching accounts and emails as soon as the component mounts
   useEffect(() => {
     const initializeApp = async () => {
       // Fetch accounts first
@@ -508,18 +506,8 @@ export default function Home() {
       }
     };
 
-    // Delay initialization to ensure splash screen animation starts smoothly and isn't blocked by initial fetch
-    const timer = setTimeout(() => {
-      initializeApp();
-    }, 1000);
-
-    return () => clearTimeout(timer);
+    initializeApp();
   }, []);
-
-  // Function to handle splash screen finish with pre-loaded data
-  const handleSplashFinish = () => {
-    setShowSplash(false);
-  };
 
   // Polling function to check for new emails every minute
   useEffect(() => {
@@ -587,8 +575,6 @@ export default function Home() {
 
   return (
     <main className="flex h-screen w-full overflow-hidden bg-white relative">
-      {showSplash && <SplashScreen onFinish={handleSplashFinish} />}
-      
       <Sidebar
         accounts={accounts}
         activeAccountId={activeAccountId}

@@ -18,13 +18,40 @@ export async function GET(req: Request) {
   const account = await prisma.account.findUnique({ where: { id: accountId } });
   if (!account) return NextResponse.json({ error: 'Account not found' }, { status: 404 });
 
+  const uid = parseInt(uidParam, 10);
+  if (Number.isNaN(uid)) {
+    return NextResponse.json({ error: 'Invalid uid' }, { status: 400 });
+  }
+
+  const cached = await prisma.emailMessage.findUnique({
+    where: {
+      account_folder_uid: {
+        accountId,
+        folder,
+        uid,
+      },
+    },
+  });
+
+  if (cached?.hasBody) {
+    return NextResponse.json({
+      uid: cached.uid,
+      subject: cached.subject,
+      from: cached.from,
+      to: cached.to,
+      cc: '',
+      toRecipients: cached.toRecipients || [],
+      ccRecipients: cached.ccRecipients || [],
+      date: cached.date,
+      body: cached.bodyHtml || cached.bodyText || '',
+      attachments: 0,
+    });
+  }
+
   let connection;
   try {
     connection = await getImapConnection(account as any);
     await openMailbox(connection, folder);
-
-    // Ensure UID is a number
-    const uid = parseInt(uidParam, 10);
     
     console.log(`[API] Searching for UID ${uid} in ${folder}`);
 
@@ -76,17 +103,62 @@ export async function GET(req: Request) {
       cc = parsed.cc.text || '';
     }
 
+    const bodyHtml = parsed.html || parsed.textAsHtml || null;
+    const bodyText = parsed.text || null;
+    const body = bodyHtml || bodyText || '';
+    const preview = bodyText
+      ? bodyText.trim().substring(0, 100).replace(/\s+/g, ' ')
+      : body.replace(/<[^>]*>?/gm, ' ').trim().substring(0, 100).replace(/\s+/g, ' ');
+
+    await prisma.emailMessage.upsert({
+      where: {
+        account_folder_uid: {
+          accountId,
+          folder,
+          uid,
+        },
+      },
+      create: {
+        accountId,
+        folder,
+        uid,
+        messageId: null,
+        subject: parsed.subject || null,
+        from: parsed.from?.text || null,
+        to,
+        date: parsed.date || null,
+        preview: preview || null,
+        bodyHtml,
+        bodyText,
+        hasBody: true,
+        toRecipients,
+        ccRecipients,
+      },
+      update: {
+        subject: parsed.subject || null,
+        from: parsed.from?.text || null,
+        to,
+        date: parsed.date || null,
+        preview: preview || null,
+        bodyHtml,
+        bodyText,
+        hasBody: true,
+        toRecipients,
+        ccRecipients,
+      },
+    });
+
     return NextResponse.json({
       uid: messages[0].attributes.uid,
       subject: parsed.subject,
       from: parsed.from?.text,
       to,
       cc,
-      toRecipients, // New structured field
-      ccRecipients, // New structured field
+      toRecipients,
+      ccRecipients,
       date: parsed.date,
-      body: parsed.html || parsed.textAsHtml || parsed.text,
-      attachments: parsed.attachments.length
+      body,
+      attachments: parsed.attachments.length,
     });
   } catch (error: any) {
     console.error('[API] IMAP Body Fetch Error:', error);

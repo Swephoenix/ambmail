@@ -32,6 +32,14 @@ export async function POST(req: Request) {
 
     connection.end();
 
+    await prisma.emailMessage.deleteMany({
+      where: {
+        accountId,
+        folder: folder || 'INBOX',
+        uid: { in: uids },
+      },
+    });
+
     return NextResponse.json({ success: true, deletedCount: uids.length });
   } catch (error: any) {
     console.error('Delete Email Error:', error);

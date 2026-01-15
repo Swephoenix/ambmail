@@ -19,6 +19,9 @@ model Account {
   signature String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  emails    EmailMessage[]
+  syncState MailSyncState[]
 }
 
 model Contact {
@@ -27,4 +30,48 @@ model Contact {
   name      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model EmailMessage {
+  id           String   @id @default(cuid())
+  accountId    String
+  folder       String
+  uid          Int
+  messageId    String?
+  subject      String?
+  from         String?
+  to           String?
+  date         DateTime?
+  flags        String[] @default([])
+  preview      String?
+  inReplyTo    String?
+  references   String?
+  bodyHtml     String?
+  bodyText     String?
+  hasBody      Boolean  @default(false)
+  toRecipients Json?
+  ccRecipients Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, folder, uid], name: "account_folder_uid")
+  @@index([accountId, folder, uid])
+  @@index([accountId, folder, date])
+}
+
+model MailSyncState {
+  id         String   @id @default(cuid())
+  accountId  String
+  folder     String
+  lastUid    Int?
+  lastSyncAt DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, folder], name: "account_folder_sync")
+  @@index([accountId, folder])
 }

@@ -45,6 +45,23 @@ export async function POST(req: Request) {
     
     connection.end();
 
+    await prisma.emailMessage.deleteMany({
+      where: {
+        accountId,
+        folder: sourceFolder,
+        uid: { in: uids },
+      },
+    });
+    await prisma.mailSyncState.updateMany({
+      where: {
+        accountId,
+        folder: targetFolder,
+      },
+      data: {
+        lastSyncAt: null,
+      },
+    });
+
     return NextResponse.json({ 
       success: true, 
       movedCount: uids.length,
