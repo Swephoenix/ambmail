@@ -61,7 +61,7 @@ export default function TiptapEditor({ value, onChange, placeholder, signature }
     immediatelyRender: false,
     editorProps: {
       attributes: {
-        class: 'prose prose-sm sm:prose-base max-w-none focus:outline-none min-h-[250px] p-4 font-serif',
+        class: 'prose prose-sm sm:prose-base prose-p:my-0 max-w-none focus:outline-none min-h-[250px] p-4 font-serif',
       },
     },
     onUpdate: ({ editor }) => {
