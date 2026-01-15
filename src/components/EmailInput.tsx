@@ -16,9 +16,10 @@ interface EmailInputProps {
   className?: string;
   onInputChange?: (value: string) => void;
   inputValue?: string;
+  onKeyDown?: (e: KeyboardEvent<HTMLInputElement>) => void;
 }
 
-export default function EmailInput({ value, onChange, placeholder, className, onInputChange, inputValue: propInputValue }: EmailInputProps) {
+export default function EmailInput({ value, onChange, placeholder, className, onInputChange, inputValue: propInputValue, onKeyDown }: EmailInputProps) {
   const [localInputValue, setInputValue] = useState('');
   const [isProcessingEnter, setIsProcessingEnter] = useState(false);
 
@@ -66,6 +67,12 @@ export default function EmailInput({ value, onChange, placeholder, className, on
 
   // Handle key events
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    if (onKeyDown) {
+      onKeyDown(e);
+      if (e.defaultPrevented) {
+        return;
+      }
+    }
     if (e.key === 'Enter') {
       e.preventDefault();
       if (currentInputValue.trim() && isValidEmail(currentInputValue.trim())) {

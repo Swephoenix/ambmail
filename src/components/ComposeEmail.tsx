@@ -155,6 +155,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
   const [lastSaved, setLastSaved] = useState<number>(Date.now() - 3000); // Initialize to 3 seconds ago to avoid initial trigger
   const [showAutoSaved, setShowAutoSaved] = useState<boolean>(false);
   const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const [isMaximized, setIsMaximized] = useState(false);
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
   const [isSignatureInserted, setIsSignatureInserted] = useState(false);
@@ -330,6 +331,36 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
     }
   }, [inputValue]);
 
+  useEffect(() => {
+    setActiveSuggestionIndex(suggestions.length > 0 ? 0 : -1);
+  }, [suggestions]);
+
+  const selectSuggestion = (suggestion: any) => {
+    if (!to.includes(suggestion.email)) {
+      setTo([...to, suggestion.email]);
+    }
+    setInputValue('');
+    setSuggestions([]);
+    setActiveSuggestionIndex(-1);
+  };
+
+  const handleSuggestionKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (suggestions.length === 0) {
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setActiveSuggestionIndex((prev) => (prev + 1) % suggestions.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveSuggestionIndex((prev) => (prev <= 0 ? suggestions.length - 1 : prev - 1));
+    } else if (e.key === 'Enter' && activeSuggestionIndex >= 0) {
+      e.preventDefault();
+      selectSuggestion(suggestions[activeSuggestionIndex]);
+    }
+  };
+
   const handleSend = async () => {
     if (!to.length || !subject) {
       toast.error('Recipient and subject are required');
@@ -494,23 +525,21 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
                     placeholder="recipient@example.com"
                     inputValue={inputValue}
                     onInputChange={setInputValue}
+                    onKeyDown={handleSuggestionKeyDown}
                   />
                 </div>
               </div>
               {suggestions.length > 0 && (
                 <div className="absolute left-16 right-0 top-full bg-white shadow-lg rounded-lg border border-gray-100 z-50 mt-1 max-h-40 overflow-y-auto">
-                  {suggestions.map((s) => (
+                  {suggestions.map((s, index) => (
                     <button
                       key={s.id}
-                      onClick={() => {
-                        // Add the selected email to the array if it's not already there
-                        if (!to.includes(s.email)) {
-                          setTo([...to, s.email]);
-                        }
-                        setInputValue('');
-                        setSuggestions([]);
-                      }}
-                      className="w-full text-left px-4 py-2 hover:bg-gray-50 text-sm flex justify-between"
+                      onClick={() => selectSuggestion(s)}
+                      onMouseEnter={() => setActiveSuggestionIndex(index)}
+                      className={cn(
+                        "w-full text-left px-4 py-2 text-sm flex justify-between",
+                        index === activeSuggestionIndex ? "bg-gray-100" : "hover:bg-gray-50"
+                      )}
                     >
                       <span className="font-medium">{s.name}</span>
                       <span className="text-gray-400">{s.email}</span>
