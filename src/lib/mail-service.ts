@@ -26,7 +26,7 @@ export async function getImapConnection(account: MailAccount) {
       port: account.imapPort,
       tls: true,
       authTimeout: 3000,
-      tlsOptions: { rejectUnauthorized: true } 
+      tlsOptions: { rejectUnauthorized: true, minVersion: 'TLSv1.2' }
     }
   };
 
@@ -40,12 +40,14 @@ export async function getSmtpTransporter(account: MailAccount) {
     host: account.smtpHost,
     port: account.smtpPort,
     secure: account.smtpPort === 465, // true for 465, false for other ports
+    requireTLS: true,
     auth: {
       user: account.email,
       pass: decrypt(account.password), // Changed from 'password' to 'pass'
     },
     tls: {
-      rejectUnauthorized: true
+      rejectUnauthorized: true,
+      minVersion: 'TLSv1.2'
     }
   } as any); // Use any to bypass strict type checking for this simple implementation
 }

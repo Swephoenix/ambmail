@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Reply, ReplyAll, Forward, Trash2, MoreHorizontal, FolderInput, User, ChevronDown, ChevronUp } from 'lucide-react';
+import { Reply, ReplyAll, Forward, Trash2, MoreHorizontal, FolderInput, User, ChevronDown, ChevronUp, File, FileArchive, FileImage, FileSpreadsheet, FileText } from 'lucide-react';
 
 interface MailViewProps {
   email: any | null;
@@ -17,6 +17,13 @@ interface MailViewProps {
 interface Recipient {
   name: string;
   address: string;
+}
+
+interface AttachmentMeta {
+  filename: string;
+  contentType?: string;
+  size?: number;
+  contentId?: string | null;
 }
 
 function parseAddress(input: string): Recipient {
@@ -48,6 +55,19 @@ export default function MailView({
   onComposeTo = () => {}
 }: MailViewProps) {
   const [showAllRecipients, setShowAllRecipients] = useState(false);
+  const [expandedAttachments, setExpandedAttachments] = useState<number[]>([]);
+
+  const formatBytes = (bytes?: number) => {
+    if (!bytes || bytes <= 0) return '';
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let value = bytes;
+    let unitIndex = 0;
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024;
+      unitIndex += 1;
+    }
+    return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+  };
 
   if (isLoading) {
     return (
@@ -78,6 +98,32 @@ export default function MailView({
   const recipients: Recipient[] = email.toRecipients || parseRecipients(email.to || '');
   const displayRecipients = showAllRecipients ? recipients : recipients.slice(0, 3);
   const remainingCount = recipients.length - 3;
+  const attachments: AttachmentMeta[] = email.attachments || [];
+  const toggleAttachment = (index: number) => {
+    setExpandedAttachments(prev =>
+      prev.includes(index) ? prev.filter(item => item !== index) : [...prev, index]
+    );
+  };
+
+  const attachmentTotals = attachments.reduce((total, attachment) => {
+    return total + (attachment.size || 0);
+  }, 0);
+
+  const isPreviewable = (contentType?: string) => {
+    if (!contentType) return false;
+    return contentType.startsWith('image/') || contentType === 'application/pdf';
+  };
+
+  const getAttachmentIcon = (contentType?: string) => {
+    if (!contentType) return <File size={20} />;
+    if (contentType.startsWith('image/')) return <FileImage size={20} />;
+    if (contentType === 'application/pdf' || contentType.startsWith('text/')) return <FileText size={20} />;
+    if (contentType.includes('spreadsheet') || contentType.includes('excel') || contentType.includes('csv')) {
+      return <FileSpreadsheet size={20} />;
+    }
+    if (contentType.includes('zip') || contentType.includes('compressed')) return <FileArchive size={20} />;
+    return <File size={20} />;
+  };
 
   return (
     <div className="flex-1 flex flex-col h-full bg-white overflow-hidden">
@@ -177,6 +223,70 @@ export default function MailView({
             </div>
           </div>
         </div>
+
+        {attachments.length > 0 && (
+          <div className="mb-8 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-gray-700">
+                Attachments ({attachments.length})
+              </h3>
+              {attachmentTotals > 0 ? (
+                <span className="text-xs text-gray-500">{formatBytes(attachmentTotals)}</span>
+              ) : null}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {attachments.map((attachment, index) => (
+                <div key={index} className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-lg bg-gray-100 text-gray-600 flex items-center justify-center">
+                      {getAttachmentIcon(attachment.contentType)}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-semibold text-gray-900 truncate">
+                        {attachment.filename || `attachment-${index}`}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {attachment.contentType || 'Unknown type'}
+                        {attachment.size ? ` • ${formatBytes(attachment.size)}` : ''}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {isPreviewable(attachment.contentType) && (
+                      <button
+                        onClick={() => toggleAttachment(index)}
+                        className="text-xs font-semibold text-blue-600 hover:text-blue-800 px-3 py-1.5 rounded-md bg-blue-50 hover:bg-blue-100 transition-colors"
+                      >
+                        {expandedAttachments.includes(index) ? 'Hide preview' : 'Preview'}
+                      </button>
+                    )}
+                    <a
+                      href={`/api/mail/attachment?accountId=${encodeURIComponent(email.accountId)}&folder=${encodeURIComponent(email.folder)}&uid=${email.uid}&index=${index}`}
+                      className="text-xs font-semibold text-gray-700 hover:text-gray-900 px-3 py-1.5 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors"
+                    >
+                      Download
+                    </a>
+                  </div>
+                  {expandedAttachments.includes(index) && attachment.contentType?.startsWith('image/') && (
+                    <img
+                      src={`/api/mail/attachment?accountId=${encodeURIComponent(email.accountId)}&folder=${encodeURIComponent(email.folder)}&uid=${email.uid}&index=${index}&inline=1`}
+                      alt={attachment.filename || `attachment-${index}`}
+                      className="max-w-full max-h-96 rounded-lg border border-gray-200"
+                      loading="lazy"
+                    />
+                  )}
+                  {expandedAttachments.includes(index) && attachment.contentType === 'application/pdf' && (
+                    <iframe
+                      src={`/api/mail/attachment?accountId=${encodeURIComponent(email.accountId)}&folder=${encodeURIComponent(email.folder)}&uid=${email.uid}&index=${index}&inline=1`}
+                      title={attachment.filename || `attachment-${index}`}
+                      className="w-full h-96 rounded-lg border border-gray-200"
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="prose max-w-none text-gray-800 leading-relaxed">
           {/* In a real app we'd handle HTML/Sanitization */}

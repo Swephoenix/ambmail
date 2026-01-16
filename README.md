@@ -29,7 +29,7 @@ cd Uxmail
 npm install
 ```
 
-3. Skapa en `.env`-fil baserat på `.env.example`:
+3. Skapa en `.env`-fil baserat på `.env.example` (inklusive `ENCRYPTION_KEY` och Basic Auth):
 ```bash
 cp .env.example .env
 ```
@@ -63,6 +63,17 @@ Projektet är byggt med:
 - Tailwind CSS
 - Lucide React (ikoner)
 - Tiptap (rich text editor)
+
+## Säkerhet (rekommenderat)
+
+- Krypteringsnyckel hämtas från `ENCRYPTION_KEY` eller skapas automatiskt i `.uxmail.key`.
+- Aktivera Basic Auth genom att sätta `BASIC_AUTH_USER` och `BASIC_AUTH_PASSWORD`.
+- Kör databasen endast på localhost (docker-compose är bundet till `127.0.0.1`).
+
+## Bakgrundssynk
+
+- `start_uxmail.sh` startar en bakgrundsworker som synkar alla mappar till databasen.
+- Frontend läser främst från cache i DB och påverkas mindre av IMAP-latens.
 
 ## Deployment
 

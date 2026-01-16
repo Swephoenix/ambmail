@@ -33,7 +33,7 @@ export async function GET(req: Request) {
     },
   });
 
-  if (cached?.hasBody) {
+  if (cached?.hasBody && cached.attachments !== null) {
     return NextResponse.json({
       uid: cached.uid,
       subject: cached.subject,
@@ -44,7 +44,7 @@ export async function GET(req: Request) {
       ccRecipients: cached.ccRecipients || [],
       date: cached.date,
       body: cached.bodyHtml || cached.bodyText || '',
-      attachments: 0,
+      attachments: cached.attachments || [],
     });
   }
 
@@ -110,6 +110,13 @@ export async function GET(req: Request) {
       ? bodyText.trim().substring(0, 100).replace(/\s+/g, ' ')
       : body.replace(/<[^>]*>?/gm, ' ').trim().substring(0, 100).replace(/\s+/g, ' ');
 
+    const attachmentsMeta = parsed.attachments.map((attachment) => ({
+      filename: attachment.filename || 'attachment',
+      contentType: attachment.contentType,
+      size: attachment.size,
+      contentId: attachment.contentId || null,
+    }));
+
     await prisma.emailMessage.upsert({
       where: {
         account_folder_uid: {
@@ -131,6 +138,7 @@ export async function GET(req: Request) {
         bodyHtml,
         bodyText,
         hasBody: true,
+        attachments: attachmentsMeta,
         toRecipients,
         ccRecipients,
       },
@@ -143,6 +151,7 @@ export async function GET(req: Request) {
         bodyHtml,
         bodyText,
         hasBody: true,
+        attachments: attachmentsMeta,
         toRecipients,
         ccRecipients,
       },
@@ -158,7 +167,7 @@ export async function GET(req: Request) {
       ccRecipients,
       date: parsed.date,
       body,
-      attachments: parsed.attachments.length,
+      attachments: attachmentsMeta,
     });
   } catch (error: any) {
     console.error('[API] IMAP Body Fetch Error:', error);

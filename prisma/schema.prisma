@@ -49,6 +49,7 @@ model EmailMessage {
   bodyHtml     String?
   bodyText     String?
   hasBody      Boolean  @default(false)
+  attachments Json?
   toRecipients Json?
   ccRecipients Json?
   createdAt    DateTime @default(now())

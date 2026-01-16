@@ -45,39 +45,6 @@ export default function Home() {
   const [emailCache, setEmailCache] = useState<Record<string, {data: any[], timestamp: number}>>({});
   const EMAIL_LIST_CACHE_DURATION = 2 * 60 * 1000; // 2 minutes
 
-  // Function to fetch and cache emails for all accounts and folders
-  const fetchAndCacheAllEmails = async (accounts: Account[]) => {
-    // Define the folders we want to pre-fetch for each account
-    const foldersToFetch = ['INBOX', 'Drafts', 'Sent', 'Utkast', 'Skickat']; // Common folder names
-
-    // Process each account and folder combination
-    const fetchPromises = accounts.flatMap(account =>
-      foldersToFetch.map(async (folder) => {
-        const cacheKey = `${account.id}-${folder}-list`; // Fixed to 'list' mode only
-
-        // Only fetch if not already cached or cache is expired
-        if (!emailCache[cacheKey] || (Date.now() - emailCache[cacheKey].timestamp) >= EMAIL_LIST_CACHE_DURATION) {
-          try {
-            const res = await fetch(`/api/mail?accountId=${account.id}&folder=${encodeURIComponent(folder)}&view=list`);
-            const data = await res.json();
-            if (!data.error) {
-              // Update cache with fetched data
-              setEmailCache(prev => ({
-                ...prev,
-                [cacheKey]: { data, timestamp: Date.now() }
-              }));
-            }
-          } catch (error) {
-            console.error(`Failed to fetch emails for account ${account.id}, folder ${folder}:`, error);
-          }
-        }
-      })
-    );
-
-    // Wait for all fetch operations to complete
-    await Promise.all(fetchPromises);
-  };
-
   const fetchAccounts = async (forceRefresh = false) => {
     // Check if we have cached data that's still valid, unless forceRefresh is true
     if (!forceRefresh && accountsCache && (Date.now() - accountsCache.timestamp) < ACCOUNTS_CACHE_DURATION) {
@@ -138,6 +105,8 @@ export default function Home() {
       const res = await fetch(`/api/mail/body?accountId=${accountId}&uid=${uid}&folder=${encodeURIComponent(activeFolder)}`);
       const data = await res.json();
       if (data.error) throw new Error(data.error);
+      data.accountId = accountId;
+      data.folder = activeFolder;
 
       // Check if we are in Drafts folder (using common IDs)
       if (activeFolder === 'Drafts' || activeFolder === 'Utkast') {
@@ -500,10 +469,6 @@ export default function Home() {
       // Fetch accounts first
       const accountsData = await fetchAccounts();
 
-      // If we have accounts, start pre-fetching emails for all accounts and common folders
-      if (accountsData && accountsData.length > 0) {
-        await fetchAndCacheAllEmails(accountsData);
-      }
     };
 
     initializeApp();
@@ -951,8 +916,6 @@ export default function Home() {
                 // Fetch emails for the new account's INBOX
                 await fetchEmails(newAccount.id, 'INBOX');
 
-                // Update the cache for all folders of the new account
-                await fetchAndCacheAllEmails([newAccount]);
               }
             }}
           />

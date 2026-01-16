@@ -48,21 +48,28 @@ if [ ! -f .env ]; then
   fi
 fi
 
+set -a
+source ./.env
+set +a
+
 echo "Installing dependencies..."
 npm install
 
 echo "Starting database..."
 $COMPOSE up -d postgres
 
+DB_USER="${POSTGRES_USER:-uxmail}"
+DB_NAME="${POSTGRES_DB:-uxmail_db}"
+
 echo "Waiting for database to be ready..."
 for _ in {1..30}; do
-  if docker exec uxmail_postgres pg_isready -U uxmail -d uxmail_db >/dev/null 2>&1; then
+  if docker exec uxmail_postgres pg_isready -U "$DB_USER" -d "$DB_NAME" >/dev/null 2>&1; then
     break
   fi
   sleep 1
 done
 
-if ! docker exec uxmail_postgres pg_isready -U uxmail -d uxmail_db >/dev/null 2>&1; then
+if ! docker exec uxmail_postgres pg_isready -U "$DB_USER" -d "$DB_NAME" >/dev/null 2>&1; then
   echo "Database is not ready. Check docker logs for uxmail_postgres."
   exit 1
 fi
@@ -73,6 +80,16 @@ if [ -x ./node_modules/.bin/prisma ]; then
 else
   npx -y prisma@5.15.0 db push
 fi
+
+echo "Starting background sync worker..."
+if [ -x ./node_modules/.bin/ts-node ]; then
+  ./node_modules/.bin/ts-node scripts/sync-worker.ts &
+  WORKER_PID=$!
+else
+  npx -y ts-node scripts/sync-worker.ts &
+  WORKER_PID=$!
+fi
+trap 'kill $WORKER_PID 2>/dev/null' EXIT
 
 echo "Starting app server (frontend + backend)..."
 npm run dev

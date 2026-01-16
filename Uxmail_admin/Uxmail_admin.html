@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UXPortal Enterprise - Complete</title>
+    <style>
+        :root {
+            --bg: #f0f4f8;
+            --sidebar-bg: #ffffff;
+            --card-bg: #ffffff;
+            --text: #1e293b;
+            --text-light: #64748b;
+            --primary: #2563eb; 
+            --primary-hover: #1d4ed8;
+            --primary-light: #eff6ff;
+            --border: #cbd5e1;
+            --danger: #ef4444;
+            --danger-bg: #fef2f2;
+            --font: 'Inter', system-ui, -apple-system, sans-serif;
+            --header-height: 70px;
+            --sidebar-width: 280px;
+            --radius: 10px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: var(--font); background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; display: flex; -webkit-font-smoothing: antialiased; }
+
+        .hidden { display: none !important; }
+        .flex { display: flex; gap: 0.8rem; align-items: center; }
+        .flex-between { display: flex; justify-content: space-between; align-items: center; }
+        .icon { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+        /* SIDEBAR (ORGANISATIONS-NAVIGERING) */
+        #sidebar { width: var(--sidebar-width); background: var(--sidebar-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; height: 100vh; z-index: 100; }
+        .brand { padding: 1.5rem; font-size: 1.4rem; font-weight: 800; color: var(--primary); letter-spacing: -1px; border-bottom: 1px solid var(--border); height: var(--header-height); display: flex; align-items: center; }
+        
+        .nav-scroll { flex: 1; overflow-y: auto; padding: 1rem; }
+        .nav-label { font-size: 0.7rem; font-weight: 700; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.05em; margin: 1.5rem 0 0.5rem 0.5rem; }
+        .nav-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0.7rem 1rem; margin-bottom: 4px; border-radius: 8px;
+            cursor: pointer; color: var(--text-light); font-size: 0.9rem; font-weight: 500; transition: all 0.2s;
+        }
+        .nav-item:hover { background: var(--primary-light); color: var(--primary); }
+        .nav-item.active { background: var(--primary); color: white; box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2); }
+        .badge { background: #e2e8f0; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem; color: #475569; }
+        .nav-item.active .badge { background: rgba(255,255,255,0.2); color: white; }
+
+        /* MAIN AREA */
+        #main-content { flex: 1; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+        /* HEADER */
+        header { height: var(--header-height); background: white; border-bottom: 1px solid var(--border); padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+        .search-wrapper { position: relative; width: 350px; }
+        .search-wrapper input { width: 100%; padding: 10px 10px 10px 40px; border: 1px solid var(--border); border-radius: 25px; font-size: 0.9rem; background: #f1f5f9; outline: none; transition: all 0.2s; }
+        .search-wrapper input:focus { background: white; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+        .search-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); color: var(--text-light); }
+
+        /* LIST & TABLE */
+        .content-scroll { padding: 2rem; overflow-y: auto; flex: 1; }
+        .list-container { background: white; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden; }
+        
+        .list-header { 
+            display: grid; grid-template-columns: 50px 2fr 1.5fr 2fr 100px; gap: 1rem;
+            padding: 1rem 1.5rem; background: #f8fafc; border-bottom: 1px solid var(--border);
+            font-size: 0.75rem; font-weight: 700; color: var(--text-light); text-transform: uppercase;
+        }
+
+        .list-row {
+            display: grid; grid-template-columns: 50px 2fr 1.5fr 2fr 100px; gap: 1rem; align-items: center;
+            padding: 0.9rem 1.5rem; border-bottom: 1px solid var(--border); transition: all 0.1s;
+        }
+        .list-row:last-child { border-bottom: none; }
+        .list-row:hover { background: #fdfdfd; }
+        .list-row.selected { background: var(--primary-light); }
+
+        .user-info { font-weight: 600; color: var(--text); }
+        .user-sub { font-size: 0.8rem; color: var(--text-light); font-weight: 400; }
+        .tag { font-size: 0.75rem; background: #eff6ff; color: var(--primary); padding: 2px 8px; border-radius: 4px; border: 1px solid #dbeafe; font-weight: 500; }
+
+        /* PAGINATION */
+        .pagination { display: flex; justify-content: center; gap: 0.4rem; margin: 2rem 0; }
+        .page-btn { min-width: 34px; height: 34px; background: white; border: 1px solid var(--border); border-radius: 6px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 0.85rem; font-weight: 500; }
+        .page-btn:hover { border-color: var(--primary); color: var(--primary); }
+        .page-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .page-btn.disabled { opacity: 0.3; cursor: not-allowed; }
+
+        /* BUTTONS */
+        .btn { padding: 0.6rem 1.2rem; border-radius: 6px; border: 1px solid transparent; font-weight: 500; cursor: pointer; display: inline-flex; align-items: center; gap: 0.5rem; font-size: 0.9rem; transition: all 0.2s; }
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
+        .btn-outline { background: white; border: 1px solid var(--border); color: var(--text); }
+        .btn-outline:hover { background: #f8fafc; border-color: #94a3b8; }
+        .btn-danger-text { color: var(--danger); font-size: 0.85rem; font-weight: 600; background: none; border: none; cursor: pointer; }
+        .btn-danger-text:hover { text-decoration: underline; }
+
+        /* MODALS */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 200; }
+        .modal { background: white; width: 100%; max-width: 650px; padding: 2.5rem; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); max-height: 90vh; overflow-y: auto; }
+        
+        /* EDITOR ELEMENTS */
+        .acc-box { background: #f8fafc; border: 1px solid var(--border); padding: 1.2rem; border-radius: 10px; margin-bottom: 1rem; position: relative; }
+        .pass-group { position: relative; display: flex; align-items: center; }
+        .eye-toggle { position: absolute; right: 10px; cursor: pointer; color: var(--text-light); }
+        input[type="text"], input[type="password"], input[type="email"] { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 8px; outline: none; font-size: 0.9rem; }
+        input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-light); }
+        label { font-size: 0.75rem; font-weight: 700; color: var(--text-light); display: block; margin-bottom: 4px; text-transform: uppercase; }
+
+        /* TOAST & UNDO */
+        #toast {
+            position: fixed; bottom: 30px; right: 30px; background: #1e293b; color: white; padding: 14px 24px;
+            border-radius: 50px; transform: translateY(150px); transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+            z-index: 300; display: flex; align-items: center; gap: 1rem; box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        .undo-link { color: #60a5fa; font-weight: 700; cursor: pointer; border: none; background: none; font-size: 0.9rem; }
+
+        /* LOGIN SCREEN */
+        #login-screen { position: fixed; inset: 0; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); z-index: 999; display: flex; justify-content: center; align-items: center; }
+        .login-card { width: 380px; padding: 3rem; background: #fff; border-radius: 20px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); text-align: center; }
+
+    </style>
+</head>
+<body>
+
+    <!-- LOGIN -->
+    <div id="login-screen">
+        <div class="login-card">
+            <h1 style="color: var(--primary); font-weight: 800; margin-bottom: 0.5rem; font-size: 2rem;">UXPortal</h1>
+            <p style="color:var(--text-light); margin-bottom: 2.5rem;">Enterprise Administration</p>
+            <form onsubmit="event.preventDefault(); login();">
+                <input type="text" id="l-user" placeholder="Användarnamn (admin)">
+                <input type="password" id="l-pass" placeholder="Lösenord (admin)">
+                <button class="btn btn-primary" style="width: 100%; justify-content: center; padding: 0.8rem; margin-top: 1rem;">Logga in</button>
+            </form>
+            <p id="login-err" class="hidden" style="color:var(--danger); font-size:0.85rem; margin-top:1.5rem;">Fel användarnamn eller lösenord.</p>
+        </div>
+    </div>
+
+    <!-- APP -->
+    <div id="app" class="hidden" style="width:100%; display:flex;">
+        
+        <!-- SIDEBAR -->
+        <div id="sidebar">
+            <div class="brand">UXPortal</div>
+            <div class="nav-scroll">
+                <div class="nav-item" id="nav-all" onclick="applyFilter('All')">
+                    <span>Alla anställda</span>
+                    <span class="badge" id="badge-all">0</span>
+                </div>
+                <div class="nav-label">Avdelningar</div>
+                <div id="dept-list"></div>
+            </div>
+            <div style="padding: 1.5rem; border-top: 1px solid var(--border);">
+                <button class="btn btn-outline" style="width: 100%; justify-content: center; border-radius: 20px;" onclick="logout()">Logga ut</button>
+            </div>
+        </div>
+
+        <!-- MAIN -->
+        <div id="main-content">
+            <header>
+                <div class="search-wrapper">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="search-input" placeholder="Sök bland anställda..." onkeyup="handleSearch()">
+                </div>
+                <div class="flex">
+                    <div id="bulk-actions" class="hidden flex" style="background: #fef2f2; padding: 6px 15px; border-radius: 20px; border: 1px solid #fee2e2;">
+                        <span style="font-size:0.85rem; font-weight:700; color:var(--danger);"><span id="sel-count">0</span> valda</span>
+                        <button class="btn-danger-text" onclick="deleteSelected()" style="margin-left:10px;">Radera</button>
+                    </div>
+                    <button class="btn btn-outline" onclick="toggleModal('csv-modal')">Importera CSV</button>
+                    <button class="btn btn-primary" onclick="openEditor()">+ Ny profil</button>
+                </div>
+            </header>
+
+            <div class="content-scroll">
+                <div class="flex-between" style="margin-bottom: 1.5rem;">
+                    <div>
+                        <h2 id="view-title" style="font-size: 1.6rem; font-weight: 800; letter-spacing: -0.5px;">Alla anställda</h2>
+                        <p style="color: var(--text-light); font-size: 0.9rem;">Visar <span id="showing-range">0-0</span> av <span id="total-count">0</span></p>
+                    </div>
+                </div>
+
+                <div class="list-container">
+                    <div class="list-header">
+                        <div><input type="checkbox" id="select-all" onchange="toggleSelectAll(this)"></div>
+                        <div>Namn & Roll</div>
+                        <div>Avdelning</div>
+                        <div>Mejlkonton</div>
+                        <div style="text-align:right;">Åtgärd</div>
+                    </div>
+                    <div id="rows-container"></div>
+                </div>
+
+                <div class="pagination" id="pagination"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CSV MODAL -->
+    <div id="csv-modal" class="modal-overlay hidden">
+        <div class="modal" style="text-align: center;">
+            <h3 style="margin-bottom: 1rem;">Massimportera via CSV</h3>
+            <p style="color:var(--text-light); font-size: 0.9rem; margin-bottom: 1.5rem;">Format: Namn, Avdelning, E-post, Lösenord, IMAP, SMTP</p>
+            <button class="btn-danger-text" style="color:var(--primary); margin-bottom: 2rem; display: block; width: 100%;" onclick="downloadTemplate()">📥 Ladda ner CSV-mall</button>
+            <div style="border: 2px dashed var(--border); padding: 3rem; border-radius: 12px; cursor: pointer; background: #fafafa;" onclick="document.getElementById('csv-file').click()">
+                <input type="file" id="csv-file" class="hidden" onchange="handleCSVImport()">
+                <div id="csv-status" style="color:var(--text-light); font-weight: 500;">Klicka här för att välja fil</div>
+            </div>
+            <div class="flex" style="justify-content: center; margin-top: 2rem;">
+                <button class="btn btn-outline" onclick="toggleModal('csv-modal')">Avbryt</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- EDITOR MODAL -->
+    <div id="editor-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <h3 id="ed-title" style="margin-bottom: 2rem; font-size: 1.5rem; color: var(--primary);">Redigera profil</h3>
+            <div class="grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                <div><label>Namn</label><input type="text" id="ed-name" placeholder="Fullständigt namn"></div>
+                <div><label>Avdelning</label><input type="text" id="ed-dept" placeholder="T.ex. IT, Sälj..."></div>
+            </div>
+            <label>Mejlkonton</label>
+            <div id="ed-accounts-list"></div>
+            <button class="btn btn-outline" style="width:100%; justify-content: center; border-style: dashed; margin-bottom: 2rem;" onclick="addAccRow()">+ Lägg till ytterligare konto</button>
+            
+            <div class="flex-between" style="border-top: 1px solid var(--border); padding-top: 2rem;">
+                <button class="btn-danger-text" id="btn-del-single" onclick="deleteCurrent()">Radera hela profilen</button>
+                <div class="flex">
+                    <button class="btn btn-outline" onclick="toggleModal('editor-modal')">Avbryt</button>
+                    <button class="btn btn-primary" onclick="saveProfile()">Spara ändringar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TOAST -->
+    <div id="toast">
+        <span id="toast-msg">Profil sparad</span>
+        <button id="undo-btn" class="undo-link hidden" onclick="triggerUndo()">Ångra</button>
+    </div>
+
+    <script>
+        // --- STATE ---
+        let allProfiles = [];
+        let filteredProfiles = [];
+        let currentPage = 1;
+        const itemsPerPage = 50;
+        let currentFilter = 'All';
+        let currentEditingId = null;
+        let lastDeletedState = null;
+
+        // --- AUTH ---
+        if(localStorage.getItem('ux_ent_auth') === 'true') {
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('app').classList.remove('hidden');
+            loadData();
+        }
+
+        function login() {
+            const u = document.getElementById('l-user').value;
+            const p = document.getElementById('l-pass').value;
+            if(u === 'admin' && p === 'admin') {
+                localStorage.setItem('ux_ent_auth', 'true');
+                location.reload();
+            } else { document.getElementById('login-err').classList.remove('hidden'); }
+        }
+        function logout() { localStorage.removeItem('ux_ent_auth'); location.reload(); }
+
+        // --- DATA & PERSISTENCE ---
+        function loadData() {
+            const d = localStorage.getItem('ux_ent_data');
+            if(d) allProfiles = JSON.parse(d);
+            applyFilter('All');
+        }
+        function saveData() {
+            localStorage.setItem('ux_ent_data', JSON.stringify(allProfiles));
+            renderSidebar();
+            applyFilter(currentFilter);
+        }
+
+        // --- FILTER & ENGINE ---
+        function applyFilter(dept) {
+            currentFilter = dept;
+            const term = document.getElementById('search-input').value.toLowerCase();
+            
+            let temp = (dept === 'All') ? allProfiles : allProfiles.filter(p => p.department === dept);
+            
+            if(term) {
+                temp = temp.filter(p => 
+                    p.name.toLowerCase().includes(term) || 
+                    (p.department && p.department.toLowerCase().includes(term)) ||
+                    p.accounts.some(a => a.email.toLowerCase().includes(term))
+                );
+            }
+            
+            filteredProfiles = temp;
+            currentPage = 1;
+            renderList();
+            renderSidebar();
+        }
+
+        function handleSearch() { applyFilter(currentFilter); }
+
+        // --- RENDERING ---
+        function renderSidebar() {
+            const container = document.getElementById('dept-list');
+            const counts = allProfiles.reduce((acc, p) => {
+                const d = p.department || 'Övrigt';
+                acc[d] = (acc[d] || 0) + 1;
+                return acc;
+            }, {});
+
+            document.getElementById('badge-all').innerText = allProfiles.length;
+            document.getElementById('nav-all').className = currentFilter === 'All' ? 'nav-item active' : 'nav-item';
+
+            container.innerHTML = Object.keys(counts).sort().map(dept => `
+                <div class="nav-item ${currentFilter === dept ? 'active' : ''}" onclick="applyFilter('${dept}')">
+                    <span>${escapeHtml(dept)}</span>
+                    <span class="badge">${counts[dept]}</span>
+                </div>
+            `).join('');
+        }
+
+        function renderList() {
+            const container = document.getElementById('rows-container');
+            const total = filteredProfiles.length;
+            document.getElementById('view-title').innerText = currentFilter === 'All' ? 'Alla anställda' : currentFilter;
+
+            if(total === 0) {
+                container.innerHTML = '<div style="padding:4rem; text-align:center; color:#999;">Inga anställda matchar filtret.</div>';
+                document.getElementById('pagination').innerHTML = '';
+                document.getElementById('showing-range').innerText = "0";
+                document.getElementById('total-count').innerText = "0";
+                return;
+            }
+
+            const start = (currentPage - 1) * itemsPerPage;
+            const pageData = filteredProfiles.slice(start, start + itemsPerPage);
+            
+            document.getElementById('showing-range').innerText = `${start + 1}-${Math.min(start + itemsPerPage, total)}`;
+            document.getElementById('total-count').innerText = total;
+
+            container.innerHTML = pageData.map(p => `
+                <div class="list-row">
+                    <div><input type="checkbox" class="row-chk" value="${p.id}" onchange="updateBulkUI()"></div>
+                    <div class="user-info">
+                        <div>${escapeHtml(p.name)}</div>
+                        <div class="user-sub">${p.accounts.length} konton</div>
+                    </div>
+                    <div><span class="tag">${escapeHtml(p.department || 'Övrigt')}</span></div>
+                    <div style="font-size:0.85rem; color:#666; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
+                        ${p.accounts.map(a => a.email).join(', ')}
+                    </div>
+                    <div style="text-align:right;">
+                        <button class="btn-outline btn" style="padding:4px 10px; font-size:0.75rem;" onclick="openEditor('${p.id}')">Hantera</button>
+                    </div>
+                </div>
+            `).join('');
+
+            renderPagination(total);
+        }
+
+        function renderPagination(total) {
+            const pages = Math.ceil(total / itemsPerPage);
+            if(pages <= 1) { document.getElementById('pagination').innerHTML = ''; return; }
+            
+            let html = `<div class="page-btn ${currentPage===1?'disabled':''}" onclick="changePage(${currentPage-1})">‹</div>`;
+            for(let i=1; i<=pages; i++) {
+                if(i==1 || i==pages || (i >= currentPage-1 && i <= currentPage+1)) {
+                    html += `<div class="page-btn ${i===currentPage?'active':''}" onclick="changePage(${i})">${i}</div>`;
+                } else if (i == currentPage-2 || i == currentPage+2) {
+                    html += `<div style="padding:5px">...</div>`;
+                }
+            }
+            html += `<div class="page-btn ${currentPage===pages?'disabled':''}" onclick="changePage(${currentPage+1})">›</div>`;
+            document.getElementById('pagination').innerHTML = html;
+        }
+
+        function changePage(p) { if(p > 0 && p <= Math.ceil(filteredProfiles.length/itemsPerPage)) { currentPage = p; renderList(); } }
+
+        // --- BULK ---
+        function toggleSelectAll(src) {
+            document.querySelectorAll('.row-chk').forEach(c => c.checked = src.checked);
+            updateBulkUI();
+        }
+        function updateBulkUI() {
+            const count = document.querySelectorAll('.row-chk:checked').length;
+            const bar = document.getElementById('bulk-actions');
+            bar.className = count > 0 ? 'flex' : 'hidden';
+            document.getElementById('sel-count').innerText = count;
+        }
+        function deleteSelected() {
+            const ids = Array.from(document.querySelectorAll('.row-chk:checked')).map(c => c.value);
+            if(!confirm(`Radera ${ids.length} profiler?`)) return;
+            lastDeletedState = JSON.parse(JSON.stringify(allProfiles));
+            allProfiles = allProfiles.filter(p => !ids.includes(p.id.toString()));
+            saveData(); showToast(`Raderade ${ids.length} profiler`, true);
+        }
+
+        // --- EDITOR ---
+        function openEditor(id=null) {
+            currentEditingId = id;
+            const list = document.getElementById('ed-accounts-list');
+            list.innerHTML = '';
+            if(id) {
+                const p = allProfiles.find(x => x.id == id);
+                document.getElementById('ed-name').value = p.name;
+                document.getElementById('ed-dept').value = p.department || '';
+                p.accounts.forEach(a => addAccRow(a));
+                document.getElementById('btn-del-single').classList.remove('hidden');
+            } else {
+                document.getElementById('ed-name').value = '';
+                document.getElementById('ed-dept').value = '';
+                addAccRow();
+                document.getElementById('btn-del-single').classList.add('hidden');
+            }
+            toggleModal('editor-modal');
+        }
+
+        function addAccRow(d={email:'',pass:'',imap:'',smtp:''}) {
+            const div = document.createElement('div');
+            div.className = 'acc-box';
+            div.innerHTML = `
+                <div style="position:absolute; right:12px; top:12px; cursor:pointer; color:red; font-size:0.8rem;" onclick="this.parentElement.remove()">TA BORT</div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                    <div><label>E-post</label><input type="email" class="i-email" value="${d.email}"></div>
+                    <div><label>Lösenord</label>
+                        <div class="pass-group">
+                            <input type="password" class="i-pass" value="${d.pass}">
+                            <span class="eye-toggle" onclick="togglePass(this)">👁️</span>
+                        </div>
+                    </div>
+                </div>
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                    <div><label>IMAP</label><input type="text" class="i-imap" value="${d.imap}"></div>
+                    <div><label>SMTP</label><input type="text" class="i-smtp" value="${d.smtp}"></div>
+                </div>
+            `;
+            document.getElementById('ed-accounts-list').appendChild(div);
+        }
+
+        function togglePass(el) {
+            const inp = el.previousElementSibling;
+            inp.type = inp.type === 'password' ? 'text' : 'password';
+        }
+
+        function saveProfile() {
+            const name = document.getElementById('ed-name').value;
+            const dept = document.getElementById('ed-dept').value;
+            const rows = document.querySelectorAll('.acc-box');
+            let accs = [];
+            rows.forEach(r => {
+                const email = r.querySelector('.i-email').value;
+                if(email) accs.push({
+                    email, pass: r.querySelector('.i-pass').value,
+                    imap: r.querySelector('.i-imap').value, smtp: r.querySelector('.i-smtp').value
+                });
+            });
+            if(!name) return alert("Namn krävs");
+            if(currentEditingId) {
+                const p = allProfiles.find(x => x.id == currentEditingId);
+                p.name = name; p.department = dept; p.accounts = accs;
+            } else {
+                allProfiles.push({ id: Date.now(), name, department: dept, accounts: accs });
+            }
+            saveData(); toggleModal('editor-modal'); showToast("Profil sparad");
+        }
+
+        function deleteCurrent() {
+            if(!confirm("Radera profil?")) return;
+            lastDeletedState = JSON.parse(JSON.stringify(allProfiles));
+            allProfiles = allProfiles.filter(x => x.id != currentEditingId);
+            saveData(); toggleModal('editor-modal'); showToast("Profil raderad", true);
+        }
+
+        // --- CSV & TOAST ---
+        function handleCSVImport() {
+            const f = document.getElementById('csv-file').files[0];
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                let text = e.target.result;
+                if(text.charCodeAt(0) === 0xFEFF) text = text.substr(1);
+                const rows = text.split(/\r\n|\n/);
+                const sep = (rows[0].match(/;/g)||[]).length > (rows[0].match(/,/g)||[]).length ? ';' : ',';
+                let count = 0;
+                rows.forEach((row, i) => {
+                    if(i===0 || !row.trim()) return;
+                    const c = row.split(sep).map(x => x.trim().replace(/^"|"$/g, ''));
+                    if(c.length >= 6) {
+                        const acc = { email: c[2], pass: c[3], imap: c[4], smtp: c[5] };
+                        let ex = allProfiles.find(p => p.name.toLowerCase() === c[0].toLowerCase());
+                        if(ex) { 
+                            if(!ex.accounts.some(a=>a.email===acc.email)) ex.accounts.push(acc);
+                            ex.department = c[1] || ex.department;
+                        } else { allProfiles.push({ id: Date.now()+Math.random(), name: c[0], department: c[1], accounts: [acc] }); }
+                        count++;
+                    }
+                });
+                saveData(); toggleModal('csv-modal'); showToast(`${count} rader importerade`);
+            };
+            reader.readAsText(f);
+        }
+
+        function downloadTemplate() {
+            const content = "Namn,Avdelning,E-post,Lösenord,IMAP,SMTP\nJohan Ek,IT,johan@bolag.se,Lösen123,imap.bolag.se,smtp.bolag.se";
+            const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob); link.download = "mall.csv"; link.click();
+        }
+
+        function showToast(msg, undo=false) {
+            const t = document.getElementById('toast');
+            document.getElementById('toast-msg').innerText = msg;
+            const btn = document.getElementById('undo-btn');
+            btn.className = undo ? 'undo-link' : 'hidden';
+            t.style.transform = "translateY(0)";
+            setTimeout(() => { t.style.transform = "translateY(150px)"; }, 5000);
+        }
+
+        function triggerUndo() {
+            if(lastDeletedState) {
+                allProfiles = JSON.parse(JSON.stringify(lastDeletedState));
+                saveData(); lastDeletedState = null;
+                document.getElementById('toast').style.transform = "translateY(150px)";
+            }
+        }
+
+        function toggleModal(id) { document.getElementById(id).classList.toggle('hidden'); }
+        function escapeHtml(t) { const d = document.createElement('div'); d.innerText = t; return d.innerHTML; }
+    </script>
+</body>
+</html>

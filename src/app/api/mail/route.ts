@@ -15,12 +15,9 @@ export async function GET(req: Request) {
   if (!account) return NextResponse.json({ error: 'Account not found' }, { status: 404 });
 
   try {
-    let cachedEmails = await getCachedEmailList(accountId, folder);
-
-    if (cachedEmails.length === 0) {
-      await syncFolderFromImap(account as any, folder);
-      cachedEmails = await getCachedEmailList(accountId, folder);
-    } else if (await shouldSyncFolder(accountId, folder)) {
+    const cachedEmails = await getCachedEmailList(accountId, folder);
+    const needsSync = cachedEmails.length === 0 || await shouldSyncFolder(accountId, folder);
+    if (needsSync) {
       void syncFolderFromImap(account as any, folder).catch((error) => {
         console.error('Background sync error:', error);
       });
