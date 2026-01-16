@@ -38,6 +38,14 @@ else
   exit 1
 fi
 
+echo "Resetting local state (database + secrets)..."
+$COMPOSE down -v --remove-orphans >/dev/null 2>&1 || true
+rm -f .uxmail.key .uxmail.secrets
+if [ -f .env ]; then
+  rm -f .env
+  echo "Removed .env to regenerate secrets."
+fi
+
 if [ ! -f .env ]; then
   if [ -f .env.example ]; then
     cp .env.example .env

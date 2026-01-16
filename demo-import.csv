@@ -1,0 +1,4 @@
+Namn,Avdelning,Anvandarnamn,Inloggningslosenord,E-post,Losenord,IMAP,SMTP
+Johan Ek,IT,johan,AppLosen123,johan@bolag.se,Losen123,imap.bolag.se,smtp.bolag.se
+Sara Lind,HR,sara,AppLosen456,sara@bolag.se,Losen456,imap.bolag.se,smtp.bolag.se
+Anders Olsson,Ekonomi,anders,AppLosen789,anders@bolag.se,Losen789,imap.bolag.se,smtp.bolag.se
