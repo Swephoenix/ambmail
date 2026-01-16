@@ -9,13 +9,15 @@ async function main() {
     { email: 'info@uxmail.io', name: 'UxMail Info' },
   ];
 
-  for (const contact of contacts) {
-    await prisma.contact.upsert({
-      where: { email: contact.email },
-      update: { name: contact.name },
-      create: contact,
-    });
-  }
+  await prisma.contact.deleteMany({
+    where: {
+      email: { in: contacts.map((contact) => contact.email) },
+    },
+  });
+
+  await prisma.contact.createMany({
+    data: contacts,
+  });
 }
 
 main()

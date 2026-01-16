@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createSession, getSessionUser, setSessionCookie, verifyPassword } from '@/lib/auth';
+import { rotateAdminCredentialsIfNeeded } from '@/lib/admin-credentials';
 
 export async function GET() {
   const user = await getSessionUser();
@@ -17,19 +18,16 @@ export async function GET() {
         !admin.adminCredentialsShownAt &&
         verifyPassword(adminPassword, admin.passwordHash)
       ) {
-        const adminCredentials = {
-          adminUsername: process.env.ADMIN_USERNAME || admin.username,
-          adminPassword: process.env.ADMIN_PASSWORD || '',
-        };
+        const adminCredentials = await rotateAdminCredentialsIfNeeded(admin.id);
         const token = await createSession(admin.id);
         await setSessionCookie(token);
         return NextResponse.json({
           id: admin.id,
-          username: admin.username,
+          username: adminCredentials?.adminUsername ?? admin.username,
           name: admin.name,
           department: admin.department,
           role: admin.role,
-          needsAdminCredentials: true,
+          needsAdminCredentials: Boolean(adminCredentials),
           adminCredentials,
         });
       }
@@ -39,16 +37,13 @@ export async function GET() {
   }
 
   let adminCredentials: { adminUsername: string; adminPassword: string } | null = null;
-  if (user.role === 'ADMIN' && !user.adminCredentialsShownAt) {
-    adminCredentials = {
-      adminUsername: process.env.ADMIN_USERNAME || user.username,
-      adminPassword: process.env.ADMIN_PASSWORD || '',
-    };
+  if (user.role === 'ADMIN') {
+    adminCredentials = await rotateAdminCredentialsIfNeeded(user.id);
   }
 
   return NextResponse.json({
     id: user.id,
-    username: user.username,
+    username: adminCredentials?.adminUsername ?? user.username,
     name: user.name,
     department: user.department,
     role: user.role,

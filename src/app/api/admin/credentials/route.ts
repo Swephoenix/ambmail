@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAdmin } from '@/lib/auth';
+import { rotateAdminCredentialsIfNeeded } from '@/lib/admin-credentials';
 
 export async function GET() {
   const admin = await requireAdmin();
@@ -8,17 +9,15 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  if (admin.adminCredentialsShownAt) {
+  const adminCredentials = await rotateAdminCredentialsIfNeeded(admin.id);
+  if (!adminCredentials) {
     return NextResponse.json({ shouldShow: false });
   }
 
-  const payload = {
+  return NextResponse.json({
     shouldShow: true,
-    adminUsername: process.env.ADMIN_USERNAME || admin.username,
-    adminPassword: process.env.ADMIN_PASSWORD || '',
-  };
-
-  return NextResponse.json(payload);
+    ...adminCredentials,
+  });
 }
 
 export async function POST() {

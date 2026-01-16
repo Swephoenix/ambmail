@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { createSession, setSessionCookie, verifyPassword } from '@/lib/auth';
+import { rotateAdminCredentialsIfNeeded } from '@/lib/admin-credentials';
 
 export async function POST(req: Request) {
   try {
@@ -15,22 +16,23 @@ export async function POST(req: Request) {
     }
 
     let adminCredentials: { adminUsername: string; adminPassword: string } | null = null;
-    if (user.role === 'ADMIN' && !user.adminCredentialsShownAt) {
-      adminCredentials = {
-        adminUsername: process.env.ADMIN_USERNAME || user.username,
-        adminPassword: process.env.ADMIN_PASSWORD || '',
-      };
+    if (user.role === 'ADMIN') {
+      adminCredentials = await rotateAdminCredentialsIfNeeded(user.id);
     }
 
     const token = await createSession(user.id);
     await setSessionCookie(token);
 
+    const refreshed = adminCredentials
+      ? await prisma.user.findUnique({ where: { id: user.id } })
+      : user;
+
     return NextResponse.json({
       id: user.id,
-      username: user.username,
-      name: user.name,
-      department: user.department,
-      role: user.role,
+      username: refreshed?.username ?? user.username,
+      name: refreshed?.name ?? user.name,
+      department: refreshed?.department ?? user.department,
+      role: refreshed?.role ?? user.role,
       needsAdminCredentials: Boolean(adminCredentials),
       adminCredentials,
     });
