@@ -1,4 +1,5 @@
 import imaps from 'imap-simple';
+import type { ImapSimple, ImapSimpleOptions } from 'imap-simple';
 import { simpleParser } from 'mailparser';
 import nodemailer from 'nodemailer';
 import { decrypt } from './encryption';
@@ -15,19 +16,33 @@ export interface MailAccount {
   name?: string | null;
 }
 
-export async function getImapConnection(account: MailAccount) {
+function resolvePassword(encrypted: string): string {
+  const decrypted = decrypt(encrypted);
+  if (decrypted) return decrypted;
+
+  const looksEncrypted = encrypted.startsWith('U2FsdGVk');
+  if (!looksEncrypted && encrypted.length > 0) {
+    return encrypted;
+  }
+
+  throw new Error('Account password is missing or could not be decrypted. Re-enter the password.');
+}
+
+export async function getImapConnection(account: MailAccount): Promise<ImapSimple> {
   if (!account.password) throw new Error('Password required');
-  
-  const config = {
+  const password = resolvePassword(account.password);
+  const useImplicitTls = account.imapPort === 993;
+  const config: ImapSimpleOptions = {
     imap: {
       user: account.email,
-      password: decrypt(account.password),
+      password,
       host: account.imapHost,
       port: account.imapPort,
-      tls: true,
+      tls: useImplicitTls,
+      autotls: useImplicitTls ? 'never' : 'always',
       authTimeout: 3000,
-      tlsOptions: { rejectUnauthorized: true, minVersion: 'TLSv1.2' }
-    }
+      tlsOptions: { rejectUnauthorized: true, minVersion: 'TLSv1.2' },
+    },
   };
 
   return imaps.connect(config);
@@ -35,6 +50,7 @@ export async function getImapConnection(account: MailAccount) {
 
 export async function getSmtpTransporter(account: MailAccount) {
   if (!account.password) throw new Error('Password required');
+  const password = resolvePassword(account.password);
 
   return nodemailer.createTransport({
     host: account.smtpHost,
@@ -43,7 +59,7 @@ export async function getSmtpTransporter(account: MailAccount) {
     requireTLS: true,
     auth: {
       user: account.email,
-      pass: decrypt(account.password), // Changed from 'password' to 'pass'
+      pass: password, // Changed from 'password' to 'pass'
     },
     tls: {
       rejectUnauthorized: true,
@@ -52,7 +68,7 @@ export async function getSmtpTransporter(account: MailAccount) {
   } as any); // Use any to bypass strict type checking for this simple implementation
 }
 
-export async function openMailbox(connection: imaps.ImapSimple, folder: string) {
+export async function openMailbox(connection: ImapSimple, folder: string) {
   try {
     await connection.openBox(folder);
   } catch (error: any) {
@@ -71,7 +87,7 @@ export async function openMailbox(connection: imaps.ImapSimple, folder: string) 
   }
 }
 
-export async function getDraftsFolder(connection: imaps.ImapSimple) {
+export async function getDraftsFolder(connection: ImapSimple) {
   // Try to find a folder with the \Drafts attribute
   const boxes = await connection.getBoxes();
   
@@ -97,13 +113,13 @@ export async function getDraftsFolder(connection: imaps.ImapSimple) {
   return 'INBOX.Drafts'; // Default fallback for this specific user case
 }
 
-export async function appendDraft(connection: imaps.ImapSimple, rawEmail: string) {
+export async function appendDraft(connection: ImapSimple, rawEmail: string) {
   const draftsFolder = await getDraftsFolder(connection);
   // Ensure folder exists or handle error (usually it exists)
   return connection.append(rawEmail, { mailbox: draftsFolder, flags: ['\Draft'] });
 }
 
-export async function fetchEmails(connection: imaps.ImapSimple, folder = 'INBOX', limit = 20) {
+export async function fetchEmails(connection: ImapSimple, folder = 'INBOX', limit = 20) {
   await openMailbox(connection, folder);
 
   const searchCriteria = ['ALL'];

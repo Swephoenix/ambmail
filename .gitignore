@@ -37,6 +37,9 @@ yarn-error.log*
 # local encryption key
 .uxmail.key
 
+# generated secrets
+.uxmail.secrets
+
 # database files
 *.db
 *.db-journal

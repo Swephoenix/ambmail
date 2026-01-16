@@ -1,16 +1,21 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getImapConnection, openMailbox } from '@/lib/mail-service';
+import { requireUser } from '@/lib/auth';
 
 export async function POST(req: Request) {
   try {
+    const user = await requireUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const { accountId, uid, folder, action, flag } = await req.json();
 
     if (!accountId || !uid || !action || !flag) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
     }
 
-    const account = await prisma.account.findUnique({ where: { id: accountId } });
+    const account = await prisma.account.findFirst({ where: { id: accountId, userId: user.id } });
     if (!account) return NextResponse.json({ error: 'Account not found' }, { status: 404 });
 
     const connection = await getImapConnection(account as any);

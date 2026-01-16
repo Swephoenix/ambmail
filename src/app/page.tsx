@@ -14,6 +14,10 @@ import { Plus } from 'lucide-react';
 import Image from 'next/image';
 
 export default function Home() {
+  const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const [loginError, setLoginError] = useState<string | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
   const [activeFolder, setActiveFolder] = useState<string>('INBOX');
@@ -56,6 +60,11 @@ export default function Home() {
     }
 
     const res = await fetch('/api/accounts');
+    if (res.status === 401) {
+      setAuthStatus('unauthenticated');
+      setCurrentUser(null);
+      return [];
+    }
     const data = await res.json();
     setAccounts(data);
     setAccountsCache({data, timestamp: Date.now()});
@@ -81,6 +90,11 @@ export default function Home() {
     try {
       // Use encodeURIComponent for folders like "Inbox.Sent" etc if needed
       const res = await fetch(`/api/mail?accountId=${accountId}&folder=${encodeURIComponent(folder)}&view=list`);
+      if (res.status === 401) {
+        setAuthStatus('unauthenticated');
+        setCurrentUser(null);
+        return;
+      }
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       setEmails(data);
@@ -103,6 +117,11 @@ export default function Home() {
     setIsLoadingBody(true);
     try {
       const res = await fetch(`/api/mail/body?accountId=${accountId}&uid=${uid}&folder=${encodeURIComponent(activeFolder)}`);
+      if (res.status === 401) {
+        setAuthStatus('unauthenticated');
+        setCurrentUser(null);
+        return;
+      }
       const data = await res.json();
       if (data.error) throw new Error(data.error);
       data.accountId = accountId;
@@ -463,16 +482,71 @@ export default function Home() {
     }
   };
 
+  const checkAuth = async () => {
+    try {
+      const res = await fetch('/api/auth/me');
+      if (!res.ok) {
+        setAuthStatus('unauthenticated');
+        setCurrentUser(null);
+        return;
+      }
+      const data = await res.json();
+      setCurrentUser(data);
+      setAuthStatus('authenticated');
+    } catch {
+      setAuthStatus('unauthenticated');
+      setCurrentUser(null);
+    }
+  };
+
+  const handleLogin = async () => {
+    setLoginError(null);
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(loginForm),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        setLoginError(err.error || 'Inloggning misslyckades');
+        return;
+      }
+      const data = await res.json();
+      setCurrentUser(data);
+      setAuthStatus('authenticated');
+      await fetchAccounts(true);
+    } catch (error: any) {
+      setLoginError('Inloggning misslyckades');
+    }
+  };
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    setAuthStatus('unauthenticated');
+    setCurrentUser(null);
+    setAccounts([]);
+    setActiveAccountId(null);
+    setActiveFolder('INBOX');
+    setEmails([]);
+    setSelectedEmail(null);
+  };
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+
   // Start fetching accounts and emails as soon as the component mounts
   useEffect(() => {
+    if (authStatus !== 'authenticated') return;
     const initializeApp = async () => {
       // Fetch accounts first
-      const accountsData = await fetchAccounts();
-
+      await fetchAccounts();
     };
 
     initializeApp();
-  }, []);
+  }, [authStatus]);
 
   // Polling function to check for new emails every minute
   useEffect(() => {
@@ -538,6 +612,57 @@ export default function Home() {
     }
   }, [activeAccountId]);
 
+  if (authStatus === 'loading') {
+    return (
+      <main className="flex h-screen w-full items-center justify-center bg-gray-50">
+        <div className="text-gray-500 text-sm">Loading...</div>
+      </main>
+    );
+  }
+
+  if (authStatus === 'unauthenticated') {
+    return (
+      <main className="flex h-screen w-full items-center justify-center bg-gray-50">
+        <div className="w-full max-w-md bg-white rounded-3xl shadow-sm border border-gray-100 p-10">
+          <div className="flex flex-col items-center mb-8">
+            <Image
+              src="/logo.png"
+              alt="UxMail"
+              width={120}
+              height={120}
+              priority
+            />
+            <h1 className="text-2xl font-bold mt-4">Logga in</h1>
+            <p className="text-gray-500 text-sm">Använd ditt användarnamn och lösenord</p>
+          </div>
+          <div className="space-y-4">
+            <input
+              type="text"
+              placeholder="Användarnamn"
+              value={loginForm.username}
+              onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+            <input
+              type="password"
+              placeholder="Lösenord"
+              value={loginForm.password}
+              onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+            />
+            {loginError && <div className="text-sm text-red-600">{loginError}</div>}
+            <button
+              onClick={handleLogin}
+              className="w-full py-3 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all"
+            >
+              Logga in
+            </button>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="flex h-screen w-full overflow-hidden bg-white relative">
       <Sidebar
@@ -548,6 +673,8 @@ export default function Home() {
         onAddAccount={() => setShowAddModal(true)}
         onSettings={() => toast.success('Settings coming soon!')}
         onEditSignature={handleEditSignature}
+        onLogout={handleLogout}
+        currentUserName={currentUser?.name || currentUser?.username}
       />
 
       {accounts.length === 0 ? (

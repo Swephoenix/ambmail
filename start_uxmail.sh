@@ -48,12 +48,21 @@ if [ ! -f .env ]; then
   fi
 fi
 
+echo "Installing dependencies..."
+npm install
+
+TS_NODE="./node_modules/.bin/ts-node"
+TS_NODE_COMPILER_OPTIONS='{"module":"CommonJS"}'
+
+echo "Bootstrapping secrets..."
+"$TS_NODE" --compiler-options "$TS_NODE_COMPILER_OPTIONS" scripts/bootstrap-secrets.ts
+if [ -f .uxmail.secrets ]; then
+  echo "Generated secrets stored in .uxmail.secrets"
+fi
+
 set -a
 source ./.env
 set +a
-
-echo "Installing dependencies..."
-npm install
 
 echo "Starting database..."
 $COMPOSE up -d postgres
@@ -76,20 +85,59 @@ fi
 
 echo "Syncing database schema..."
 if [ -x ./node_modules/.bin/prisma ]; then
-  ./node_modules/.bin/prisma db push
+  ./node_modules/.bin/prisma db push --accept-data-loss
 else
-  npx -y prisma@5.15.0 db push
+  npx -y prisma@5.15.0 db push --accept-data-loss
 fi
 
+echo "Ensuring admin user..."
+"$TS_NODE" --compiler-options "$TS_NODE_COMPILER_OPTIONS" scripts/create-admin.ts
+
 echo "Starting background sync worker..."
-if [ -x ./node_modules/.bin/ts-node ]; then
-  ./node_modules/.bin/ts-node scripts/sync-worker.ts &
-  WORKER_PID=$!
-else
-  npx -y ts-node scripts/sync-worker.ts &
-  WORKER_PID=$!
-fi
+"$TS_NODE" --compiler-options "$TS_NODE_COMPILER_OPTIONS" scripts/sync-worker.ts &
+WORKER_PID=$!
 trap 'kill $WORKER_PID 2>/dev/null' EXIT
 
 echo "Starting app server (frontend + backend)..."
+ADMIN_PANEL_PORT="3000"
+PORT_CHECK_PID=""
+if command -v lsof >/dev/null 2>&1; then
+  (
+    while [ -d /proc/$PPID ]; do
+      if lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | awk '$1=="node" && $9 ~ /:3000$/ {found=1} END {exit !found}'; then
+        ADMIN_PANEL_PORT="3000"
+        break
+      fi
+      if lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | awk '$1=="node" && $9 ~ /:3001$/ {found=1} END {exit !found}'; then
+        ADMIN_PANEL_PORT="3001"
+        break
+      fi
+      if lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | awk '$1=="node" && $9 ~ /:3002$/ {found=1} END {exit !found}'; then
+        ADMIN_PANEL_PORT="3002"
+        break
+      fi
+      if lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | awk '$1=="node" && $9 ~ /:3003$/ {found=1} END {exit !found}'; then
+        ADMIN_PANEL_PORT="3003"
+        break
+      fi
+      if lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | awk '$1=="node" && $9 ~ /:3004$/ {found=1} END {exit !found}'; then
+        ADMIN_PANEL_PORT="3004"
+        break
+      fi
+      sleep 0.2
+    done
+    if [ -n "$ADMIN_PANEL_PORT" ]; then
+      echo "Admin panel: http://localhost:${ADMIN_PANEL_PORT}/admin"
+    fi
+  ) &
+  PORT_CHECK_PID=$!
+fi
+if [ -f .next/dev/lock ]; then
+  if ps aux | grep -q "[n]ext dev"; then
+    echo "Another Next.js dev server is already running. Stop it before restarting."
+    exit 1
+  fi
+  echo "Removing stale Next.js dev lock..."
+  rm -f .next/dev/lock
+fi
 npm run dev

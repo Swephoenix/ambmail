@@ -70,6 +70,16 @@ Projektet är byggt med:
 - Aktivera Basic Auth genom att sätta `BASIC_AUTH_USER` och `BASIC_AUTH_PASSWORD`.
 - Kör databasen endast på localhost (docker-compose är bundet till `127.0.0.1`).
 
+## Användare & Admin
+
+- Skapa en admin via `.env` (`ADMIN_USERNAME`, `ADMIN_PASSWORD`, `ADMIN_NAME`), sedan kör `start_uxmail.sh`.
+- Sätt `ADMIN_ATTACH_EXISTING=1` om du vill koppla befintliga konton/kontakter till admin.
+- Admin‑UI finns på `/admin` och använder `Uxmail_admin/Uxmail_admin.html`.
+- Varje användare får sin egen isolerade data (konton, mailcache, kontakter).
+- `start_uxmail.sh` genererar automatiskt `.uxmail.key` och fyller tomma lösenordsfält i `.env`.
+- Genererade lösenord skrivs till `.uxmail.secrets` (ignorerad av git).
+- Kör `npm run admin:rotate` för att generera ett nytt admin-lösenord och uppdatera DB, `.env` och `.uxmail.secrets`.
+
 ## Bakgrundssynk
 
 - `start_uxmail.sh` startar en bakgrundsworker som synkar alla mappar till databasen.

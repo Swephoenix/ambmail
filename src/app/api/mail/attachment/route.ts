@@ -2,12 +2,17 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getImapConnection, openMailbox } from '@/lib/mail-service';
 import { simpleParser } from 'mailparser';
+import { requireUser } from '@/lib/auth';
 
 function sanitizeFilename(filename: string) {
   return filename.replace(/["\\]/g, '_');
 }
 
 export async function GET(req: Request) {
+  const user = await requireUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   const { searchParams } = new URL(req.url);
   const accountId = searchParams.get('accountId');
   const uidParam = searchParams.get('uid');
@@ -25,7 +30,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Invalid uid or index' }, { status: 400 });
   }
 
-  const account = await prisma.account.findUnique({ where: { id: accountId } });
+  const account = await prisma.account.findFirst({ where: { id: accountId, userId: user.id } });
   if (!account) return NextResponse.json({ error: 'Account not found' }, { status: 404 });
 
   let connection;

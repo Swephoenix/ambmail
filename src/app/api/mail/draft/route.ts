@@ -1,9 +1,14 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getImapConnection, appendDraft, getDraftsFolder, openMailbox } from '@/lib/mail-service';
+import { requireUser } from '@/lib/auth';
 
 export async function POST(req: Request) {
   try {
+    const user = await requireUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const { accountId, to, subject, body, uid } = await req.json();
 
     console.log('Draft API called with:', { accountId, to, subject, body: body?.substring(0, 100), uid });
@@ -13,7 +18,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'AccountId is required' }, { status: 400 });
     }
 
-    const account = await prisma.account.findUnique({ where: { id: accountId } });
+    const account = await prisma.account.findFirst({ where: { id: accountId, userId: user.id } });
     if (!account) {
       console.error('Account not found:', accountId);
       return NextResponse.json({ error: 'Account not found' }, { status: 404 });

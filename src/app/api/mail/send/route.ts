@@ -1,15 +1,22 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSmtpTransporter } from '@/lib/mail-service';
+import { requireUser } from '@/lib/auth';
+import fs from 'fs/promises';
+import path from 'path';
 
 export async function POST(req: Request) {
   try {
+    const user = await requireUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const data = await req.json();
-    const { accountId, to, subject, body } = data;
+    const { accountId, to, subject, body, attachments = [] } = data;
 
     console.log('Send API called with:', { accountId, to, subject });
 
-    const account = await prisma.account.findUnique({ where: { id: accountId } });
+    const account = await prisma.account.findFirst({ where: { id: accountId, userId: user.id } });
     if (!account) {
       console.error('Account not found:', accountId);
       return NextResponse.json({ error: 'Account not found' }, { status: 404 });
@@ -24,12 +31,46 @@ export async function POST(req: Request) {
       subject
     });
 
+    const uploadDir = path.join('/tmp', 'uxmail-uploads');
+    const mailAttachments = [];
+    for (const attachment of attachments) {
+      if (!attachment?.token || !attachment?.filename) continue;
+      const token = String(attachment.token);
+      if (!/^[a-f0-9]+$/i.test(token)) continue;
+      const filePath = path.join(uploadDir, token);
+      try {
+        await fs.access(filePath);
+      } catch {
+        continue;
+      }
+
+      const metaPath = path.join(uploadDir, `${token}.json`);
+      let meta: { type?: string } = {};
+      try {
+        const metaRaw = await fs.readFile(metaPath, 'utf8');
+        meta = JSON.parse(metaRaw);
+      } catch {
+        meta = {};
+      }
+
+      const inline = Boolean(attachment.inline);
+      const cid = attachment.cid || (inline ? `inline-${token}` : undefined);
+
+      mailAttachments.push({
+        filename: attachment.filename,
+        path: filePath,
+        contentType: attachment.contentType || meta.type || undefined,
+        cid: inline ? cid : undefined,
+      });
+    }
+
     await transporter.sendMail({
       from: `"${account.name || account.email}" <${account.email}>`,
       to,
       subject,
       text: body,
       html: body.replace(/\n/g, '<br>'), // Simple text to html conversion
+      attachments: mailAttachments,
     });
 
     console.log('Email sent successfully');
@@ -37,14 +78,37 @@ export async function POST(req: Request) {
     // Automatically add to contacts if not exists
     try {
       await prisma.contact.upsert({
-        where: { email: to },
+        where: {
+          userId_email: {
+            userId: user.id,
+            email: to,
+          },
+        },
         update: {},
-        create: { email: to, name: to.split('@')[0] },
+        create: { email: to, name: to.split('@')[0], userId: user.id },
       });
       console.log('Contact updated/created successfully');
     } catch (e) {
       console.error('Contact saving error:', e);
       // Ignore contact saving errors
+    }
+
+    if (mailAttachments.length > 0) {
+      await Promise.all(
+        mailAttachments.map(async (item) => {
+          if (!item.path) return;
+          try {
+            await fs.unlink(item.path);
+          } catch {
+            return;
+          }
+          try {
+            await fs.unlink(`${item.path}.json`);
+          } catch {
+            return;
+          }
+        })
+      );
     }
 
     return NextResponse.json({ success: true });

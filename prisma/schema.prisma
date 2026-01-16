@@ -7,9 +7,44 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum UserRole {
+  USER
+  ADMIN
+}
+
+model User {
+  id           String       @id @default(cuid())
+  username     String       @unique
+  passwordHash String
+  name         String
+  department   String?
+  role         UserRole     @default(USER)
+  adminCredentialsShownAt DateTime?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  accounts     Account[]
+  contacts     Contact[]
+  sessions     UserSession[]
+  prefetchStatus PrefetchStatus?
+}
+
+model UserSession {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
 model Account {
   id        String   @id @default(cuid())
-  email     String   @unique
+  userId    String?
+  email     String
   password  String   // Encrypted
   name      String?
   imapHost  String
@@ -20,16 +55,26 @@ model Account {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   emails    EmailMessage[]
   syncState MailSyncState[]
+
+  @@unique([userId, email], name: "userId_email")
+  @@index([userId])
 }
 
 model Contact {
   id        String   @id @default(cuid())
-  email     String   @unique
+  userId    String?
+  email     String
   name      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, email], name: "userId_email")
+  @@index([userId])
 }
 
 model EmailMessage {
@@ -75,4 +120,17 @@ model MailSyncState {
 
   @@unique([accountId, folder], name: "account_folder_sync")
   @@index([accountId, folder])
+}
+
+model PrefetchStatus {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  status      String
+  error       String?
+  startedAt   DateTime
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

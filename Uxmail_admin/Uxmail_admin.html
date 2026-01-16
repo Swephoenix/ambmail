@@ -98,6 +98,11 @@
         /* MODALS */
         .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px); display: flex; justify-content: center; align-items: center; z-index: 200; }
         .modal { background: white; width: 100%; max-width: 650px; padding: 2.5rem; border-radius: 16px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); max-height: 90vh; overflow-y: auto; }
+        .modal-compact { max-width: 520px; }
+        .credential-row { display: flex; justify-content: space-between; gap: 1rem; align-items: center; }
+        .credential-mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size: 0.85rem; }
+        .btn-ghost { background: white; border: 1px solid var(--border); color: var(--text); padding: 6px 10px; border-radius: 8px; font-size: 0.75rem; font-weight: 700; cursor: pointer; }
+        .btn-ghost:hover { border-color: #94a3b8; background: #f8fafc; }
         
         /* EDITOR ELEMENTS */
         .acc-box { background: #f8fafc; border: 1px solid var(--border); padding: 1.2rem; border-radius: 10px; margin-bottom: 1rem; position: relative; }
@@ -152,6 +157,7 @@
                 <div id="dept-list"></div>
             </div>
             <div style="padding: 1.5rem; border-top: 1px solid var(--border);">
+                <button class="btn btn-outline" style="width: 100%; justify-content: center; border-radius: 20px; margin-bottom: 0.6rem;" onclick="resetAllData()">Nollstall allt</button>
                 <button class="btn btn-outline" style="width: 100%; justify-content: center; border-radius: 20px;" onclick="logout()">Logga ut</button>
             </div>
         </div>
@@ -197,11 +203,35 @@
         </div>
     </div>
 
+    <!-- ADMIN CREDENTIALS MODAL -->
+    <div id="admin-credentials-modal" class="modal-overlay hidden">
+        <div class="modal modal-compact">
+            <h2 style="font-size: 1.4rem; font-weight: 800; margin-bottom: 0.5rem;">Spara admin-uppgifter</h2>
+            <p style="color: var(--text-light); font-size: 0.9rem; margin-bottom: 1.5rem;">
+                Detta visas bara en gang. Spara dina inloggningsuppgifter.
+            </p>
+            <div style="background: #f8fafc; border: 1px solid var(--border); padding: 1rem; border-radius: 12px;">
+                <div class="credential-row">
+                    <div class="credential-mono" id="admin-cred-user">Username: </div>
+                    <button class="btn-ghost" onclick="copyCredential('admin-cred-user')">Kopiera</button>
+                </div>
+                <div class="credential-row" style="margin-top: 0.8rem;">
+                    <div class="credential-mono" id="admin-cred-pass">Password: </div>
+                    <button class="btn-ghost" onclick="copyCredential('admin-cred-pass')">Kopiera</button>
+                </div>
+                <div style="margin-top: 1rem;">
+                    <button class="btn-ghost" style="width: 100%;" onclick="copyAllCredentials()">Kopiera allt</button>
+                </div>
+            </div>
+            <button class="btn btn-primary" style="width: 100%; margin-top: 1.5rem;" onclick="acknowledgeAdminCredentials()">Jag har sparat uppgifterna</button>
+        </div>
+    </div>
+
     <!-- CSV MODAL -->
     <div id="csv-modal" class="modal-overlay hidden">
         <div class="modal" style="text-align: center;">
             <h3 style="margin-bottom: 1rem;">Massimportera via CSV</h3>
-            <p style="color:var(--text-light); font-size: 0.9rem; margin-bottom: 1.5rem;">Format: Namn, Avdelning, E-post, Lösenord, IMAP, SMTP</p>
+            <p style="color:var(--text-light); font-size: 0.9rem; margin-bottom: 1.5rem;">Format: Namn, Avdelning, Användarnamn, Inloggningslösenord, E-post, Lösenord, IMAP, SMTP</p>
             <button class="btn-danger-text" style="color:var(--primary); margin-bottom: 2rem; display: block; width: 100%;" onclick="downloadTemplate()">📥 Ladda ner CSV-mall</button>
             <div style="border: 2px dashed var(--border); padding: 3rem; border-radius: 12px; cursor: pointer; background: #fafafa;" onclick="document.getElementById('csv-file').click()">
                 <input type="file" id="csv-file" class="hidden" onchange="handleCSVImport()">
@@ -220,6 +250,17 @@
             <div class="grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
                 <div><label>Namn</label><input type="text" id="ed-name" placeholder="Fullständigt namn"></div>
                 <div><label>Avdelning</label><input type="text" id="ed-dept" placeholder="T.ex. IT, Sälj..."></div>
+                <div><label>Användarnamn</label><input type="text" id="ed-username" placeholder="Unikt användarnamn"></div>
+                <div>
+                    <label>Inloggningslösenord</label>
+                    <div class="pass-group">
+                        <input type="password" id="ed-user-pass" placeholder="Lämna tomt för oförändrat">
+                        <span class="eye-toggle" onclick="togglePass(this)">👁️</span>
+                    </div>
+                </div>
+            </div>
+            <div class="flex" style="justify-content: flex-end; margin-top: -0.5rem; margin-bottom: 1.5rem;">
+                <button class="btn-ghost" onclick="generateProfileCredentials()">Generera användare + lösenord</button>
             </div>
             <label>Mejlkonton</label>
             <div id="ed-accounts-list"></div>
@@ -250,32 +291,122 @@
         let currentFilter = 'All';
         let currentEditingId = null;
         let lastDeletedState = null;
+        const ANIMALS = ['fox', 'otter', 'lynx', 'panda', 'eagle', 'tiger', 'orca', 'koala', 'yak', 'marten', 'badger', 'falcon', 'rabbit', 'raven', 'moose', 'heron', 'wolf', 'bison', 'lemur', 'squid', 'gecko', 'hare', 'lizard', 'owl', 'seal', 'stork', 'whale', 'zebra'];
 
         // --- AUTH ---
-        if(localStorage.getItem('ux_ent_auth') === 'true') {
-            document.getElementById('login-screen').classList.add('hidden');
-            document.getElementById('app').classList.remove('hidden');
-            loadData();
+        async function initAdmin() {
+            try {
+                const me = await fetch('/api/auth/me');
+                if (!me.ok) throw new Error('Unauthorized');
+                const user = await me.json();
+                if (user.role !== 'ADMIN') throw new Error('Forbidden');
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('app').classList.remove('hidden');
+                if (user.adminCredentials) {
+                    showAdminCredentials(user.adminCredentials);
+                }
+                await loadData();
+            } catch (error) {
+                document.getElementById('login-screen').classList.remove('hidden');
+                document.getElementById('app').classList.add('hidden');
+            }
         }
 
-        function login() {
+        async function login() {
             const u = document.getElementById('l-user').value;
             const p = document.getElementById('l-pass').value;
-            if(u === 'admin' && p === 'admin') {
-                localStorage.setItem('ux_ent_auth', 'true');
-                location.reload();
-            } else { document.getElementById('login-err').classList.remove('hidden'); }
+            const err = document.getElementById('login-err');
+            err.classList.add('hidden');
+
+            try {
+                const res = await fetch('/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: u, password: p })
+                });
+                if (!res.ok) throw new Error('Invalid credentials');
+                const loginData = await res.json();
+                if (loginData.role !== 'ADMIN') {
+                    await fetch('/api/auth/logout', { method: 'POST' });
+                    throw new Error('Forbidden');
+                }
+                document.getElementById('login-screen').classList.add('hidden');
+                document.getElementById('app').classList.remove('hidden');
+                if (loginData.adminCredentials) {
+                    showAdminCredentials(loginData.adminCredentials);
+                } else {
+                    const me = await fetch('/api/auth/me');
+                    if (me.ok) {
+                        const user = await me.json();
+                        if (user.adminCredentials) {
+                            showAdminCredentials(user.adminCredentials);
+                        }
+                    }
+                }
+                await loadData();
+            } catch (error) {
+                err.classList.remove('hidden');
+            }
         }
-        function logout() { localStorage.removeItem('ux_ent_auth'); location.reload(); }
+        async function logout() {
+            await fetch('/api/auth/logout', { method: 'POST' });
+            location.reload();
+        }
+
+        async function resetAllData() {
+            const confirmed = confirm('Detta raderar all data. Vill du fortsatta?');
+            if (!confirmed) return;
+            try {
+                const res = await fetch('/api/admin/reset', { method: 'POST' });
+                if (!res.ok) throw new Error('Reset failed');
+                await logout();
+            } catch (error) {
+                alert('Kunde inte nollstalla data.');
+            }
+        }
+
+        function showAdminCredentials(credentials) {
+            document.getElementById('admin-cred-user').textContent = `Username: ${credentials.adminUsername}`;
+            document.getElementById('admin-cred-pass').textContent = `Password: ${credentials.adminPassword}`;
+            document.getElementById('admin-credentials-modal').classList.remove('hidden');
+        }
+
+        function copyCredential(id) {
+            const text = document.getElementById(id).textContent.replace(/^(Username|Password):\s*/i, '').trim();
+            navigator.clipboard.writeText(text);
+        }
+
+        function copyAllCredentials() {
+            const user = document.getElementById('admin-cred-user').textContent.replace(/^Username:\s*/i, '').trim();
+            const pass = document.getElementById('admin-cred-pass').textContent.replace(/^Password:\s*/i, '').trim();
+            navigator.clipboard.writeText(`username: ${user}\npassword: ${pass}`);
+        }
+
+        async function acknowledgeAdminCredentials() {
+            try {
+                await fetch('/api/admin/credentials', { method: 'POST' });
+            } catch (error) {
+                console.error('Failed to acknowledge admin credentials:', error);
+            } finally {
+                document.getElementById('admin-credentials-modal').classList.add('hidden');
+            }
+        }
 
         // --- DATA & PERSISTENCE ---
-        function loadData() {
-            const d = localStorage.getItem('ux_ent_data');
-            if(d) allProfiles = JSON.parse(d);
+        async function loadData() {
+            const res = await fetch('/api/admin/users');
+            if (!res.ok) {
+                allProfiles = [];
+                applyFilter('All');
+                return;
+            }
+            const data = await res.json();
+            allProfiles = data.profiles || [];
             applyFilter('All');
         }
-        function saveData() {
-            localStorage.setItem('ux_ent_data', JSON.stringify(allProfiles));
+
+        async function saveData() {
+            await loadData();
             renderSidebar();
             applyFilter(currentFilter);
         }
@@ -291,7 +422,8 @@
                 temp = temp.filter(p => 
                     p.name.toLowerCase().includes(term) || 
                     (p.department && p.department.toLowerCase().includes(term)) ||
-                    p.accounts.some(a => a.email.toLowerCase().includes(term))
+                    (p.username && p.username.toLowerCase().includes(term)) ||
+                    (p.accounts || []).some(a => a.email.toLowerCase().includes(term))
                 );
             }
             
@@ -347,11 +479,11 @@
                     <div><input type="checkbox" class="row-chk" value="${p.id}" onchange="updateBulkUI()"></div>
                     <div class="user-info">
                         <div>${escapeHtml(p.name)}</div>
-                        <div class="user-sub">${p.accounts.length} konton</div>
+                        <div class="user-sub">${escapeHtml(p.username || '')} • ${(p.accounts || []).length} konton</div>
                     </div>
                     <div><span class="tag">${escapeHtml(p.department || 'Övrigt')}</span></div>
                     <div style="font-size:0.85rem; color:#666; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                        ${p.accounts.map(a => a.email).join(', ')}
+                        ${(p.accounts || []).map(a => a.email).join(', ')}
                     </div>
                     <div style="text-align:right;">
                         <button class="btn-outline btn" style="padding:4px 10px; font-size:0.75rem;" onclick="openEditor('${p.id}')">Hantera</button>
@@ -394,9 +526,19 @@
         function deleteSelected() {
             const ids = Array.from(document.querySelectorAll('.row-chk:checked')).map(c => c.value);
             if(!confirm(`Radera ${ids.length} profiler?`)) return;
-            lastDeletedState = JSON.parse(JSON.stringify(allProfiles));
-            allProfiles = allProfiles.filter(p => !ids.includes(p.id.toString()));
-            saveData(); showToast(`Raderade ${ids.length} profiler`, true);
+            fetch('/api/admin/users', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids })
+            }).then(async (res) => {
+                if (!res.ok) {
+                    const err = await res.json();
+                    alert(err.error || 'Kunde inte radera profiler');
+                    return;
+                }
+                await saveData();
+                showToast(`Raderade ${ids.length} profiler`);
+            });
         }
 
         // --- EDITOR ---
@@ -408,20 +550,31 @@
                 const p = allProfiles.find(x => x.id == id);
                 document.getElementById('ed-name').value = p.name;
                 document.getElementById('ed-dept').value = p.department || '';
-                p.accounts.forEach(a => addAccRow(a));
+                document.getElementById('ed-username').value = p.username || '';
+                document.getElementById('ed-user-pass').value = '';
+                (p.accounts || []).forEach(a => addAccRow({
+                    id: a.id,
+                    email: a.email,
+                    pass: '',
+                    imap: a.imapHost || '',
+                    smtp: a.smtpHost || ''
+                }));
                 document.getElementById('btn-del-single').classList.remove('hidden');
             } else {
                 document.getElementById('ed-name').value = '';
                 document.getElementById('ed-dept').value = '';
+                document.getElementById('ed-username').value = '';
+                document.getElementById('ed-user-pass').value = '';
                 addAccRow();
                 document.getElementById('btn-del-single').classList.add('hidden');
             }
             toggleModal('editor-modal');
         }
 
-        function addAccRow(d={email:'',pass:'',imap:'',smtp:''}) {
+        function addAccRow(d={id:'',email:'',pass:'',imap:'',smtp:''}) {
             const div = document.createElement('div');
             div.className = 'acc-box';
+            if (d.id) div.dataset.accountId = d.id;
             div.innerHTML = `
                 <div style="position:absolute; right:12px; top:12px; cursor:pointer; color:red; font-size:0.8rem;" onclick="this.parentElement.remove()">TA BORT</div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
@@ -446,33 +599,101 @@
             inp.type = inp.type === 'password' ? 'text' : 'password';
         }
 
-        function saveProfile() {
+        function randomInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function randomPassword(length = 12) {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+            const values = new Uint32Array(length);
+            window.crypto.getRandomValues(values);
+            let out = '';
+            for (let i = 0; i < length; i++) {
+                out += chars[values[i] % chars.length];
+            }
+            return out;
+        }
+
+        function generateProfileCredentials() {
+            const username = `${ANIMALS[randomInt(0, ANIMALS.length - 1)]}-${randomInt(1000, 9999)}`;
+            const password = randomPassword(14);
+            document.getElementById('ed-username').value = username;
+            document.getElementById('ed-user-pass').value = password;
+        }
+
+        async function saveProfile() {
             const name = document.getElementById('ed-name').value;
             const dept = document.getElementById('ed-dept').value;
+            const username = document.getElementById('ed-username').value;
+            const userPass = document.getElementById('ed-user-pass').value;
             const rows = document.querySelectorAll('.acc-box');
             let accs = [];
             rows.forEach(r => {
                 const email = r.querySelector('.i-email').value;
                 if(email) accs.push({
-                    email, pass: r.querySelector('.i-pass').value,
-                    imap: r.querySelector('.i-imap').value, smtp: r.querySelector('.i-smtp').value
+                    id: r.dataset.accountId || undefined,
+                    email,
+                    password: r.querySelector('.i-pass').value,
+                    imapHost: r.querySelector('.i-imap').value,
+                    smtpHost: r.querySelector('.i-smtp').value
                 });
             });
             if(!name) return alert("Namn krävs");
-            if(currentEditingId) {
-                const p = allProfiles.find(x => x.id == currentEditingId);
-                p.name = name; p.department = dept; p.accounts = accs;
-            } else {
-                allProfiles.push({ id: Date.now(), name, department: dept, accounts: accs });
+            if(!username) return alert("Användarnamn krävs");
+            if(!currentEditingId && !userPass) return alert("Inloggningslösenord krävs");
+
+            const payload = {
+                id: currentEditingId,
+                name,
+                department: dept,
+                username,
+                password: userPass || undefined,
+                accounts: accs.map(a => ({
+                    id: a.id,
+                    email: a.email,
+                    password: a.password,
+                    imapHost: a.imapHost,
+                    smtpHost: a.smtpHost
+                }))
+            };
+
+            const res = await fetch('/api/admin/users', {
+                method: currentEditingId ? 'PUT' : 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) {
+                const err = await res.json();
+                return alert(err.error || 'Kunde inte spara profilen');
             }
-            saveData(); toggleModal('editor-modal'); showToast("Profil sparad");
+
+            const result = await res.json();
+            const userId = result.id || currentEditingId;
+            if (userId) {
+                pollPrefetchStatus(userId);
+            }
+            await saveData();
+            toggleModal('editor-modal');
+            showToast("Profil sparad");
         }
 
         function deleteCurrent() {
             if(!confirm("Radera profil?")) return;
-            lastDeletedState = JSON.parse(JSON.stringify(allProfiles));
-            allProfiles = allProfiles.filter(x => x.id != currentEditingId);
-            saveData(); toggleModal('editor-modal'); showToast("Profil raderad", true);
+            fetch('/api/admin/users', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ids: [currentEditingId] })
+            }).then(async (res) => {
+                if (!res.ok) {
+                    const err = await res.json();
+                    alert(err.error || 'Kunde inte radera profil');
+                    return;
+                }
+                await saveData();
+                toggleModal('editor-modal');
+                showToast("Profil raderad");
+            });
         }
 
         // --- CSV & TOAST ---
@@ -485,26 +706,62 @@
                 const rows = text.split(/\r\n|\n/);
                 const sep = (rows[0].match(/;/g)||[]).length > (rows[0].match(/,/g)||[]).length ? ';' : ',';
                 let count = 0;
+                const profiles = [];
                 rows.forEach((row, i) => {
                     if(i===0 || !row.trim()) return;
                     const c = row.split(sep).map(x => x.trim().replace(/^"|"$/g, ''));
-                    if(c.length >= 6) {
-                        const acc = { email: c[2], pass: c[3], imap: c[4], smtp: c[5] };
-                        let ex = allProfiles.find(p => p.name.toLowerCase() === c[0].toLowerCase());
-                        if(ex) { 
-                            if(!ex.accounts.some(a=>a.email===acc.email)) ex.accounts.push(acc);
-                            ex.department = c[1] || ex.department;
-                        } else { allProfiles.push({ id: Date.now()+Math.random(), name: c[0], department: c[1], accounts: [acc] }); }
+                    if(c.length >= 8) {
+                        const profile = {
+                            name: c[0],
+                            department: c[1],
+                            username: c[2],
+                            password: c[3],
+                            accounts: [{
+                                email: c[4],
+                                password: c[5],
+                                imapHost: c[6],
+                                smtpHost: c[7]
+                            }]
+                        };
+                        profiles.push(profile);
+                        count++;
+                    } else if (c.length >= 6) {
+                        const profile = {
+                            name: c[0],
+                            department: c[1],
+                            username: c[2],
+                            password: c[3],
+                            accounts: [{
+                                email: c[2],
+                                password: c[3],
+                                imapHost: c[4],
+                                smtpHost: c[5]
+                            }]
+                        };
+                        profiles.push(profile);
                         count++;
                     }
                 });
-                saveData(); toggleModal('csv-modal'); showToast(`${count} rader importerade`);
+                fetch('/api/admin/users/bulk', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ profiles })
+                }).then(async (res) => {
+                    if (!res.ok) {
+                        const err = await res.json();
+                        alert(err.error || 'Kunde inte importera CSV');
+                        return;
+                    }
+                    saveData();
+                    toggleModal('csv-modal');
+                    showToast(`${count} rader importerade`);
+                });
             };
             reader.readAsText(f);
         }
 
         function downloadTemplate() {
-            const content = "Namn,Avdelning,E-post,Lösenord,IMAP,SMTP\nJohan Ek,IT,johan@bolag.se,Lösen123,imap.bolag.se,smtp.bolag.se";
+            const content = "Namn,Avdelning,Användarnamn,Inloggningslösenord,E-post,Lösenord,IMAP,SMTP\nJohan Ek,IT,johan,AppLosen123,johan@bolag.se,Lösen123,imap.bolag.se,smtp.bolag.se";
             const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob); link.download = "mall.csv"; link.click();
@@ -519,6 +776,40 @@
             setTimeout(() => { t.style.transform = "translateY(150px)"; }, 5000);
         }
 
+        async function pollPrefetchStatus(userId) {
+            showToast("Forhamtar mejl...");
+            const maxAttempts = 30;
+            let attempts = 0;
+
+            const tick = async () => {
+                attempts += 1;
+                try {
+                    const res = await fetch(`/api/admin/prefetch/status?userId=${encodeURIComponent(userId)}`);
+                    if (!res.ok) throw new Error('status fetch failed');
+                    const data = await res.json();
+                    if (data.status === 'completed') {
+                        showToast("Forhamtning klar");
+                        return;
+                    }
+                    if (data.status === 'failed') {
+                        showToast("Forhamtning misslyckades");
+                        return;
+                    }
+                } catch (error) {
+                    if (attempts >= maxAttempts) {
+                        showToast("Forhamtning pa gar...");
+                        return;
+                    }
+                }
+
+                if (attempts < maxAttempts) {
+                    setTimeout(tick, 2000);
+                }
+            };
+
+            setTimeout(tick, 1000);
+        }
+
         function triggerUndo() {
             if(lastDeletedState) {
                 allProfiles = JSON.parse(JSON.stringify(lastDeletedState));
@@ -529,6 +820,8 @@
 
         function toggleModal(id) { document.getElementById(id).classList.toggle('hidden'); }
         function escapeHtml(t) { const d = document.createElement('div'); d.innerText = t; return d.innerHTML; }
+
+        initAdmin();
     </script>
 </body>
 </html>

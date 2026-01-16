@@ -3,7 +3,7 @@
 import {
   Settings, Plus, Check,
   Inbox, Send, File, Archive, Trash2, AlertCircle,
-  ChevronDown, ChevronRight, ChevronLeft, User, Star, FileSignature
+  ChevronDown, ChevronRight, ChevronLeft, User, Star, FileSignature, LogOut
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -29,9 +29,11 @@ interface SidebarProps {
   onAddAccount: () => void;
   onSettings: () => void;
   onEditSignature: (accountId: string, currentSignature: string) => void;
+  onLogout?: () => void;
+  currentUserName?: string;
 }
 
-export default function Sidebar({ accounts, activeAccountId, activeFolder, onSelect, onAddAccount, onSettings, onEditSignature }: SidebarProps) {
+export default function Sidebar({ accounts, activeAccountId, activeFolder, onSelect, onAddAccount, onSettings, onEditSignature, onLogout, currentUserName }: SidebarProps) {
   // Track expanded state for accounts (default all expanded)
   const [expandedAccounts, setExpandedAccounts] = useState<Record<string, boolean>>(
     accounts.reduce((acc, curr) => ({ ...acc, [curr.id]: true }), {})
@@ -221,6 +223,31 @@ export default function Sidebar({ accounts, activeAccountId, activeFolder, onSel
 
       {/* Footer / Settings */}
       <div className="p-3 border-t border-gray-200 bg-white space-y-2">
+        {currentUserName && (
+          <div
+            className={cn(
+              "w-full flex items-center gap-2 py-2 text-sm text-gray-600 rounded-lg",
+              isCollapsed ? "justify-center px-0" : "px-3"
+            )}
+            title={isCollapsed ? currentUserName : undefined}
+          >
+            <User size={18} />
+            {!isCollapsed && <span>Inloggad som {currentUserName}</span>}
+          </div>
+        )}
+        {onLogout && (
+          <button
+            onClick={onLogout}
+            title={isCollapsed ? "Logga ut" : undefined}
+            className={cn(
+              "w-full flex items-center gap-2 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-colors",
+              isCollapsed ? "justify-center px-0" : "px-3"
+            )}
+          >
+            <LogOut size={18} />
+            {!isCollapsed && <span>Logga ut</span>}
+          </button>
+        )}
         <button
           onClick={() => alert('Global adressbok kommer snart!')}
           title={isCollapsed ? "Global adressbok" : undefined}

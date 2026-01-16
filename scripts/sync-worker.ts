@@ -4,6 +4,8 @@ import { fetchEmails, getImapConnection } from '../src/lib/mail-service';
 
 const prisma = new PrismaClient();
 
+type ImapConnection = Awaited<ReturnType<typeof getImapConnection>>;
+
 const DEFAULT_INTERVAL_MS = 5 * 60 * 1000;
 const DEFAULT_FETCH_LIMIT = Number.MAX_SAFE_INTEGER;
 
@@ -21,7 +23,7 @@ function extractFolders(boxList: any, parentKey = ''): string[] {
 }
 
 async function syncFolder(account: MailAccount, folder: string, limit: number) {
-  let connection;
+  let connection: ImapConnection | null = null;
   try {
     connection = await getImapConnection(account);
     const emails = await fetchEmails(connection, folder, limit);
@@ -87,7 +89,7 @@ async function syncFolder(account: MailAccount, folder: string, limit: number) {
 }
 
 async function syncAccount(account: MailAccount, limit: number) {
-  let connection;
+  let connection: ImapConnection | null = null;
   try {
     connection = await getImapConnection(account);
     const boxes = await connection.getBoxes();

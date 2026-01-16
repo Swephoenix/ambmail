@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, Send, Maximize2, Minimize2, ExternalLink } from 'lucide-react';
+import { X, Send, Maximize2, Minimize2, ExternalLink, Paperclip } from 'lucide-react';
 import toast from 'react-hot-toast';
 import TiptapEditor from './TiptapEditor';
 import EmailInput from './EmailInput';
@@ -159,6 +159,17 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
   const [isMaximized, setIsMaximized] = useState(false);
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
   const [isSignatureInserted, setIsSignatureInserted] = useState(false);
+  const [attachments, setAttachments] = useState<Array<{
+    token: string;
+    name: string;
+    size: number;
+    type: string;
+    inline: boolean;
+    cid?: string;
+  }>>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const insertContentRef = useRef<(html: string) => void>();
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // State for tracking input value separately from the email list
   const [inputValue, setInputValue] = useState<string>('');
@@ -198,6 +209,71 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
       }
     }
   }, [accountSignature, isSignatureInserted, initialData?.uid, body, initialData?.body]);
+
+  const uploadFiles = async (files: File[], inlineByDefault = false) => {
+    if (files.length === 0) return;
+    setIsUploading(true);
+    try {
+      const formData = new FormData();
+      files.forEach((file) => formData.append('files', file));
+      const res = await fetch('/api/mail/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        throw new Error(result.error || 'Upload failed');
+      }
+
+      const uploaded = (result.files || []).map((file: any) => {
+        const inline = inlineByDefault && file.type?.startsWith('image/');
+        const cid = inline ? `inline-${file.token}` : undefined;
+        if (inline && insertContentRef.current) {
+          insertContentRef.current(`<img src="cid:${cid}" alt="${file.name}">`);
+        }
+        return {
+          token: file.token,
+          name: file.name,
+          size: file.size,
+          type: file.type || '',
+          inline,
+          cid,
+        };
+      });
+
+      setAttachments((prev) => [...prev, ...uploaded]);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to upload files');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files ? Array.from(event.target.files) : [];
+    await uploadFiles(files, false);
+    if (event.target) {
+      event.target.value = '';
+    }
+  };
+
+  const insertInlineImage = (attachmentToken: string) => {
+    const attachment = attachments.find((item) => item.token === attachmentToken);
+    if (!attachment || !attachment.type.startsWith('image/') || attachment.inline) return;
+    const cid = `inline-${attachment.token}`;
+    if (insertContentRef.current) {
+      insertContentRef.current(`<img src="cid:${cid}" alt="${attachment.name}">`);
+    }
+    setAttachments((prev) =>
+      prev.map((item) =>
+        item.token === attachmentToken ? { ...item, inline: true, cid } : item
+      )
+    );
+  };
+
+  const removeAttachment = (attachmentToken: string) => {
+    setAttachments((prev) => prev.filter((item) => item.token !== attachmentToken));
+  };
 
   // Ref to store the timeout ID for proper cleanup
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -382,7 +458,19 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
       const res = await fetch('/api/mail/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountId, to: toEmails, subject, body: finalBody }),
+        body: JSON.stringify({
+          accountId,
+          to: toEmails,
+          subject,
+          body: finalBody,
+          attachments: attachments.map((item) => ({
+            token: item.token,
+            filename: item.name,
+            contentType: item.type,
+            inline: item.inline,
+            cid: item.cid,
+          })),
+        }),
       });
 
       const result = await res.json();
@@ -394,6 +482,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
       }
 
       toast.success('Email sent!');
+      setAttachments([]);
       if (mode === 'standalone') {
         window.close();
       } else {
@@ -559,6 +648,63 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
                 />
               </div>
             </div>
+            <div className="flex items-center justify-between pt-3">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Paperclip size={16} />
+                  {isUploading ? 'Laddar upp...' : 'Bifoga filer'}
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  className="hidden"
+                  onChange={handleFileSelect}
+                />
+              </div>
+              {attachments.length > 0 && (
+                <span className="text-xs text-gray-500">{attachments.length} bilagor</span>
+              )}
+            </div>
+            {attachments.length > 0 && (
+              <div className="mt-3 border border-gray-200 rounded-lg p-3 space-y-2">
+                {attachments.map((attachment) => (
+                  <div key={attachment.token} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-700">{attachment.name}</span>
+                      <span className="text-xs text-gray-400">
+                        {Math.round(attachment.size / 1024)} KB
+                      </span>
+                      {attachment.inline && (
+                        <span className="text-xs text-green-600">Inline</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {!attachment.inline && attachment.type.startsWith('image/') && (
+                        <button
+                          type="button"
+                          className="text-xs text-blue-600 hover:text-blue-800"
+                          onClick={() => insertInlineImage(attachment.token)}
+                        >
+                          Infoga i mejl
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="text-xs text-red-600 hover:text-red-800"
+                        onClick={() => removeAttachment(attachment.token)}
+                      >
+                        Ta bort
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex-1 flex flex-col overflow-hidden bg-white p-4 pt-0">
@@ -567,6 +713,10 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
               onChange={setBody}
               placeholder="Write your message here..."
               signature={accountSignature || undefined}
+              onRegisterInsert={(insert) => {
+                insertContentRef.current = insert;
+              }}
+              onFilesDropped={(files) => uploadFiles(files, true)}
             />
           </div>
 

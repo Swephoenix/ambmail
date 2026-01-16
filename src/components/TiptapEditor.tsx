@@ -12,16 +12,20 @@ import { FontFamily } from '@tiptap/extension-font-family';
 import { Placeholder } from '@tiptap/extension-placeholder';
 import { FontSize } from './extensions/FontSize';
 import EditorToolbar from './EditorToolbar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 interface TiptapEditorProps {
   value: string;
   onChange: (html: string) => void;
   placeholder?: string;
   signature?: string;
+  onRegisterInsert?: (insert: (html: string) => void) => void;
+  onFilesDropped?: (files: File[]) => void;
 }
 
-export default function TiptapEditor({ value, onChange, placeholder, signature }: TiptapEditorProps) {
+export default function TiptapEditor({ value, onChange, placeholder, signature, onRegisterInsert, onFilesDropped }: TiptapEditorProps) {
+  const [isDragActive, setIsDragActive] = useState(false);
+  const [dragDepth, setDragDepth] = useState(0);
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -80,6 +84,13 @@ export default function TiptapEditor({ value, onChange, placeholder, signature }
     }
   }, [value, editor]);
 
+  useEffect(() => {
+    if (!editor || !onRegisterInsert) return;
+    onRegisterInsert((html: string) => {
+      editor.chain().focus().insertContent(html).run();
+    });
+  }, [editor, onRegisterInsert]);
+
   const insertSignature = (signature?: string) => {
     if (editor) {
       const sigContent = signature || '<br><br>--<br><strong>Sent via UxMail</strong>';
@@ -87,8 +98,50 @@ export default function TiptapEditor({ value, onChange, placeholder, signature }
     }
   };
 
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    if (!onFilesDropped || !event.dataTransfer?.files?.length) return;
+    event.preventDefault();
+    setIsDragActive(false);
+    setDragDepth(0);
+    onFilesDropped(Array.from(event.dataTransfer.files));
+  };
+
+  const handleDragEnter = (event: React.DragEvent<HTMLDivElement>) => {
+    if (!onFilesDropped || !event.dataTransfer?.types?.includes('Files')) return;
+    event.preventDefault();
+    setDragDepth((prev) => prev + 1);
+    setIsDragActive(true);
+  };
+
+  const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+    if (!onFilesDropped || !event.dataTransfer?.types?.includes('Files')) return;
+    event.preventDefault();
+    setDragDepth((prev) => {
+      const next = Math.max(prev - 1, 0);
+      if (next === 0) setIsDragActive(false);
+      return next;
+    });
+  };
+
   return (
-    <div className="flex flex-col border border-gray-200 rounded-lg overflow-hidden bg-white">
+    <div
+      className="relative flex flex-col border border-gray-200 rounded-lg overflow-hidden bg-white"
+      onDragOver={(event) => {
+        if (onFilesDropped) event.preventDefault();
+      }}
+      onDragEnter={handleDragEnter}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {onFilesDropped && (
+        <div
+          className={`absolute inset-0 z-10 flex items-center justify-center bg-blue-50/90 text-blue-700 text-sm font-semibold transition-opacity duration-200 ${
+            isDragActive ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
+        >
+          Slapp filerna har for att bifoga
+        </div>
+      )}
       <EditorToolbar
         editor={editor}
         onInsertSignature={() => insertSignature(signature)}

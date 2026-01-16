@@ -1,14 +1,25 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { requireUser } from '@/lib/auth';
 
 export async function PUT(req: Request) {
   try {
+    const user = await requireUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const { accountId, signature } = await req.json();
 
     if (!accountId) {
       return NextResponse.json({ error: 'accountId is required' }, { status: 400 });
     }
 
+    const account = await prisma.account.findFirst({
+      where: { id: accountId, userId: user.id },
+    });
+    if (!account) {
+      return NextResponse.json({ error: 'Account not found' }, { status: 404 });
+    }
     const updatedAccount = await prisma.account.update({
       where: { id: accountId },
       data: { signature },
@@ -26,6 +37,10 @@ export async function PUT(req: Request) {
 
 export async function GET(req: Request) {
   try {
+    const user = await requireUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const { searchParams } = new URL(req.url);
     const accountId = searchParams.get('accountId');
 
@@ -33,8 +48,8 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'accountId is required' }, { status: 400 });
     }
 
-    const account = await prisma.account.findUnique({
-      where: { id: accountId },
+    const account = await prisma.account.findFirst({
+      where: { id: accountId, userId: user.id },
       select: { signature: true },
     });
 
