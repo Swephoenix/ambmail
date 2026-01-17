@@ -9,12 +9,13 @@ UxMail är en modern e-postklient med stöd för flera konton, förhämtning av 
 - **Automatisk uppdatering**: Kontrollerar efter nya e-postmeddelanden varje minut
 - **SPA-funktionalitet**: Skriv e-post utan sidladdningar
 - **Förbättrad e-postinmatning**: Intelligenta förslag och bubblor för e-postadresser
-- **PostgreSQL-databas**: Lokal databas för kontoinformation via Docker
+- **PostgreSQL-databas**: Lokal eller extern databas för kontoinformation (Docker är valfritt)
 
 ## Förutsättningar
 
 - Node.js (version 18 eller högre)
 - npm eller yarn
+- PostgreSQL (lokalt eller managed)
 
 ## Installation
 
@@ -33,8 +34,22 @@ npm install
 ```bash
 cp .env.example .env
 ```
+Om du inte vill använda Docker, uppdatera `DATABASE_URL` (t.ex. port 5432) och sätt `UXMAIL_USE_DOCKER=0`.
 
-4. Initiera databasen:
+4. Starta PostgreSQL och skapa roll/databas:
+```bash
+sudo systemctl start postgresql
+```
+Mac:
+```bash
+brew services start postgresql
+```
+```bash
+./scripts/setup_postgres_local.sh
+```
+Detta kräver sudo och använder värden från `.env`.
+
+5. Initiera databasen:
 ```bash
 npx prisma db push
 ```
@@ -68,7 +83,7 @@ Projektet är byggt med:
 
 - Krypteringsnyckel hämtas från `ENCRYPTION_KEY` eller skapas automatiskt i `.uxmail.key`.
 - Aktivera Basic Auth genom att sätta `BASIC_AUTH_USER` och `BASIC_AUTH_PASSWORD`.
-- Kör databasen endast på localhost (docker-compose är bundet till `127.0.0.1`).
+- Kör databasen endast på localhost.
 
 ## Användare & Admin
 

@@ -1,6 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { fetchEmails, getImapConnection, MailAccount, openMailbox } from '@/lib/mail-service';
 import { simpleParser } from 'mailparser';
+import { buildContactRows, extractContactsFromHeader, uniqueContacts } from '@/lib/contact-utils';
 
 const SYNC_INTERVAL_MS = 30 * 1000;
 const DEFAULT_LIST_LIMIT = 50;
@@ -33,6 +34,21 @@ export async function syncFolderFromImap(account: MailAccount, folder: string, l
   try {
     connection = await getImapConnection(account);
     const emails = await fetchEmails(connection, folder, limit);
+
+    const accountUserId = (account as MailAccount & { userId?: string }).userId;
+    if (accountUserId) {
+      const contactCandidates = emails.flatMap((email) => ([
+        ...extractContactsFromHeader(email.from || null),
+        ...extractContactsFromHeader(email.to || null),
+      ]));
+      const unique = uniqueContacts(contactCandidates, [account.email]);
+      if (unique.length > 0) {
+        await prisma.contact.createMany({
+          data: buildContactRows(accountUserId, unique),
+          skipDuplicates: true,
+        });
+      }
+    }
 
     await prisma.$transaction([
       ...emails.map(email =>
@@ -147,6 +163,8 @@ async function prefetchBodiesForFolder(account: MailAccount, folder: string, lim
       const parsed = await simpleParser(source);
       const toRecipients = getRecipients(parsed.to);
       const ccRecipients = getRecipients(parsed.cc);
+      const bccRecipients = getRecipients(parsed.bcc);
+      const fromRecipients = getRecipients(parsed.from);
 
       let to = '';
       if (parsed.to && Array.isArray(parsed.to)) {
@@ -208,6 +226,26 @@ async function prefetchBodiesForFolder(account: MailAccount, folder: string, lim
           ccRecipients,
         },
       });
+
+      const accountUserId = (account as MailAccount & { userId?: string }).userId;
+      if (accountUserId) {
+        const contactCandidates = [
+          ...fromRecipients,
+          ...toRecipients,
+          ...ccRecipients,
+          ...bccRecipients,
+        ].map((entry) => ({
+          email: entry.address,
+          name: entry.name || null,
+        }));
+        const unique = uniqueContacts(contactCandidates, [account.email]);
+        if (unique.length > 0) {
+          await prisma.contact.createMany({
+            data: buildContactRows(accountUserId, unique),
+            skipDuplicates: true,
+          });
+        }
+      }
     }
   } finally {
     if (connection) {

@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import type { MailAccount } from '../src/lib/mail-service';
 import { fetchEmails, getImapConnection } from '../src/lib/mail-service';
+import { buildContactRows, extractContactsFromHeader, uniqueContacts } from '../src/lib/contact-utils';
 
 const prisma = new PrismaClient();
 
@@ -27,6 +28,21 @@ async function syncFolder(account: MailAccount, folder: string, limit: number) {
   try {
     connection = await getImapConnection(account);
     const emails = await fetchEmails(connection, folder, limit);
+
+    const accountUserId = (account as MailAccount & { userId?: string }).userId;
+    if (accountUserId) {
+      const contactCandidates = emails.flatMap((email) => ([
+        ...extractContactsFromHeader(email.from || null),
+        ...extractContactsFromHeader(email.to || null),
+      ]));
+      const unique = uniqueContacts(contactCandidates, [account.email]);
+      if (unique.length > 0) {
+        await prisma.contact.createMany({
+          data: buildContactRows(accountUserId, unique),
+          skipDuplicates: true,
+        });
+      }
+    }
 
     await prisma.$transaction([
       ...emails.map(email =>

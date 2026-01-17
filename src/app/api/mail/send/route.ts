@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getSmtpTransporter } from '@/lib/mail-service';
 import { requireUser } from '@/lib/auth';
+import { buildContactRows, extractContactsFromHeader, uniqueContacts } from '@/lib/contact-utils';
 import fs from 'fs/promises';
 import path from 'path';
 
@@ -75,19 +76,17 @@ export async function POST(req: Request) {
 
     console.log('Email sent successfully');
 
-    // Automatically add to contacts if not exists
+    // Automatically add recipients to contacts
     try {
-      await prisma.contact.upsert({
-        where: {
-          userId_email: {
-            userId: user.id,
-            email: to,
-          },
-        },
-        update: {},
-        create: { email: to, name: to.split('@')[0], userId: user.id },
-      });
-      console.log('Contact updated/created successfully');
+      const contactCandidates = extractContactsFromHeader(to || null);
+      const unique = uniqueContacts(contactCandidates);
+      if (unique.length > 0) {
+        await prisma.contact.createMany({
+          data: buildContactRows(user.id, unique),
+          skipDuplicates: true,
+        });
+      }
+      console.log('Contacts updated/created successfully');
     } catch (e) {
       console.error('Contact saving error:', e);
       // Ignore contact saving errors

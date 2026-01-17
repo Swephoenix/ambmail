@@ -111,6 +111,15 @@
         input[type="text"], input[type="password"], input[type="email"] { width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; margin-bottom: 8px; outline: none; font-size: 0.9rem; }
         input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-light); }
         label { font-size: 0.75rem; font-weight: 700; color: var(--text-light); display: block; margin-bottom: 4px; text-transform: uppercase; }
+        .acc-status { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; gap: 10px; }
+        .status-pair { display: flex; gap: 12px; align-items: center; font-size: 0.75rem; color: var(--text-light); }
+        .status-item { display: inline-flex; align-items: center; gap: 6px; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #cbd5e1; border: 1px solid #94a3b8; display: inline-block; }
+        .status-dot.ok { background: #22c55e; border-color: #16a34a; box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.15); }
+        .status-dot.fail { background: #ef4444; border-color: #dc2626; box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.12); }
+        .status-dot.pending { background: #f59e0b; border-color: #d97706; box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.15); }
+        .account-status { display: inline-flex; align-items: center; gap: 6px; margin-right: 10px; }
+        .account-warning { color: var(--danger); font-weight: 700; font-size: 0.75rem; }
 
         /* TOAST & UNDO */
         #toast {
@@ -291,6 +300,8 @@
         let currentFilter = 'All';
         let currentEditingId = null;
         let lastDeletedState = null;
+        const accountStatusCache = new Map();
+        const ACCOUNT_STATUS_TTL_MS = 5 * 60 * 1000;
         const ANIMALS = ['fox', 'otter', 'lynx', 'panda', 'eagle', 'tiger', 'orca', 'koala', 'yak', 'marten', 'badger', 'falcon', 'rabbit', 'raven', 'moose', 'heron', 'wolf', 'bison', 'lemur', 'squid', 'gecko', 'hare', 'lizard', 'owl', 'seal', 'stork', 'whale', 'zebra'];
 
         // --- AUTH ---
@@ -483,7 +494,13 @@
                     </div>
                     <div><span class="tag">${escapeHtml(p.department || 'Övrigt')}</span></div>
                     <div style="font-size:0.85rem; color:#666; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">
-                        ${(p.accounts || []).map(a => a.email).join(', ')}
+                        ${(p.accounts || []).map(a => `
+                          <span class="account-status">
+                            <span class="status-dot pending" data-account-status="${a.id}" title="Testar..."></span>
+                            <span>${escapeHtml(a.email)}</span>
+                            <span class="account-warning hidden" data-account-warning="${a.id}" title="Lösenord saknas">! Lösenord saknas</span>
+                          </span>
+                        `).join('')}
                     </div>
                     <div style="text-align:right;">
                         <button class="btn-outline btn" style="padding:4px 10px; font-size:0.75rem;" onclick="openEditor('${p.id}')">Hantera</button>
@@ -492,6 +509,7 @@
             `).join('');
 
             renderPagination(total);
+            updateAccountStatusIndicators(pageData);
         }
 
         function renderPagination(total) {
@@ -590,6 +608,13 @@
                     <div><label>IMAP</label><input type="text" class="i-imap" value="${d.imap}"></div>
                     <div><label>SMTP</label><input type="text" class="i-smtp" value="${d.smtp}"></div>
                 </div>
+                <div class="acc-status">
+                    <button class="btn-ghost" type="button" onclick="testAccount(this)">Testa IMAP</button>
+                    <div class="status-pair">
+                        <span class="status-item" title="IMAP inloggning"><span class="status-dot" data-status="login"></span>Login</span>
+                        <span class="status-item" title="IMAP fetch"><span class="status-dot" data-status="fetch"></span>Fetch</span>
+                    </div>
+                </div>
             `;
             document.getElementById('ed-accounts-list').appendChild(div);
         }
@@ -597,6 +622,127 @@
         function togglePass(el) {
             const inp = el.previousElementSibling;
             inp.type = inp.type === 'password' ? 'text' : 'password';
+        }
+
+        function setDotStatus(dot, status) {
+            if (!dot) return;
+            dot.classList.remove('ok', 'fail', 'pending');
+            if (status === 'ok') dot.classList.add('ok');
+            if (status === 'fail') dot.classList.add('fail');
+            if (status === 'pending') dot.classList.add('pending');
+        }
+
+        function setAccountStatus(box, loginStatus, fetchStatus) {
+            const loginDot = box.querySelector('[data-status="login"]');
+            const fetchDot = box.querySelector('[data-status="fetch"]');
+            setDotStatus(loginDot, loginStatus);
+            setDotStatus(fetchDot, fetchStatus);
+        }
+
+        function setAccountDotStatus(accountId, status, message = '', warning = false) {
+            document.querySelectorAll(`[data-account-status="${accountId}"]`).forEach((dot) => {
+                setDotStatus(dot, status);
+                if (message) {
+                    dot.title = message;
+                } else if (status === 'ok') {
+                    dot.title = 'OK';
+                } else if (status === 'fail') {
+                    dot.title = 'Fel';
+                } else {
+                    dot.title = 'Testar...';
+                }
+            });
+            document.querySelectorAll(`[data-account-warning="${accountId}"]`).forEach((badge) => {
+                badge.classList.toggle('hidden', !warning);
+            });
+        }
+
+        async function updateAccountStatusIndicators(profiles) {
+            const now = Date.now();
+            const accountIds = [];
+            (profiles || []).forEach((profile) => {
+                (profile.accounts || []).forEach((account) => {
+                    if (account.id) accountIds.push(account.id);
+                });
+            });
+
+            const uniqueIds = Array.from(new Set(accountIds));
+            const toFetch = uniqueIds.filter((id) => {
+                const cached = accountStatusCache.get(id);
+                if (cached && (now - cached.ts) < ACCOUNT_STATUS_TTL_MS) {
+                    setAccountDotStatus(id, cached.status, cached.message || '', cached.warning || false);
+                    return false;
+                }
+                setAccountDotStatus(id, 'pending', 'Testar...', false);
+                return true;
+            });
+
+            await Promise.all(toFetch.map(async (accountId) => {
+                try {
+                    const res = await fetch('/api/admin/accounts/test', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ accountId })
+                    });
+                    if (!res.ok) {
+                        accountStatusCache.set(accountId, { status: 'fail', ts: Date.now(), message: 'Test misslyckades', warning: false });
+                        setAccountDotStatus(accountId, 'fail', 'Test misslyckades');
+                        return;
+                    }
+                    const data = await res.json();
+                    const status = data.login && data.fetch ? 'ok' : 'fail';
+                    const message = status === 'ok' ? 'IMAP OK' : (data.error || 'IMAP misslyckades');
+                    const warning = Boolean(data.error && /password/i.test(data.error));
+                    accountStatusCache.set(accountId, { status, ts: Date.now(), message, warning });
+                    setAccountDotStatus(accountId, status, message, warning);
+                } catch (error) {
+                    accountStatusCache.set(accountId, { status: 'fail', ts: Date.now(), message: 'Test misslyckades', warning: false });
+                    setAccountDotStatus(accountId, 'fail', 'Test misslyckades');
+                }
+            }));
+        }
+
+        async function testAccount(button) {
+            const box = button.closest('.acc-box');
+            const email = box.querySelector('.i-email').value.trim();
+            const password = box.querySelector('.i-pass').value;
+            const imapHost = box.querySelector('.i-imap').value.trim();
+            const accountId = box.dataset.accountId || undefined;
+
+            if (!accountId && (!email || !imapHost)) {
+                alert('E-post och IMAP krävs för test.');
+                return;
+            }
+
+            setAccountStatus(box, 'pending', 'pending');
+
+            try {
+                const res = await fetch('/api/admin/accounts/test', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        accountId,
+                        email: email || undefined,
+                        password: password || undefined,
+                        imapHost: imapHost || undefined
+                    })
+                });
+                if (!res.ok) {
+                    setAccountStatus(box, 'fail', 'fail');
+                    showToast('Test misslyckades');
+                    return;
+                }
+                const data = await res.json();
+                setAccountStatus(box, data.login ? 'ok' : 'fail', data.fetch ? 'ok' : 'fail');
+                if (data.login && data.fetch) {
+                    showToast('Inloggning och fetch OK');
+                } else {
+                    showToast(data.error || 'Inloggning eller fetch misslyckades');
+                }
+            } catch (error) {
+                setAccountStatus(box, 'fail', 'fail');
+                showToast('Test misslyckades');
+            }
         }
 
         function randomInt(min, max) {

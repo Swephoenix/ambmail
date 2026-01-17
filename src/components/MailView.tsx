@@ -128,39 +128,42 @@ export default function MailView({
   return (
     <div className="flex-1 flex flex-col h-full bg-white overflow-hidden">
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={() => onReply(email)}
-            className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors"
-            title="Reply"
+            className="px-3 py-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors inline-flex items-center gap-2 text-sm font-medium"
+            title="Svara"
           >
-            <Reply size={20} />
+            <Reply size={18} />
+            Svara
           </button>
           <button
             onClick={() => onReplyAll(email)}
-            className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors"
-            title="Reply All"
+            className="px-3 py-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors inline-flex items-center gap-2 text-sm font-medium"
+            title="Svara alla"
           >
-            <ReplyAll size={20} />
+            <ReplyAll size={18} />
+            Svara alla
           </button>
           <button
             onClick={() => onForward(email)}
-            className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors"
-            title="Forward"
+            className="px-3 py-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors inline-flex items-center gap-2 text-sm font-medium"
+            title="Vidarebefordra"
           >
-            <Forward size={20} />
+            <Forward size={18} />
+            Vidarebefordra
           </button>
           <button
             onClick={() => onDelete(email)}
             className="p-2 hover:bg-red-50 rounded-lg text-gray-600 hover:text-red-600 transition-colors"
-            title="Delete"
+            title="Radera"
           >
             <Trash2 size={20} />
           </button>
           <button
             onClick={() => onMoveToFolder(email)}
             className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors"
-            title="Move to Folder"
+            title="Flytta till mapp"
           >
             <FolderInput size={20} />
           </button>
