@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getImapConnection, openMailbox } from '@/lib/mail-service';
+import { getImapConnection, isFolderAlias, openMailbox, resolveFolderAlias } from '@/lib/mail-service';
 import { simpleParser } from 'mailparser';
 import { requireUser } from '@/lib/auth';
 
@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const accountId = searchParams.get('accountId');
   const uidParam = searchParams.get('uid');
-  const folder = searchParams.get('folder') || 'INBOX';
+  const requestedFolder = searchParams.get('folder') || 'INBOX';
   const indexParam = searchParams.get('index');
   const inlineParam = searchParams.get('inline');
 
@@ -36,7 +36,10 @@ export async function GET(req: Request) {
   let connection;
   try {
     connection = await getImapConnection(account as any);
-    await openMailbox(connection, folder);
+    const resolvedFolder = isFolderAlias(requestedFolder)
+      ? await resolveFolderAlias(connection, requestedFolder)
+      : requestedFolder;
+    await openMailbox(connection, resolvedFolder);
 
     const messages = await connection.search([['UID', uid]], {
       bodies: [''],

@@ -1,6 +1,7 @@
 'use client';
 
-import { format } from 'date-fns';
+import { format, isToday, isYesterday } from 'date-fns';
+import { sv } from 'date-fns/locale';
 import { RefreshCcw, Search, Trash2, FolderPlus, Move, CheckCircle, Square } from 'lucide-react';
 
 export interface EmailHeader {
@@ -8,7 +9,7 @@ export interface EmailHeader {
   subject: string;
   from: string;
   to?: string;
-  date: string;
+  date: string | Date | null;
   flags: string[];
   preview?: string;
   messageId?: string;
@@ -47,6 +48,18 @@ export default function MailList({
   onMoveSelected = () => {}
 }: MailListProps) {
   const isAllSelected = emails.length > 0 && emails.every(email => selectedEmails.includes(email.uid));
+  const formatTimestamp = (value: string | Date | null) => {
+    if (!value) return '--';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '--';
+    if (isToday(date)) {
+      return `idag kl ${format(date, 'HH:mm')}`;
+    }
+    if (isYesterday(date)) {
+      return `igår kl ${format(date, 'HH:mm')}`;
+    }
+    return format(date, 'd MMM yyyy HH:mm', { locale: sv });
+  };
 
   return (
     <div className="w-80 md:w-96 flex flex-col h-full border-r border-gray-200 bg-white">
@@ -105,7 +118,7 @@ export default function MailList({
         ) : (
           <>
             {emails.length > 0 && (
-              <div className="px-4 py-2 border-b border-gray-100 flex items-center">
+              <div className="px-4 py-2 border-b border-gray-100 flex items-center gap-3 text-xs uppercase tracking-wide text-gray-400">
                 <button
                   onClick={onSelectAll}
                   className="p-1 hover:bg-gray-100 rounded"
@@ -117,6 +130,10 @@ export default function MailList({
                     <Square size={18} className="text-gray-400" />
                   )}
                 </button>
+                <div className="flex-1 grid grid-cols-[minmax(0,1fr)_140px] gap-3">
+                  <span>From/Subject</span>
+                  <span className="text-right">Datum/tid</span>
+                </div>
               </div>
             )}
             {emails.map((email) => {
@@ -144,24 +161,26 @@ export default function MailList({
                       onClick={() => onEmailSelect(email.uid)}
                       className="flex-1 text-left"
                     >
-                      <div className="flex justify-between items-start mb-1">
-                        <div className="flex items-center gap-2 overflow-hidden">
-                          {!isRead && (
-                            <div className="w-2.5 h-2.5 bg-blue-600 rounded-full flex-shrink-0" />
-                          )}
-                          <span className={`text-sm truncate pr-2 ${isRead ? 'text-gray-600' : 'font-bold text-gray-900'}`}>
-                            {email.from}
-                          </span>
+                      <div className="grid grid-cols-[minmax(0,1fr)_140px] gap-3 items-start">
+                        <div className="min-w-0">
+                          <div className="flex items-start mb-1 gap-2">
+                            {!isRead && (
+                              <div className="w-2.5 h-2.5 bg-blue-600 rounded-full flex-shrink-0 mt-1" />
+                            )}
+                            <span className={`text-sm truncate pr-2 ${isRead ? 'text-gray-600' : 'font-bold text-gray-900'}`}>
+                              {email.from}
+                            </span>
+                          </div>
+                          <div className={`text-sm truncate ${isRead ? 'text-gray-700' : 'font-bold text-gray-900'}`}>
+                            {email.subject}
+                          </div>
+                          <div className="text-xs text-gray-500 truncate mt-1">
+                            {email.preview || 'No content'}
+                          </div>
                         </div>
-                        <span className="text-xs text-gray-500 whitespace-nowrap ml-2">
-                          {format(new Date(email.date), 'MMM d')}
-                        </span>
-                      </div>
-                      <div className={`text-sm truncate ${isRead ? 'text-gray-700' : 'font-bold text-gray-900'}`}>
-                        {email.subject}
-                      </div>
-                      <div className="text-xs text-gray-500 truncate mt-1">
-                        {email.preview || 'No content'}
+                        <div className="text-xs text-gray-600 whitespace-nowrap text-right font-medium">
+                          {formatTimestamp(email.date)}
+                        </div>
                       </div>
                     </button>
                   </div>

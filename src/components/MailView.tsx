@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { format } from 'date-fns';
 import { Reply, ReplyAll, Forward, Trash2, MoreHorizontal, FolderInput, User, ChevronDown, ChevronUp, File, FileArchive, FileImage, FileSpreadsheet, FileText } from 'lucide-react';
 
 interface MailViewProps {
@@ -67,6 +68,12 @@ export default function MailView({
       unitIndex += 1;
     }
     return `${value.toFixed(value >= 10 || unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
+  };
+  const formatTimestamp = (value?: string | Date | null) => {
+    if (!value) return '—';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '—';
+    return format(date, 'yyyy-MM-dd HH:mm');
   };
 
   if (isLoading) {
@@ -187,7 +194,7 @@ export default function MailView({
                   {from.name}
                   <span className="text-gray-500 font-normal ml-2 text-sm hidden sm:inline">&lt;{from.address}&gt;</span>
                 </div>
-                <span className="text-sm text-gray-500 whitespace-nowrap">{new Date(email.date).toLocaleString()}</span>
+                <span className="text-sm text-gray-500 whitespace-nowrap">{formatTimestamp(email.date)}</span>
               </div>
               
               <div className="mt-1">

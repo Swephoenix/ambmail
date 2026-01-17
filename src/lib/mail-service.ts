@@ -119,6 +119,55 @@ export async function appendDraft(connection: ImapSimple, rawEmail: string) {
   return connection.append(rawEmail, { mailbox: draftsFolder, flags: ['\Draft'] });
 }
 
+export async function getSentFolder(connection: ImapSimple) {
+  const boxes = await connection.getBoxes();
+
+  const findSentRecursive = (boxList: any, parentKey = ''): string | null => {
+    for (const key of Object.keys(boxList)) {
+      const box = boxList[key];
+      const fullPath = parentKey ? `${parentKey}${box.delimiter}${key}` : key;
+      if (box.attribs.some((a: string) => a.toLowerCase() === '\\sent')) {
+        return fullPath;
+      }
+      if (box.children) {
+        const childResult = findSentRecursive(box.children, fullPath);
+        if (childResult) return childResult;
+      }
+    }
+    return null;
+  };
+
+  const sentFolder = findSentRecursive(boxes);
+  if (sentFolder) return sentFolder;
+
+  return 'INBOX.Sent';
+}
+
+export async function appendSent(connection: ImapSimple, rawEmail: string) {
+  const sentFolder = await getSentFolder(connection);
+  await connection.append(rawEmail, { mailbox: sentFolder, flags: ['\\Seen'] });
+  return sentFolder;
+}
+
+const SENT_ALIASES = new Set(['sent', 'skickat']);
+const DRAFT_ALIASES = new Set(['drafts', 'utkast']);
+
+export function isFolderAlias(folder: string) {
+  const normalized = folder.trim().toLowerCase();
+  return SENT_ALIASES.has(normalized) || DRAFT_ALIASES.has(normalized);
+}
+
+export async function resolveFolderAlias(connection: ImapSimple, folder: string) {
+  const normalized = folder.trim().toLowerCase();
+  if (SENT_ALIASES.has(normalized)) {
+    return getSentFolder(connection);
+  }
+  if (DRAFT_ALIASES.has(normalized)) {
+    return getDraftsFolder(connection);
+  }
+  return folder;
+}
+
 export async function fetchEmails(connection: ImapSimple, folder = 'INBOX', limit = 20) {
   await openMailbox(connection, folder);
 
@@ -145,6 +194,7 @@ export async function fetchEmails(connection: ImapSimple, folder = 'INBOX', limi
     let inReplyTo = '';
     let references = '';
     let preview = 'No content';
+    let dateValue: string | Date | null = item.attributes?.date ?? null;
 
     // Use the header part to extract information as the primary method
     if (headerPart?.body) {
@@ -193,6 +243,9 @@ export async function fetchEmails(connection: ImapSimple, folder = 'INBOX', limi
           messageId = (headerObj['message-id'] && Array.isArray(headerObj['message-id']) && headerObj['message-id'].length > 0) ? headerObj['message-id'][0] : '';
           inReplyTo = (headerObj['in-reply-to'] && Array.isArray(headerObj['in-reply-to']) && headerObj['in-reply-to'].length > 0) ? headerObj['in-reply-to'][0] : '';
           references = (headerObj.references && Array.isArray(headerObj.references) && headerObj.references.length > 0) ? headerObj.references[0] : '';
+          if (!dateValue && headerObj.date) {
+            dateValue = Array.isArray(headerObj.date) ? headerObj.date[0] : headerObj.date;
+          }
 
           // Clean up the from field to remove extra whitespace and quotes
           from = from.trim().replace(/^["']|["']$/g, '');
@@ -230,6 +283,9 @@ export async function fetchEmails(connection: ImapSimple, folder = 'INBOX', limi
           messageId = headers['message-id'] || '';
           inReplyTo = headers['in-reply-to'] || '';
           references = headers.references || '';
+          if (!dateValue && headers.date) {
+            dateValue = headers.date;
+          }
         }
       } catch (e) {
         console.error('Error parsing headers:', e);
@@ -251,6 +307,9 @@ export async function fetchEmails(connection: ImapSimple, folder = 'INBOX', limi
             addr.name ? `${addr.name} <${addr.address}>` : addr.address
           ).join(', ');
         }
+        if (!dateValue && attrs.envelope.date) {
+          dateValue = attrs.envelope.date;
+        }
       }
     }
 
@@ -268,7 +327,7 @@ export async function fetchEmails(connection: ImapSimple, folder = 'INBOX', limi
 
     return {
       uid: item.attributes.uid,
-      date: item.attributes.date,
+      date: dateValue,
       flags: item.attributes.flags,
       subject,
       from,

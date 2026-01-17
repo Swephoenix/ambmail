@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { groupEmailsIntoConversations } from '@/lib/mail-service';
+import { getImapConnection, groupEmailsIntoConversations, isFolderAlias, resolveFolderAlias } from '@/lib/mail-service';
 import { getCachedEmailList, mapCachedEmail, shouldSyncFolder, syncFolderFromImap } from '@/lib/mail-cache';
 import { requireUser } from '@/lib/auth';
 
@@ -11,7 +11,7 @@ export async function GET(req: Request) {
   }
   const { searchParams } = new URL(req.url);
   const accountId = searchParams.get('accountId');
-  const folder = searchParams.get('folder') || 'INBOX';
+  const requestedFolder = searchParams.get('folder') || 'INBOX';
   const view = searchParams.get('view') || 'list'; // 'list' or 'conversation'
 
   if (!accountId) return NextResponse.json({ error: 'accountId required' }, { status: 400 });
@@ -20,8 +20,22 @@ export async function GET(req: Request) {
   if (!account) return NextResponse.json({ error: 'Account not found' }, { status: 404 });
 
   try {
+    let folder = requestedFolder;
+    if (isFolderAlias(requestedFolder)) {
+      let connection;
+      try {
+        connection = await getImapConnection(account as any);
+        folder = await resolveFolderAlias(connection, requestedFolder);
+      } catch (error) {
+        console.error('Folder alias resolution failed:', error);
+      } finally {
+        if (connection) connection.end();
+      }
+    }
+
     let cachedEmails = await getCachedEmailList(accountId, folder);
     const needsSync = cachedEmails.length === 0 || await shouldSyncFolder(accountId, folder);
+    const hasMissingDates = cachedEmails.some((email) => !email.date);
     if (needsSync) {
       if (cachedEmails.length === 0) {
         await syncFolderFromImap(account as any, folder);
@@ -31,6 +45,10 @@ export async function GET(req: Request) {
           console.error('Background sync error:', error);
         });
       }
+    } else if (hasMissingDates) {
+      console.info(`[mail] Resyncing ${account.email} ${folder} because cached dates are missing.`);
+      await syncFolderFromImap(account as any, folder);
+      cachedEmails = await getCachedEmailList(accountId, folder);
     }
 
     const emails = cachedEmails.map(mapCachedEmail);

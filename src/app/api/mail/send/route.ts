@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getSmtpTransporter } from '@/lib/mail-service';
+import { appendSent, getImapConnection, getSmtpTransporter } from '@/lib/mail-service';
+import { syncFolderFromImap } from '@/lib/mail-cache';
 import { requireUser } from '@/lib/auth';
 import { buildContactRows, extractContactsFromHeader, uniqueContacts } from '@/lib/contact-utils';
 import fs from 'fs/promises';
 import path from 'path';
+import MailComposer from 'nodemailer/lib/mail-composer';
 
 export async function POST(req: Request) {
   try {
@@ -76,6 +78,29 @@ export async function POST(req: Request) {
 
     console.log('Email sent successfully');
 
+    let sentConnection;
+    let appendedSentFolder: string | null = null;
+    try {
+      sentConnection = await getImapConnection(account as any);
+      const mail = new MailComposer({
+        from: `"${account.name || account.email}" <${account.email}>`,
+        to,
+        subject,
+        text: body,
+        html: body.replace(/\n/g, '<br>'),
+        attachments: mailAttachments,
+      });
+      const raw = await mail.compile().build();
+      appendedSentFolder = await appendSent(sentConnection, raw.toString('utf8'));
+      await syncFolderFromImap(account as any, appendedSentFolder, 20);
+    } catch (error) {
+      console.error('Failed to append sent mail:', error);
+    } finally {
+      if (sentConnection) {
+        sentConnection.end();
+      }
+    }
+
     // Automatically add recipients to contacts
     try {
       const contactCandidates = extractContactsFromHeader(to || null);
@@ -110,7 +135,7 @@ export async function POST(req: Request) {
       );
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, sentFolder: appendedSentFolder });
   } catch (error: any) {
     console.error('SMTP Error:', error);
     console.error('Error details:', {

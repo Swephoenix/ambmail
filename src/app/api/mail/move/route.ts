@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getImapConnection, openMailbox } from '@/lib/mail-service';
+import { getImapConnection, isFolderAlias, openMailbox, resolveFolderAlias } from '@/lib/mail-service';
 import { requireUser } from '@/lib/auth';
 
 export async function POST(req: Request) {
@@ -21,13 +21,19 @@ export async function POST(req: Request) {
     if (!account) return NextResponse.json({ error: 'Account not found' }, { status: 404 });
 
     const connection = await getImapConnection(account as any);
+    const resolvedSource = isFolderAlias(sourceFolder)
+      ? await resolveFolderAlias(connection, sourceFolder)
+      : sourceFolder;
+    const resolvedTarget = isFolderAlias(targetFolder)
+      ? await resolveFolderAlias(connection, targetFolder)
+      : targetFolder;
     
     // Open the source folder
-    await openMailbox(connection, sourceFolder);
+    await openMailbox(connection, resolvedSource);
 
     // Copy messages to the target folder
     await new Promise((resolve, reject) => {
-      connection.imap.copy(uids, targetFolder, (err: any) => {
+      connection.imap.copy(uids, resolvedTarget, (err: any) => {
         if (err) {
           reject(err);
         } else {
@@ -53,14 +59,14 @@ export async function POST(req: Request) {
     await prisma.emailMessage.deleteMany({
       where: {
         accountId,
-        folder: sourceFolder,
+        folder: resolvedSource,
         uid: { in: uids },
       },
     });
     await prisma.mailSyncState.updateMany({
       where: {
         accountId,
-        folder: targetFolder,
+        folder: resolvedTarget,
       },
       data: {
         lastSyncAt: null,

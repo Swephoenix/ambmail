@@ -482,6 +482,11 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
       }
 
       toast.success('Email sent!');
+      if (result.sentFolder) {
+        window.dispatchEvent(new CustomEvent('uxmail:sent', {
+          detail: { accountId, folder: result.sentFolder }
+        }));
+      }
       setAttachments([]);
       if (mode === 'standalone') {
         window.close();

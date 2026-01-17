@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getImapConnection, openMailbox } from '@/lib/mail-service';
+import { getImapConnection, isFolderAlias, openMailbox, resolveFolderAlias } from '@/lib/mail-service';
 import { simpleParser } from 'mailparser';
 import { requireUser } from '@/lib/auth';
 
@@ -12,9 +12,9 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const accountId = searchParams.get('accountId');
   const uidParam = searchParams.get('uid');
-  const folder = searchParams.get('folder') || 'INBOX';
+  const requestedFolder = searchParams.get('folder') || 'INBOX';
 
-  console.log(`[API] Fetching body for account ${accountId}, folder ${folder}, uid ${uidParam}`);
+  console.log(`[API] Fetching body for account ${accountId}, folder ${requestedFolder}, uid ${uidParam}`);
 
   if (!accountId || !uidParam) {
     return NextResponse.json({ error: 'accountId and uid required' }, { status: 400 });
@@ -28,37 +28,45 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Invalid uid' }, { status: 400 });
   }
 
-  const cached = await prisma.emailMessage.findUnique({
-    where: {
-      account_folder_uid: {
-        accountId,
-        folder,
-        uid,
-      },
-    },
-  });
-
-  if (cached?.hasBody && cached.attachments !== null) {
-    return NextResponse.json({
-      uid: cached.uid,
-      subject: cached.subject,
-      from: cached.from,
-      to: cached.to,
-      cc: '',
-      toRecipients: cached.toRecipients || [],
-      ccRecipients: cached.ccRecipients || [],
-      date: cached.date,
-      body: cached.bodyHtml || cached.bodyText || '',
-      attachments: cached.attachments || [],
-    });
-  }
-
   let connection;
   try {
-    connection = await getImapConnection(account as any);
-    await openMailbox(connection, folder);
+    let resolvedFolder = requestedFolder;
+    if (isFolderAlias(requestedFolder)) {
+      connection = await getImapConnection(account as any);
+      resolvedFolder = await resolveFolderAlias(connection, requestedFolder);
+    }
+
+    const cached = await prisma.emailMessage.findUnique({
+      where: {
+        account_folder_uid: {
+          accountId,
+          folder: resolvedFolder,
+          uid,
+        },
+      },
+    });
+
+    if (cached?.hasBody && cached.attachments !== null) {
+      return NextResponse.json({
+        uid: cached.uid,
+        subject: cached.subject,
+        from: cached.from,
+        to: cached.to,
+        cc: '',
+        toRecipients: cached.toRecipients || [],
+        ccRecipients: cached.ccRecipients || [],
+        date: cached.date,
+        body: cached.bodyHtml || cached.bodyText || '',
+        attachments: cached.attachments || [],
+      });
+    }
+
+    if (!connection) {
+      connection = await getImapConnection(account as any);
+    }
+    await openMailbox(connection, resolvedFolder);
     
-    console.log(`[API] Searching for UID ${uid} in ${folder}`);
+    console.log(`[API] Searching for UID ${uid} in ${resolvedFolder}`);
 
     const messages = await connection.search([['UID', uid]], {
       bodies: [''], // Fetch full body
@@ -126,13 +134,13 @@ export async function GET(req: Request) {
       where: {
         account_folder_uid: {
           accountId,
-          folder,
+          folder: resolvedFolder,
           uid,
         },
       },
       create: {
         accountId,
-        folder,
+        folder: resolvedFolder,
         uid,
         messageId: null,
         subject: parsed.subject || null,
@@ -178,7 +186,7 @@ export async function GET(req: Request) {
     console.error('[API] IMAP Body Fetch Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   } finally {
-    if (connection) {
+    if (typeof connection !== 'undefined' && connection) {
       connection.end();
     }
   }

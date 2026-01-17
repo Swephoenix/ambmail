@@ -648,6 +648,29 @@ export default function Home() {
   }, [activeAccountId, activeFolder, emails]);
 
   useEffect(() => {
+    const handleSent = (event: Event) => {
+      const detail = (event as CustomEvent).detail as { accountId?: string; folder?: string } | undefined;
+      if (!detail?.accountId || !detail?.folder) return;
+
+      const cacheKey = `${detail.accountId}-${detail.folder}-list`;
+      setEmailCache(prev => {
+        const next = { ...prev };
+        delete next[cacheKey];
+        return next;
+      });
+
+      if (detail.accountId === activeAccountId && detail.folder === activeFolder) {
+        fetchEmails(detail.accountId, detail.folder);
+      }
+    };
+
+    window.addEventListener('uxmail:sent', handleSent as EventListener);
+    return () => {
+      window.removeEventListener('uxmail:sent', handleSent as EventListener);
+    };
+  }, [activeAccountId, activeFolder]);
+
+  useEffect(() => {
     if (activeAccountId) {
       // If folder changes or account changes, we usually fetch.
       // But handleSidebarSelect does it explicitly.

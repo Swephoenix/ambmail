@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getImapConnection, openMailbox } from '@/lib/mail-service';
+import { getImapConnection, isFolderAlias, openMailbox, resolveFolderAlias } from '@/lib/mail-service';
 import { requireUser } from '@/lib/auth';
 
 export async function POST(req: Request) {
@@ -18,8 +18,17 @@ export async function POST(req: Request) {
     const account = await prisma.account.findFirst({ where: { id: accountId, userId: user.id } });
     if (!account) return NextResponse.json({ error: 'Account not found' }, { status: 404 });
 
-    const connection = await getImapConnection(account as any);
-    await openMailbox(connection, folder || 'INBOX');
+    const requestedFolder = folder || 'INBOX';
+    let resolvedFolder = requestedFolder;
+    let connection;
+    if (isFolderAlias(requestedFolder)) {
+      connection = await getImapConnection(account as any);
+      resolvedFolder = await resolveFolderAlias(connection, requestedFolder);
+    }
+    if (!connection) {
+      connection = await getImapConnection(account as any);
+    }
+    await openMailbox(connection, resolvedFolder);
 
     // Add \Deleted flag to all specified messages
     await connection.addFlags(uids, '\\Deleted');
@@ -40,7 +49,7 @@ export async function POST(req: Request) {
     await prisma.emailMessage.deleteMany({
       where: {
         accountId,
-        folder: folder || 'INBOX',
+        folder: resolvedFolder,
         uid: { in: uids },
       },
     });
