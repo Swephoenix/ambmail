@@ -3,14 +3,16 @@ import { prisma } from '@/lib/prisma';
 import { createSession, getSessionUser, setSessionCookie, verifyPassword } from '@/lib/auth';
 import { rotateAdminCredentialsIfNeeded } from '@/lib/admin-credentials';
 
-export async function GET() {
+export async function GET(req: Request) {
   const user = await getSessionUser();
   if (!user) {
+    const { searchParams } = new URL(req.url);
+    const allowAutoLogin = searchParams.get('admin') === '1';
     const autoLoginEnabled = process.env.ADMIN_AUTO_LOGIN !== '0';
     const adminUsername = process.env.ADMIN_USERNAME;
     const adminPassword = process.env.ADMIN_PASSWORD;
 
-    if (autoLoginEnabled && adminUsername && adminPassword) {
+    if (allowAutoLogin && autoLoginEnabled && adminUsername && adminPassword) {
       const admin = await prisma.user.findUnique({ where: { username: adminUsername } });
       if (
         admin &&

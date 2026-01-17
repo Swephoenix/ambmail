@@ -1,23 +1,8 @@
 # UxMail
 
-UxMail är en modern e-postklient med stöd för flera konton, förhämtning av e-postmeddelanden, automatisk uppdatering och SPA-funktionalitet.
+UxMail ar en modern e-postklient med flera konton, forhamtning, automatisk sync och SPA-flode.
 
-## Funktioner
-
-- **Flera e-postkonton**: Anslut och hantera flera e-postkonton samtidigt
-- **Förhämtning**: E-postmeddelanden hämtas automatiskt under splashskärmen
-- **Automatisk uppdatering**: Kontrollerar efter nya e-postmeddelanden varje minut
-- **SPA-funktionalitet**: Skriv e-post utan sidladdningar
-- **Förbättrad e-postinmatning**: Intelligenta förslag och bubblor för e-postadresser
-- **PostgreSQL-databas**: Lokal eller extern databas för kontoinformation (Docker är valfritt)
-
-## Förutsättningar
-
-- Node.js (version 18 eller högre)
-- npm eller yarn
-- PostgreSQL (lokalt eller managed)
-
-## Installation
+## Snabbstart
 
 1. Klona repot:
 ```bash
@@ -25,91 +10,80 @@ git clone https://github.com/Swephoenix/Uxmail.git
 cd Uxmail
 ```
 
-2. Installera beroenden:
+2. Starta allt med ett kommando:
 ```bash
-npm install
+./start_uxmail.sh
 ```
 
-3. Skapa en `.env`-fil baserat på `.env.example` (inklusive `ENCRYPTION_KEY` och Basic Auth):
-```bash
-cp .env.example .env
-```
-Om du inte vill använda Docker, uppdatera `DATABASE_URL` (t.ex. port 5432) och sätt `UXMAIL_USE_DOCKER=0`.
+`start_uxmail.sh` gor foljande:
+- Skapar `.env` fran `.env.example` om den saknas
+- Genererar nycklar och hemligheter
+- Startar PostgreSQL (kraver sudo) och skapar roll/databas
+- Nollstaller databasen (standardbeteende)
+- Startar appen och bakgrunds-sync
 
-4. Starta PostgreSQL och skapa roll/databas:
-```bash
-sudo systemctl start postgresql
-```
-Mac:
-```bash
-brew services start postgresql
-```
-```bash
-./scripts/setup_postgres_local.sh
-```
-Detta kräver sudo och använder värden från `.env`.
+Appen finns pa http://localhost:3000
 
-5. Initiera databasen:
-```bash
-npx prisma db push
+## Viktigt om reset
+
+Som standard rensar `start_uxmail.sh` databasen och hemligheter varje start.
+Om du vill behalla data, satt i `.env`:
+```
+UXMAIL_RESET=0
 ```
 
-5. Starta utvecklingsservern:
-```bash
-npm run dev
-```
+## Forutsattningar
 
-Applikationen kommer att vara tillgänglig på [http://localhost:3000](http://localhost:3000)
+- Node.js 18+
+- npm
+- PostgreSQL (lokal eller managed)
 
-## Användning
+## Konfiguration (.env)
 
-1. Klicka på "Connect Account" för att lägga till ett e-postkonto
-2. Använd "+"-knappen för att skriva ett nytt e-postmeddelande
-3. E-postmeddelanden uppdateras automatiskt varje minut
-4. E-postmeddelanden förhämtas under splashskärmen för snabbare tillgång
+Vanliga nycklar:
+- `DATABASE_URL` (t.ex. `postgresql://uxmail:uxmailpassword@localhost:5432/uxmail_db?schema=public`)
+- `ENCRYPTION_KEY` (skapad automatiskt om tom)
+- `BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD`
+- `ADMIN_USERNAME` / `ADMIN_PASSWORD` / `ADMIN_NAME`
+
+Beteende:
+- `UXMAIL_RESET=1|0` (standard: 1)
+- `UXMAIL_START_POSTGRES=1|0` (standard: 1)
+- `UXMAIL_SETUP_DB=1|0` (standard: 1)
+- `ADMIN_AUTO_LOGIN=1|0` (auto-login bara for admin-dashboarden via `/api/auth/me?admin=1`)
+
+## Admin
+
+- Admin-UI finns pa `/admin` och anvander `Uxmail_admin/Uxmail_admin.html`.
+- Admin auto-login sker endast for admin-dashboarden (inte mail-klienten).
+- Dashboarden visar gron/rod statuslampa per mejlkonto baserat pa IMAP-test.
+- Om losenord saknas visas varning.
+
+## E-post och forslag
+
+- Adresser fran skickade och mottagna mejl sparas som kontakter.
+- Dessa visas som forslag i `To`-faltet nar du skriver.
 
 ## Utveckling
 
-Projektet är byggt med:
-- Next.js 16.1.1
-- React 19.2.3
+Projektet ar byggt med:
+- Next.js
+- React
 - TypeScript
-- Prisma (med PostgreSQL)
+- Prisma (PostgreSQL)
 - Tailwind CSS
-- Lucide React (ikoner)
-- Tiptap (rich text editor)
-
-## Säkerhet (rekommenderat)
-
-- Krypteringsnyckel hämtas från `ENCRYPTION_KEY` eller skapas automatiskt i `.uxmail.key`.
-- Aktivera Basic Auth genom att sätta `BASIC_AUTH_USER` och `BASIC_AUTH_PASSWORD`.
-- Kör databasen endast på localhost.
-
-## Användare & Admin
-
-- Skapa en admin via `.env` (`ADMIN_USERNAME`, `ADMIN_PASSWORD`, `ADMIN_NAME`), sedan kör `start_uxmail.sh`.
-- Sätt `ADMIN_ATTACH_EXISTING=1` om du vill koppla befintliga konton/kontakter till admin.
-- Admin‑UI finns på `/admin` och använder `Uxmail_admin/Uxmail_admin.html`.
-- Varje användare får sin egen isolerade data (konton, mailcache, kontakter).
-- `start_uxmail.sh` genererar automatiskt `.uxmail.key` och fyller tomma lösenordsfält i `.env`.
-- Genererade lösenord skrivs till `.uxmail.secrets` (ignorerad av git).
-- Kör `npm run admin:rotate` för att generera ett nytt admin-lösenord och uppdatera DB, `.env` och `.uxmail.secrets`.
-
-## Bakgrundssynk
-
-- `start_uxmail.sh` startar en bakgrundsworker som synkar alla mappar till databasen.
-- Frontend läser främst från cache i DB och påverkas mindre av IMAP-latens.
+- Lucide React
+- Tiptap
 
 ## Deployment
 
-För att bygga projektet för produktion:
 ```bash
 npm run build
 npm start
 ```
 
-## Filstruktur
+## Felsokning
 
-- `src/app/` - Huvudapplikationen (Next.js App Router)
-- `src/components/` - Återanvändbara UI-komponenter
-- `prisma/` - Prisma-scheman och databasdefinitioner
+- Om Postgres inte startar automatiskt: starta manuellt (t.ex. `sudo systemctl start postgresql`).
+- Om DB saknas: kör `./scripts/setup_postgres_local.sh`.
+- Om du vill stanga av reset: satt `UXMAIL_RESET=0` i `.env`.

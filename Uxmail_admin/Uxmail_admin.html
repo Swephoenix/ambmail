@@ -307,7 +307,7 @@
         // --- AUTH ---
         async function initAdmin() {
             try {
-                const me = await fetch('/api/auth/me');
+                const me = await fetch('/api/auth/me?admin=1');
                 if (!me.ok) throw new Error('Unauthorized');
                 const user = await me.json();
                 if (user.role !== 'ADMIN') throw new Error('Forbidden');
