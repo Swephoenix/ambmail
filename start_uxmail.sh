@@ -5,10 +5,48 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
-require_cmd() {
+AUTO_INSTALL="${UXMAIL_AUTO_INSTALL:-1}"
+
+have_cmd() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+install_packages() {
+  local pkgs=("$@")
+  if [ "${#pkgs[@]}" -eq 0 ]; then
+    return 0
+  fi
+  if have_cmd apt-get; then
+    echo "Installing packages via apt-get: ${pkgs[*]}"
+    sudo apt-get update -y
+    sudo apt-get install -y "${pkgs[@]}"
+  elif have_cmd brew; then
+    echo "Installing packages via brew: ${pkgs[*]}"
+    brew install "${pkgs[@]}"
+  else
+    echo "No supported package manager found (apt-get or brew). Install missing dependencies manually."
+    return 1
+  fi
+}
+
+ensure_cmd() {
   local cmd="$1"
-  if ! command -v "$cmd" >/dev/null 2>&1; then
-    echo "Missing dependency: $cmd"
+  shift
+  local pkgs=("$@")
+  if have_cmd "$cmd"; then
+    return 0
+  fi
+  echo "Missing dependency: $cmd"
+  if [ "$AUTO_INSTALL" = "1" ] || [ "$AUTO_INSTALL" = "true" ]; then
+    install_packages "${pkgs[@]}" || {
+      echo "Failed to install dependency for: $cmd"
+      exit 1
+    }
+    if ! have_cmd "$cmd"; then
+      echo "Dependency still missing after install attempt: $cmd"
+      exit 1
+    fi
+  else
     exit 1
   fi
 }
@@ -24,8 +62,8 @@ check_node_version() {
 }
 
 echo "Checking dependencies..."
-require_cmd node
-require_cmd npm
+ensure_cmd node nodejs
+ensure_cmd npm nodejs npm
 check_node_version
 
 RESET_STATE="${UXMAIL_RESET:-1}"
@@ -78,8 +116,22 @@ set +a
 START_POSTGRES="${UXMAIL_START_POSTGRES:-1}"
 SETUP_DB="${UXMAIL_SETUP_DB:-1}"
 if [ "$START_POSTGRES" = "1" ] || [ "$START_POSTGRES" = "true" ]; then
+  ensure_cmd psql postgresql-client
+  ensure_cmd pg_isready postgresql-client
+  if have_cmd brew; then
+    ensure_cmd postgres postgresql
+  fi
   if command -v systemctl >/dev/null 2>&1; then
-    sudo systemctl start postgresql
+    if systemctl list-unit-files 2>/dev/null | awk '{print $1}' | grep -q '^postgresql\.service$'; then
+      sudo systemctl start postgresql
+    else
+      SERVICE_NAME="$(systemctl list-unit-files 2>/dev/null | awk '{print $1}' | grep '^postgresql@' | head -n1 || true)"
+      if [ -n "$SERVICE_NAME" ]; then
+        sudo systemctl start "$SERVICE_NAME"
+      else
+        echo "No PostgreSQL systemd service found. Install PostgreSQL or start it manually."
+      fi
+    fi
   elif command -v brew >/dev/null 2>&1; then
     brew services start postgresql
   elif command -v pg_ctl >/dev/null 2>&1; then
