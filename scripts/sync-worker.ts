@@ -1,9 +1,9 @@
-import { PrismaClient } from '@prisma/client';
+import { createPrismaClient } from '../src/lib/prisma-client';
 import type { MailAccount } from '../src/lib/mail-service';
 import { fetchEmails, getImapConnection } from '../src/lib/mail-service';
 import { buildContactRows, extractContactsFromHeader, uniqueContacts } from '../src/lib/contact-utils';
 
-const prisma = new PrismaClient();
+const { prisma } = createPrismaClient();
 
 type ImapConnection = Awaited<ReturnType<typeof getImapConnection>>;
 

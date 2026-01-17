@@ -31,9 +31,13 @@ interface SidebarProps {
   onEditSignature: (accountId: string, currentSignature: string) => void;
   onLogout?: () => void;
   currentUserName?: string;
+  storageUsage?: {
+    usedBytes: number;
+    quotaMb: number | null;
+  };
 }
 
-export default function Sidebar({ accounts, activeAccountId, activeFolder, onSelect, onAddAccount, onSettings, onEditSignature, onLogout, currentUserName }: SidebarProps) {
+export default function Sidebar({ accounts, activeAccountId, activeFolder, onSelect, onAddAccount, onSettings, onEditSignature, onLogout, currentUserName, storageUsage }: SidebarProps) {
   // Track expanded state for accounts (default all expanded)
   const [expandedAccounts, setExpandedAccounts] = useState<Record<string, boolean>>(
     accounts.reduce((acc, curr) => ({ ...acc, [curr.id]: true }), {})
@@ -52,6 +56,13 @@ export default function Sidebar({ accounts, activeAccountId, activeFolder, onSel
     { id: 'spam', name: 'Skräppost', icon: AlertCircle },
     { id: 'Trash', name: 'Papperskorg', icon: Trash2 },
   ];
+
+  const usedMb = storageUsage ? storageUsage.usedBytes / (1024 * 1024) : 0;
+  const quotaMb = storageUsage?.quotaMb ?? null;
+  const usagePercent = quotaMb && quotaMb > 0 ? Math.min(100, (usedMb / quotaMb) * 100) : 0;
+  const usageLabel = quotaMb && quotaMb > 0
+    ? `${usedMb.toFixed(1)} MB / ${quotaMb} MB`
+    : `${usedMb.toFixed(1)} MB`;
 
   return (
     <div 
@@ -235,6 +246,28 @@ export default function Sidebar({ accounts, activeAccountId, activeFolder, onSel
             {!isCollapsed && <span>Inloggad som {currentUserName}</span>}
           </div>
         )}
+        {storageUsage && (
+          <div className={cn(
+            "rounded-md border border-gray-200 bg-white/80 p-1.5 text-[11px] text-gray-600",
+            isCollapsed ? "mx-0" : "mx-1"
+          )}>
+            {!isCollapsed && <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">Lagring (alla konton)</div>}
+            {!isCollapsed && <div className="mt-0.5 text-[12px] font-semibold text-gray-800">{usageLabel}</div>}
+            <div className={cn("mt-1 h-1 w-full rounded-full bg-gray-200", isCollapsed && "hidden")} role="progressbar">
+              <div
+                className="h-1 rounded-full bg-blue-500 transition-all"
+                style={{ width: `${usagePercent}%` }}
+              />
+            </div>
+            {isCollapsed && (
+              <div className="flex justify-center">
+                <div className="h-6 w-6 rounded-full border border-gray-200 bg-white flex items-center justify-center text-[8px] font-semibold text-gray-600">
+                  {Math.round(usagePercent)}%
+                </div>
+              </div>
+            )}
+          </div>
+        )}
         {onLogout && (
           <button
             onClick={onLogout}
@@ -248,17 +281,6 @@ export default function Sidebar({ accounts, activeAccountId, activeFolder, onSel
             {!isCollapsed && <span>Logga ut</span>}
           </button>
         )}
-        <button
-          onClick={() => alert('Global adressbok kommer snart!')}
-          title={isCollapsed ? "Global adressbok" : undefined}
-          className={cn(
-            "w-full flex items-center gap-2 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-colors",
-            isCollapsed ? "justify-center px-0" : "px-3"
-          )}
-        >
-          <User size={18} />
-          {!isCollapsed && <span>Global adressbok</span>}
-        </button>
         <button
           onClick={onSettings}
           title={isCollapsed ? "Settings" : undefined}

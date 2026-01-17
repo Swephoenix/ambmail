@@ -1,6 +1,6 @@
-import { PrismaClient } from '@prisma/client';
+import { createPrismaClient } from '../src/lib/prisma-client';
 
-const prisma = new PrismaClient();
+const { prisma, pool } = createPrismaClient();
 
 async function main() {
   const contacts = [
@@ -27,4 +27,5 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect();
+    await pool.end();
   });

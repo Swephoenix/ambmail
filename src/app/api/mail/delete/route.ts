@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getImapConnection, isFolderAlias, openMailbox, resolveFolderAlias } from '@/lib/mail-service';
+import { getImapConnection, getTrashFolder, isFolderAlias, openMailbox, resolveFolderAlias } from '@/lib/mail-service';
 import { requireUser } from '@/lib/auth';
 
 export async function POST(req: Request) {
@@ -28,12 +28,44 @@ export async function POST(req: Request) {
     if (!connection) {
       connection = await getImapConnection(account as any);
     }
+    const trashFolder = await getTrashFolder(connection);
     await openMailbox(connection, resolvedFolder);
 
-    // Add \Deleted flag to all specified messages
-    await connection.addFlags(uids, '\\Deleted');
+    if (resolvedFolder === trashFolder) {
+      await connection.addFlags(uids, '\\Deleted');
+      await new Promise((resolve, reject) => {
+        connection.imap.expunge((err: any) => {
+          if (err) {
+            reject(err);
+          } else {
+            resolve(true);
+          }
+        });
+      });
+      connection.end();
 
-    // Expunge to permanently remove the messages
+      await prisma.emailMessage.deleteMany({
+        where: {
+          accountId,
+          folder: resolvedFolder,
+          uid: { in: uids },
+        },
+      });
+
+      return NextResponse.json({ success: true, deletedCount: uids.length });
+    }
+
+    await new Promise((resolve, reject) => {
+      connection.imap.copy(uids, trashFolder, (err: any) => {
+        if (err) {
+          reject(err);
+        } else {
+          resolve(true);
+        }
+      });
+    });
+
+    await connection.addFlags(uids, '\\Deleted');
     await new Promise((resolve, reject) => {
       connection.imap.expunge((err: any) => {
         if (err) {
@@ -53,8 +85,17 @@ export async function POST(req: Request) {
         uid: { in: uids },
       },
     });
+    await prisma.mailSyncState.updateMany({
+      where: {
+        accountId,
+        folder: trashFolder,
+      },
+      data: {
+        lastSyncAt: null,
+      },
+    });
 
-    return NextResponse.json({ success: true, deletedCount: uids.length });
+    return NextResponse.json({ success: true, deletedCount: uids.length, movedTo: trashFolder });
   } catch (error: any) {
     console.error('Delete Email Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -4,7 +4,6 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 enum UserRole {
@@ -20,6 +19,7 @@ model User {
   name         String
   department   String?
   role         UserRole     @default(USER)
+  mailQuotaMb  Int          @default(100)
   adminCredentialsShownAt DateTime?
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
@@ -28,6 +28,27 @@ model User {
   contacts     Contact[]
   sessions     UserSession[]
   prefetchStatus PrefetchStatus?
+  addressBooks AddressBookUser[]
+}
+
+model AddressBook {
+  id          String             @id @default(cuid())
+  name        String
+  description String?
+  users       AddressBookUser[]
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+}
+
+model AddressBookUser {
+  userId        String
+  addressBookId String
+  assignedAt    DateTime   @default(now())
+
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  addressBook AddressBook @relation(fields: [addressBookId], references: [id], onDelete: Cascade)
+
+  @@id([userId, addressBookId])
 }
 
 model UserSession {

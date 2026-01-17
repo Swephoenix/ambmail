@@ -39,6 +39,7 @@ export default function Home() {
   const [composeInitialData, setComposeInitialData] = useState<any>(null);
   // Multi-select state
   const [selectedEmails, setSelectedEmails] = useState<number[]>([]);
+  const [storageUsage, setStorageUsage] = useState<{ usedBytes: number; quotaMb: number | null } | null>(null);
 
   // Signature modal state
   const [showSignatureModal, setShowSignatureModal] = useState(false);
@@ -77,6 +78,23 @@ export default function Home() {
     }
 
     return data;
+  };
+
+  const fetchStorageUsage = async () => {
+    try {
+      const res = await fetch('/api/mail/usage');
+      if (res.status === 401) {
+        setStorageUsage(null);
+        return;
+      }
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      const usedBytes = Number(data.usedBytes || 0);
+      const quotaMb = Number.isFinite(Number(data.quotaMb)) ? Number(data.quotaMb) : null;
+      setStorageUsage({ usedBytes, quotaMb });
+    } catch (error) {
+      console.error('Failed to fetch storage usage:', error);
+    }
   };
 
   const fetchEmails = async (accountId: string, folder: string) => {
@@ -235,6 +253,11 @@ export default function Home() {
     setSelectedEmails([]);
   };
 
+  const isTrashFolder = (folder: string) => {
+    const normalized = folder.trim().toLowerCase();
+    return normalized === 'trash' || normalized === 'papperskorg';
+  };
+
   const handleEmailSelectToggle = (uid: number) => {
     setSelectedEmails(prev =>
       prev.includes(uid)
@@ -285,6 +308,7 @@ export default function Home() {
       });
       setSelectedEmails([]); // Clear selection
       toast.success(`Deleted ${result.deletedCount} email(s)`);
+      fetchStorageUsage();
     } catch (error: any) {
       console.error('Delete error:', error);
       toast.error('Failed to delete emails: ' + error.message);
@@ -412,9 +436,42 @@ export default function Home() {
       setEmails(prev => prev.filter(email => email.uid !== uid));
       setSelectedEmail(null); // Deselect the email
       toast.success('Email deleted');
+      fetchStorageUsage();
     } catch (error: any) {
       console.error('Delete error:', error);
       toast.error('Failed to delete email: ' + error.message);
+    }
+  };
+
+  const handleEmptyTrash = async () => {
+    if (!activeAccountId || !isTrashFolder(activeFolder)) return;
+    if (!window.confirm('Töm papperskorgen permanent?')) {
+      return;
+    }
+
+    try {
+      const res = await fetch('/api/mail/empty-trash', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountId: activeAccountId }),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Failed to empty trash');
+
+      setEmails([]);
+      setSelectedEmail(null);
+      setSelectedEmails([]);
+      const cacheKey = `${activeAccountId}-${activeFolder}-list`;
+      setEmailCache(prev => {
+        const newCache = { ...prev };
+        delete newCache[cacheKey];
+        return newCache;
+      });
+      toast.success(`Tömde papperskorgen (${result.deletedCount} email)`);
+      fetchStorageUsage();
+    } catch (error: any) {
+      console.error('Empty trash error:', error);
+      toast.error('Misslyckades att tömma papperskorgen: ' + error.message);
     }
   };
 
@@ -591,6 +648,7 @@ export default function Home() {
     const initializeApp = async () => {
       // Fetch accounts first
       await fetchAccounts();
+      await fetchStorageUsage();
     };
 
     initializeApp();
@@ -753,6 +811,7 @@ export default function Home() {
         onEditSignature={handleEditSignature}
         onLogout={handleLogout}
         currentUserName={currentUser?.name || currentUser?.username}
+        storageUsage={storageUsage || undefined}
       />
 
       {accounts.length === 0 ? (
@@ -803,6 +862,8 @@ export default function Home() {
             onSelectAll={handleSelectAll}
             onDeleteSelected={handleDeleteSelected}
             onMoveSelected={handleMoveSelected}
+            onEmptyTrash={handleEmptyTrash}
+            showEmptyTrash={isTrashFolder(activeFolder)}
           />
           <div className="flex-1 flex flex-col relative">
             <MailView

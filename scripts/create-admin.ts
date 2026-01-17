@@ -1,7 +1,7 @@
-import { PrismaClient } from '@prisma/client';
+import { createPrismaClient } from '../src/lib/prisma-client';
 import { hashPassword } from '../src/lib/password';
 
-const prisma = new PrismaClient();
+const { prisma, pool } = createPrismaClient();
 
 async function main() {
   const username = process.env.ADMIN_USERNAME;
@@ -57,4 +57,5 @@ main()
   })
   .finally(async () => {
     await prisma.$disconnect();
+    await pool.end();
   });

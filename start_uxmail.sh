@@ -61,6 +61,36 @@ ensure_prisma_latest() {
   fi
 }
 
+ensure_node_packages() {
+  local pkgs=("$@")
+  local missing=()
+  local pkg
+  for pkg in "${pkgs[@]}"; do
+    if [ ! -d "node_modules/$pkg" ]; then
+      missing+=("$pkg")
+    fi
+  done
+  if [ "${#missing[@]}" -gt 0 ]; then
+    echo "Installing missing npm packages: ${missing[*]}"
+    npm install "${missing[@]}"
+  fi
+}
+
+ensure_node_dev_packages() {
+  local pkgs=("$@")
+  local missing=()
+  local pkg
+  for pkg in "${pkgs[@]}"; do
+    if [ ! -d "node_modules/$pkg" ]; then
+      missing+=("$pkg")
+    fi
+  done
+  if [ "${#missing[@]}" -gt 0 ]; then
+    echo "Installing missing npm dev packages: ${missing[*]}"
+    npm install --save-dev "${missing[@]}"
+  fi
+}
+
 ensure_cmd() {
   local cmd="$1"
   shift
@@ -119,9 +149,15 @@ if [ ! -f .env ]; then
   fi
 fi
 
+set -a
+source ./.env
+set +a
+
 echo "Installing dependencies..."
 npm install
 ensure_prisma_latest
+ensure_node_packages @prisma/adapter-pg pg
+ensure_node_dev_packages @types/pg
 
 TS_NODE="./node_modules/.bin/ts-node"
 TS_NODE_COMPILER_OPTIONS='{"module":"CommonJS"}'
@@ -135,6 +171,9 @@ fi
 run_prisma() {
   "${PRISMA_CMD[@]}" "$@"
 }
+
+echo "Generating Prisma client..."
+run_prisma generate
 
 echo "Bootstrapping secrets..."
 "$TS_NODE" --compiler-options "$TS_NODE_COMPILER_OPTIONS" scripts/bootstrap-secrets.ts

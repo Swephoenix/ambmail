@@ -189,6 +189,7 @@
                         <span style="font-size:0.85rem; font-weight:700; color:var(--danger);"><span id="sel-count">0</span> valda</span>
                         <button class="btn-danger-text" onclick="deleteSelected()" style="margin-left:10px;">Radera</button>
                     </div>
+                    <button class="btn btn-outline" onclick="openAddressBooks()">Adressböcker</button>
                     <button class="btn btn-outline" onclick="toggleModal('csv-modal')">Importera CSV</button>
                     <button class="btn btn-primary" onclick="openEditor()">+ Ny profil</button>
                 </div>
@@ -262,6 +263,43 @@
         </div>
     </div>
 
+    <!-- ADDRESS BOOKS MODAL -->
+    <div id="addressbook-modal" class="modal-overlay hidden">
+        <div class="modal">
+            <div class="flex-between" style="margin-bottom: 1rem;">
+                <h3 style="font-size: 1.3rem; font-weight: 800;">Adressböcker</h3>
+                <button class="btn btn-outline" onclick="toggleModal('addressbook-modal')">Stäng</button>
+            </div>
+            <div class="grid" style="display:grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                <div>
+                    <label>Välj adressbok</label>
+                    <select id="ab-select" onchange="selectAddressBook(this.value)" style="width:100%; padding:10px; border:1px solid var(--border); border-radius:6px;">
+                        <option value="">Ny adressbok...</option>
+                    </select>
+                </div>
+                <div>
+                    <label>Namn</label>
+                    <input type="text" id="ab-name" placeholder="Namn på adressboken">
+                </div>
+                <div style="grid-column: 1 / -1;">
+                    <label>Beskrivning</label>
+                    <input type="text" id="ab-desc" placeholder="Valfri beskrivning">
+                </div>
+            </div>
+            <div>
+                <label>Profiler med tillgång</label>
+                <div id="ab-profiles" style="border:1px solid var(--border); border-radius:10px; padding:0.8rem; max-height:240px; overflow:auto; background:#f8fafc;"></div>
+            </div>
+            <div class="flex-between" style="border-top: 1px solid var(--border); padding-top: 1.5rem; margin-top: 1.5rem;">
+                <button class="btn-danger-text" onclick="deleteAddressBook()">Radera adressbok</button>
+                <div class="flex">
+                    <button class="btn btn-outline" onclick="resetAddressBookForm()">Rensa</button>
+                    <button class="btn btn-primary" onclick="saveAddressBook()">Spara</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- EDITOR MODAL -->
     <div id="editor-modal" class="modal-overlay hidden">
         <div class="modal">
@@ -277,6 +315,7 @@
                         <span class="eye-toggle" onclick="togglePass(this)">👁️</span>
                     </div>
                 </div>
+                <div><label>Mailkvot (MB)</label><input type="number" id="ed-quota" min="0" step="1" placeholder="t.ex. 1024"></div>
             </div>
             <div class="flex" style="justify-content: flex-end; margin-top: -0.5rem; margin-bottom: 1.5rem;">
                 <button class="btn-ghost" onclick="generateProfileCredentials()">Generera användare + lösenord</button>
@@ -310,6 +349,8 @@
         let currentFilter = 'All';
         let currentEditingId = null;
         let lastDeletedState = null;
+        let addressBooks = [];
+        let currentAddressBookId = null;
         const accountStatusCache = new Map();
         const ACCOUNT_STATUS_TTL_MS = 5 * 60 * 1000;
         const ANIMALS = ['fox', 'otter', 'lynx', 'panda', 'eagle', 'tiger', 'orca', 'koala', 'yak', 'marten', 'badger', 'falcon', 'rabbit', 'raven', 'moose', 'heron', 'wolf', 'bison', 'lemur', 'squid', 'gecko', 'hare', 'lizard', 'owl', 'seal', 'stork', 'whale', 'zebra'];
@@ -444,6 +485,137 @@
             await loadData();
             renderSidebar();
             applyFilter(currentFilter);
+        }
+
+        // --- ADDRESS BOOKS ---
+        async function loadAddressBooks() {
+            const res = await fetch('/api/admin/address-books');
+            if (!res.ok) {
+                addressBooks = [];
+                renderAddressBookModal();
+                return;
+            }
+            const data = await res.json();
+            addressBooks = data.addressBooks || [];
+            renderAddressBookModal();
+        }
+
+        function openAddressBooks() {
+            toggleModal('addressbook-modal');
+            loadAddressBooks();
+        }
+
+        function renderAddressBookModal() {
+            const select = document.getElementById('ab-select');
+            const options = ['<option value="">Ny adressbok...</option>']
+                .concat(addressBooks.map((book) => `<option value="${book.id}">${escapeHtml(book.name)}</option>`));
+            select.innerHTML = options.join('');
+
+            if (currentAddressBookId) {
+                select.value = currentAddressBookId;
+            } else {
+                select.value = '';
+            }
+            renderAddressBookForm();
+        }
+
+        function renderAddressBookForm() {
+            const book = addressBooks.find((b) => b.id === currentAddressBookId) || null;
+            document.getElementById('ab-name').value = book ? book.name : '';
+            document.getElementById('ab-desc').value = book ? (book.description || '') : '';
+
+            const assigned = new Set((book && book.userIds) ? book.userIds : []);
+            const list = document.getElementById('ab-profiles');
+            list.innerHTML = allProfiles.length === 0
+                ? '<div style="color:#94a3b8;">Inga profiler.</div>'
+                : allProfiles.map((profile) => `
+                    <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; padding:4px 2px;">
+                        <input type="checkbox" class="ab-user" value="${profile.id}" ${assigned.has(profile.id) ? 'checked' : ''}>
+                        <span>${escapeHtml(profile.name)} <span style="color:#94a3b8;">(${escapeHtml(profile.username || '')})</span></span>
+                    </label>
+                  `).join('');
+        }
+
+        function selectAddressBook(id) {
+            currentAddressBookId = id || null;
+            renderAddressBookForm();
+        }
+
+        function resetAddressBookForm() {
+            currentAddressBookId = null;
+            renderAddressBookModal();
+        }
+
+        async function saveAddressBook() {
+            const name = document.getElementById('ab-name').value.trim();
+            const description = document.getElementById('ab-desc').value.trim();
+            if (!name) {
+                alert('Namn krävs');
+                return;
+            }
+
+            if (!currentAddressBookId) {
+                const res = await fetch('/api/admin/address-books', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, description })
+                });
+                if (!res.ok) {
+                    const err = await res.json();
+                    alert(err.error || 'Kunde inte skapa adressbok');
+                    return;
+                }
+                const data = await res.json();
+                currentAddressBookId = data.id;
+            } else {
+                const res = await fetch('/api/admin/address-books', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: currentAddressBookId, name, description })
+                });
+                if (!res.ok) {
+                    const err = await res.json();
+                    alert(err.error || 'Kunde inte spara adressbok');
+                    return;
+                }
+            }
+
+            const userIds = Array.from(document.querySelectorAll('.ab-user:checked')).map((el) => el.value);
+            const assignRes = await fetch('/api/admin/address-books/assign', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: currentAddressBookId, userIds })
+            });
+            if (!assignRes.ok) {
+                const err = await assignRes.json();
+                alert(err.error || 'Kunde inte uppdatera profiler');
+                return;
+            }
+
+            await loadAddressBooks();
+            showToast('Adressbok sparad');
+        }
+
+        async function deleteAddressBook() {
+            if (!currentAddressBookId) {
+                alert('Välj en adressbok att radera.');
+                return;
+            }
+            if (!confirm('Radera adressboken?')) return;
+
+            const res = await fetch('/api/admin/address-books', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: currentAddressBookId })
+            });
+            if (!res.ok) {
+                const err = await res.json();
+                alert(err.error || 'Kunde inte radera adressbok');
+                return;
+            }
+            currentAddressBookId = null;
+            await loadAddressBooks();
+            showToast('Adressbok raderad');
         }
 
         // --- FILTER & ENGINE ---
@@ -603,6 +775,7 @@
                 document.getElementById('ed-dept').value = p.department || '';
                 document.getElementById('ed-username').value = p.username || '';
                 document.getElementById('ed-user-pass').value = '';
+                document.getElementById('ed-quota').value = Number.isFinite(Number(p.mailQuotaMb)) ? p.mailQuotaMb : 100;
                 (p.accounts || []).forEach(a => addAccRow({
                     id: a.id,
                     email: a.email,
@@ -616,6 +789,7 @@
                 document.getElementById('ed-dept').value = '';
                 document.getElementById('ed-username').value = '';
                 document.getElementById('ed-user-pass').value = '';
+                document.getElementById('ed-quota').value = 100;
                 addAccRow();
                 document.getElementById('btn-del-single').classList.add('hidden');
             }
@@ -805,6 +979,7 @@
             const dept = document.getElementById('ed-dept').value;
             const username = document.getElementById('ed-username').value;
             const userPass = document.getElementById('ed-user-pass').value;
+            const quotaValue = parseInt(document.getElementById('ed-quota').value, 10);
             const rows = document.querySelectorAll('.acc-box');
             let accs = [];
             rows.forEach(r => {
@@ -826,6 +1001,7 @@
                 name,
                 department: dept,
                 username,
+                mailQuotaMb: Number.isFinite(quotaValue) ? quotaValue : undefined,
                 password: userPass || undefined,
                 accounts: accs.map(a => ({
                     id: a.id,

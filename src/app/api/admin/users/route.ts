@@ -27,6 +27,7 @@ async function serializeUsers() {
     name: user.name,
     department: user.department,
     username: user.username,
+    mailQuotaMb: user.mailQuotaMb,
     password: user.passwordEncrypted
       ? (() => {
         try {
@@ -64,7 +65,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const data = await req.json();
-  const { name, department, username, password, accounts = [] } = data;
+  const { name, department, username, password, accounts = [], mailQuotaMb } = data;
 
   if (!name || !username || !password) {
     return NextResponse.json({ error: 'name, username, and password are required' }, { status: 400 });
@@ -75,6 +76,7 @@ export async function POST(req: Request) {
       name,
       department,
       username,
+      mailQuotaMb: Number.isFinite(Number(mailQuotaMb)) ? Number(mailQuotaMb) : undefined,
       passwordHash: hashPassword(password),
       passwordEncrypted: encrypt(password),
       role: 'USER',
@@ -101,7 +103,7 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const data = await req.json();
-  const { id, name, department, username, password, accounts = [] } = data;
+  const { id, name, department, username, password, accounts = [], mailQuotaMb } = data;
 
   if (!id || !name || !username) {
     return NextResponse.json({ error: 'id, name, and username are required' }, { status: 400 });
@@ -150,6 +152,7 @@ export async function PUT(req: Request) {
         name,
         department,
         username,
+        ...(Number.isFinite(Number(mailQuotaMb)) ? { mailQuotaMb: Number(mailQuotaMb) } : {}),
         ...(password
           ? {
             passwordHash: hashPassword(password),

@@ -149,12 +149,63 @@ export async function appendSent(connection: ImapSimple, rawEmail: string) {
   return sentFolder;
 }
 
+function extractFolderPaths(boxList: any, parentKey = ''): string[] {
+  const folders: string[] = [];
+  for (const key of Object.keys(boxList || {})) {
+    const box = boxList[key];
+    const fullPath = parentKey ? `${parentKey}${box.delimiter}${key}` : key;
+    folders.push(fullPath);
+    if (box.children) {
+      folders.push(...extractFolderPaths(box.children, fullPath));
+    }
+  }
+  return folders;
+}
+
+export async function getTrashFolder(connection: ImapSimple) {
+  const boxes = await connection.getBoxes();
+
+  const findTrashRecursive = (boxList: any, parentKey = ''): string | null => {
+    for (const key of Object.keys(boxList)) {
+      const box = boxList[key];
+      const fullPath = parentKey ? `${parentKey}${box.delimiter}${key}` : key;
+      if ((box.attribs || []).some((a: string) => a.toLowerCase() === '\\trash')) {
+        return fullPath;
+      }
+      if (box.children) {
+        const childResult = findTrashRecursive(box.children, fullPath);
+        if (childResult) return childResult;
+      }
+    }
+    return null;
+  };
+
+  const trashFolder = findTrashRecursive(boxes);
+  if (trashFolder) return trashFolder;
+
+  const fallbacks = [
+    'INBOX.Trash',
+    'Trash',
+    'INBOX.Deleted',
+    'Deleted Items',
+    'INBOX.Deleted Items',
+    'INBOX.Papperskorg',
+    'Papperskorg',
+  ];
+  const available = extractFolderPaths(boxes).map((folder) => folder.toLowerCase());
+  const fallbackMatch = fallbacks.find((name) => available.includes(name.toLowerCase()));
+  if (fallbackMatch) return fallbackMatch;
+
+  return 'INBOX.Trash';
+}
+
 const SENT_ALIASES = new Set(['sent', 'skickat']);
 const DRAFT_ALIASES = new Set(['drafts', 'utkast']);
+const TRASH_ALIASES = new Set(['trash', 'papperskorg']);
 
 export function isFolderAlias(folder: string) {
   const normalized = folder.trim().toLowerCase();
-  return SENT_ALIASES.has(normalized) || DRAFT_ALIASES.has(normalized);
+  return SENT_ALIASES.has(normalized) || DRAFT_ALIASES.has(normalized) || TRASH_ALIASES.has(normalized);
 }
 
 export async function resolveFolderAlias(connection: ImapSimple, folder: string) {
@@ -164,6 +215,9 @@ export async function resolveFolderAlias(connection: ImapSimple, folder: string)
   }
   if (DRAFT_ALIASES.has(normalized)) {
     return getDraftsFolder(connection);
+  }
+  if (TRASH_ALIASES.has(normalized)) {
+    return getTrashFolder(connection);
   }
   return folder;
 }

@@ -31,6 +31,8 @@ interface MailListProps {
   onSelectAll?: () => void;
   onDeleteSelected?: () => void;
   onMoveSelected?: (targetFolder: string) => void;
+  onEmptyTrash?: () => void;
+  showEmptyTrash?: boolean;
 }
 
 export default function MailList({
@@ -45,7 +47,9 @@ export default function MailList({
   onEmailSelectToggle = () => {},
   onSelectAll = () => {},
   onDeleteSelected = () => {},
-  onMoveSelected = () => {}
+  onMoveSelected = () => {},
+  onEmptyTrash = () => {},
+  showEmptyTrash = false
 }: MailListProps) {
   const isAllSelected = emails.length > 0 && emails.every(email => selectedEmails.includes(email.uid));
   const formatTimestamp = (value: string | Date | null) => {
@@ -89,12 +93,24 @@ export default function MailList({
               </button>
             </>
           ) : (
-            <button
-              onClick={onRefresh}
-              className={`p-2 hover:bg-gray-100 rounded-full transition-colors ${isLoading ? 'animate-spin' : ''}`}
-            >
-              <RefreshCcw size={18} className="text-gray-500" />
-            </button>
+            <>
+              {showEmptyTrash && (
+                <button
+                  onClick={onEmptyTrash}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  title="Empty trash"
+                  disabled={emails.length === 0}
+                >
+                  <Trash2 size={18} className={emails.length === 0 ? 'text-gray-300' : 'text-red-500'} />
+                </button>
+              )}
+              <button
+                onClick={onRefresh}
+                className={`p-2 hover:bg-gray-100 rounded-full transition-colors ${isLoading ? 'animate-spin' : ''}`}
+              >
+                <RefreshCcw size={18} className="text-gray-500" />
+              </button>
+            </>
           )}
         </div>
       </div>

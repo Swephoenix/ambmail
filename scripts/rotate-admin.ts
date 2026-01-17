@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
-import { PrismaClient } from '@prisma/client';
+import { createPrismaClient } from '../src/lib/prisma-client';
 import { hashPassword } from '../src/lib/password';
 
 const DEFAULT_ADMIN_USERNAME = 'admin';
@@ -97,63 +97,67 @@ function upsertSecrets(secrets: Record<string, string>) {
 }
 
 async function main() {
+  const { prisma, pool } = createPrismaClient();
   const envPath = path.join(process.cwd(), '.env');
-  const { lines } = readEnv(envPath);
-  if (lines.length === 0) {
-    throw new Error('Missing .env. Create it before rotating admin credentials.');
-  }
+  try {
+    const { lines } = readEnv(envPath);
+    if (lines.length === 0) {
+      throw new Error('Missing .env. Create it before rotating admin credentials.');
+    }
 
-  const existingUsername = getEnvValue(lines, 'ADMIN_USERNAME') || DEFAULT_ADMIN_USERNAME;
-  const name = getEnvValue(lines, 'ADMIN_NAME') || DEFAULT_ADMIN_NAME;
-  const password = randomHex(16);
+    const existingUsername = getEnvValue(lines, 'ADMIN_USERNAME') || DEFAULT_ADMIN_USERNAME;
+    const name = getEnvValue(lines, 'ADMIN_NAME') || DEFAULT_ADMIN_NAME;
+    const password = randomHex(16);
 
-  const prisma = new PrismaClient();
-  let username = randomAnimalUsername();
-  for (let attempt = 0; attempt < 10; attempt += 1) {
-    const taken = await prisma.user.findUnique({ where: { username } });
-    if (!taken) break;
-    username = randomAnimalUsername();
-  }
+    let username = randomAnimalUsername();
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      const taken = await prisma.user.findUnique({ where: { username } });
+      if (!taken) break;
+      username = randomAnimalUsername();
+    }
 
-  let nextLines = lines.slice();
-  nextLines = setEnvValue(nextLines, 'ADMIN_USERNAME', username);
-  nextLines = setEnvValue(nextLines, 'ADMIN_PASSWORD', password);
-  if (nextLines.join('\n') !== lines.join('\n')) {
-    writeEnv(envPath, nextLines);
-  }
+    let nextLines = lines.slice();
+    nextLines = setEnvValue(nextLines, 'ADMIN_USERNAME', username);
+    nextLines = setEnvValue(nextLines, 'ADMIN_PASSWORD', password);
+    if (nextLines.join('\n') !== lines.join('\n')) {
+      writeEnv(envPath, nextLines);
+    }
 
-  upsertSecrets({
-    ADMIN_USERNAME: username,
-    ADMIN_PASSWORD: password,
-  });
-
-  const existing = await prisma.user.findUnique({ where: { username: existingUsername } });
-  if (existing) {
-    await prisma.user.update({
-      where: { id: existing.id },
-      data: {
-        username,
-        passwordHash: hashPassword(password),
-        role: 'ADMIN',
-      },
+    upsertSecrets({
+      ADMIN_USERNAME: username,
+      ADMIN_PASSWORD: password,
     });
-  } else {
-    await prisma.user.create({
-      data: {
-        username,
-        passwordHash: hashPassword(password),
-        name,
-        role: 'ADMIN',
-      },
-    });
+
+    const existing = await prisma.user.findUnique({ where: { username: existingUsername } });
+    if (existing) {
+      await prisma.user.update({
+        where: { id: existing.id },
+        data: {
+          username,
+          passwordHash: hashPassword(password),
+          role: 'ADMIN',
+        },
+      });
+    } else {
+      await prisma.user.create({
+        data: {
+          username,
+          passwordHash: hashPassword(password),
+          name,
+          role: 'ADMIN',
+        },
+      });
+    }
+
+    console.log('[admin-rotate] Admin credentials updated.');
+    console.log(`[admin-rotate] ADMIN_USERNAME=${username}`);
+    console.log(`[admin-rotate] ADMIN_PASSWORD=${password}`);
+    console.log(`[admin-rotate] Stored in ${DEFAULT_SECRETS_FILE}`);
+  } finally {
+    await prisma.$disconnect();
+    await pool.end();
   }
 
-  await prisma.$disconnect();
-
-  console.log('[admin-rotate] Admin credentials updated.');
-  console.log(`[admin-rotate] ADMIN_USERNAME=${username}`);
-  console.log(`[admin-rotate] ADMIN_PASSWORD=${password}`);
-  console.log(`[admin-rotate] Stored in ${DEFAULT_SECRETS_FILE}`);
 }
 
 main().catch((error) => {
