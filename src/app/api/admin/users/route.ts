@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { encrypt } from '@/lib/encryption';
+import { decrypt, encrypt } from '@/lib/encryption';
 import { hashPassword, requireAdmin } from '@/lib/auth';
 import { prefetchUserAccounts } from '@/lib/mail-cache';
 
@@ -27,6 +27,15 @@ async function serializeUsers() {
     name: user.name,
     department: user.department,
     username: user.username,
+    password: user.passwordEncrypted
+      ? (() => {
+        try {
+          return decrypt(user.passwordEncrypted);
+        } catch {
+          return '';
+        }
+      })()
+      : '',
     role: user.role,
     accounts: user.accounts.map((account) => ({
       id: account.id,
@@ -67,6 +76,7 @@ export async function POST(req: Request) {
       department,
       username,
       passwordHash: hashPassword(password),
+      passwordEncrypted: encrypt(password),
       role: 'USER',
       accounts: {
         create: accounts.map((account: AccountInput) => ({
@@ -140,7 +150,12 @@ export async function PUT(req: Request) {
         name,
         department,
         username,
-        ...(password ? { passwordHash: hashPassword(password) } : {}),
+        ...(password
+          ? {
+            passwordHash: hashPassword(password),
+            passwordEncrypted: encrypt(password),
+          }
+          : {}),
       },
     }),
     ...accountOps,

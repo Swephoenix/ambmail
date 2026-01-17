@@ -9,6 +9,7 @@ import MailView from '@/components/MailView';
 const AddAccountModal = lazy(() => import('@/components/AddAccountModal'));
 const ComposeEmail = lazy(() => import('@/components/ComposeEmail'));
 const SignatureModal = lazy(() => import('@/components/SignatureModal'));
+const ManageAccountsModal = lazy(() => import('@/components/ManageAccountsModal'));
 import toast from 'react-hot-toast';
 import { Plus } from 'lucide-react';
 import Image from 'next/image';
@@ -18,6 +19,7 @@ export default function Home() {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [loginForm, setLoginForm] = useState({ username: '', password: '' });
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
   const [activeFolder, setActiveFolder] = useState<string>('INBOX');
@@ -27,6 +29,7 @@ export default function Home() {
   const [isLoadingList, setIsLoadingList] = useState(false);
   const [isLoadingBody, setIsLoadingBody] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showManageAccounts, setShowManageAccounts] = useState(false);
   const [composeWindows, setComposeWindows] = useState<Array<{
     id: string;
     accountId: string;
@@ -327,6 +330,48 @@ export default function Home() {
     }
   };
 
+  const handleDeleteAccount = async (accountId: string) => {
+    try {
+      const res = await fetch('/api/accounts', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountId }),
+      });
+
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Failed to delete account');
+
+      const updatedAccounts = accounts.filter(account => account.id !== accountId);
+      setAccounts(updatedAccounts);
+      setAccountsCache(prev => (prev ? { data: updatedAccounts, timestamp: Date.now() } : null));
+      setEmailCache(prev => {
+        const newCache = { ...prev };
+        Object.keys(newCache).forEach((key) => {
+          if (key.startsWith(`${accountId}-`)) {
+            delete newCache[key];
+          }
+        });
+        return newCache;
+      });
+
+      if (activeAccountId === accountId) {
+        const nextAccount = updatedAccounts[0];
+        setActiveAccountId(nextAccount ? nextAccount.id : null);
+        setActiveFolder('INBOX');
+        setEmails([]);
+        setSelectedEmail(null);
+        setSelectedEmails([]);
+        if (nextAccount) {
+          await fetchEmails(nextAccount.id, 'INBOX');
+        }
+      }
+
+      toast.success('Kontot borttaget');
+    } catch (error: any) {
+      toast.error('Kunde inte ta bort kontot: ' + error.message);
+    }
+  };
+
   const handleMoveSelected = async (targetFolder: string) => {
     if (selectedEmails.length === 0 || !activeAccountId) return;
 
@@ -501,6 +546,7 @@ export default function Home() {
 
   const handleLogin = async () => {
     setLoginError(null);
+    setIsLoggingIn(true);
     try {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
@@ -518,6 +564,8 @@ export default function Home() {
       await fetchAccounts(true);
     } catch (error: any) {
       setLoginError('Inloggning misslyckades');
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -635,7 +683,13 @@ export default function Home() {
             <h1 className="text-2xl font-bold mt-4">Logga in</h1>
             <p className="text-gray-500 text-sm">Använd ditt användarnamn och lösenord</p>
           </div>
-          <div className="space-y-4">
+          <form
+            className="space-y-4"
+            onSubmit={(event) => {
+              event.preventDefault();
+              handleLogin();
+            }}
+          >
             <input
               type="text"
               placeholder="Användarnamn"
@@ -652,12 +706,13 @@ export default function Home() {
             />
             {loginError && <div className="text-sm text-red-600">{loginError}</div>}
             <button
-              onClick={handleLogin}
-              className="w-full py-3 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all"
+              type="submit"
+              disabled={isLoggingIn}
+              className="w-full py-3 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Logga in
+              {isLoggingIn ? 'Loggar in...' : 'Logga in'}
             </button>
-          </div>
+          </form>
         </div>
       </main>
     );
@@ -671,7 +726,7 @@ export default function Home() {
         activeFolder={activeFolder}
         onSelect={handleSidebarSelect}
         onAddAccount={() => setShowAddModal(true)}
-        onSettings={() => toast.success('Settings coming soon!')}
+        onSettings={() => setShowManageAccounts(true)}
         onEditSignature={handleEditSignature}
         onLogout={handleLogout}
         currentUserName={currentUser?.name || currentUser?.username}
@@ -1115,6 +1170,20 @@ export default function Home() {
             onClose={() => setShowSignatureModal(false)}
             onSave={handleSaveSignature}
             initialSignature={currentSignatureAccount.signature}
+          />
+        </Suspense>
+      )}
+
+      {showManageAccounts && (
+        <Suspense fallback={null}>
+          <ManageAccountsModal
+            accounts={accounts}
+            onClose={() => setShowManageAccounts(false)}
+            onAdd={() => {
+              setShowManageAccounts(false);
+              setShowAddModal(true);
+            }}
+            onDelete={handleDeleteAccount}
           />
         </Suspense>
       )}

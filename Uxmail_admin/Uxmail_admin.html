@@ -62,13 +62,13 @@
         .list-container { background: white; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden; }
         
         .list-header { 
-            display: grid; grid-template-columns: 50px 2fr 1.5fr 2fr 100px; gap: 1rem;
+            display: grid; grid-template-columns: 50px 1.8fr 1.6fr 1.2fr 2fr 100px; gap: 1rem;
             padding: 1rem 1.5rem; background: #f8fafc; border-bottom: 1px solid var(--border);
             font-size: 0.75rem; font-weight: 700; color: var(--text-light); text-transform: uppercase;
         }
 
         .list-row {
-            display: grid; grid-template-columns: 50px 2fr 1.5fr 2fr 100px; gap: 1rem; align-items: center;
+            display: grid; grid-template-columns: 50px 1.8fr 1.6fr 1.2fr 2fr 100px; gap: 1rem; align-items: center;
             padding: 0.9rem 1.5rem; border-bottom: 1px solid var(--border); transition: all 0.1s;
         }
         .list-row:last-child { border-bottom: none; }
@@ -78,6 +78,12 @@
         .user-info { font-weight: 600; color: var(--text); }
         .user-sub { font-size: 0.8rem; color: var(--text-light); font-weight: 400; }
         .tag { font-size: 0.75rem; background: #eff6ff; color: var(--primary); padding: 2px 8px; border-radius: 4px; border: 1px solid #dbeafe; font-weight: 500; }
+        .login-cell { display: flex; flex-direction: column; gap: 6px; }
+        .login-user { font-weight: 600; color: var(--text); font-size: 0.85rem; }
+        .login-pass { position: relative; display: flex; align-items: center; }
+        .login-pass input { margin-bottom: 0; padding-right: 32px; }
+        .login-pass .eye-toggle { right: 8px; }
+        .login-missing { font-size: 0.8rem; color: var(--text-light); }
 
         /* PAGINATION */
         .pagination { display: flex; justify-content: center; gap: 0.4rem; margin: 2rem 0; }
@@ -198,12 +204,13 @@
 
                 <div class="list-container">
                     <div class="list-header">
-                        <div><input type="checkbox" id="select-all" onchange="toggleSelectAll(this)"></div>
-                        <div>Namn & Roll</div>
-                        <div>Avdelning</div>
-                        <div>Mejlkonton</div>
-                        <div style="text-align:right;">Åtgärd</div>
-                    </div>
+                    <div><input type="checkbox" id="select-all" onchange="toggleSelectAll(this)"></div>
+                    <div>Namn & Roll</div>
+                    <div>Inloggning</div>
+                    <div>Avdelning</div>
+                    <div>Mejlkonton</div>
+                    <div style="text-align:right;">Åtgärd</div>
+                </div>
                     <div id="rows-container"></div>
                 </div>
 
@@ -230,6 +237,9 @@
                 </div>
                 <div style="margin-top: 1rem;">
                     <button class="btn-ghost" style="width: 100%;" onclick="copyAllCredentials()">Kopiera allt</button>
+                </div>
+                <div style="margin-top: 0.6rem;">
+                    <button class="btn-ghost" style="width: 100%;" onclick="downloadAdminCredentials()">Ladda ner .txt</button>
                 </div>
             </div>
             <button class="btn btn-primary" style="width: 100%; margin-top: 1.5rem;" onclick="acknowledgeAdminCredentials()">Jag har sparat uppgifterna</button>
@@ -393,6 +403,20 @@
             navigator.clipboard.writeText(`username: ${user}\npassword: ${pass}`);
         }
 
+        function downloadAdminCredentials() {
+            const user = document.getElementById('admin-cred-user').textContent.replace(/^Username:\s*/i, '').trim();
+            const pass = document.getElementById('admin-cred-pass').textContent.replace(/^Password:\s*/i, '').trim();
+            const content = `username: ${user}\npassword: ${pass}\n`;
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'admin-credentials.txt';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(link.href);
+        }
+
         async function acknowledgeAdminCredentials() {
             try {
                 await fetch('/api/admin/credentials', { method: 'POST' });
@@ -491,6 +515,15 @@
                     <div class="user-info">
                         <div>${escapeHtml(p.name)}</div>
                         <div class="user-sub">${escapeHtml(p.username || '')} • ${(p.accounts || []).length} konton</div>
+                    </div>
+                    <div class="login-cell">
+                        <div class="login-user">${escapeHtml(p.username || '—')}</div>
+                        ${p.password ? `
+                          <div class="pass-group login-pass">
+                              <input type="password" value="${escapeHtml(p.password)}" readonly>
+                              <span class="eye-toggle" onclick="togglePass(this)">👁️</span>
+                          </div>
+                        ` : `<div class="login-missing">Lösenord saknas</div>`}
                     </div>
                     <div><span class="tag">${escapeHtml(p.department || 'Övrigt')}</span></div>
                     <div style="font-size:0.85rem; color:#666; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">

@@ -51,3 +51,33 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 }
+
+export async function DELETE(req: Request) {
+  try {
+    const user = await requireUser();
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    const data = await req.json();
+    const { accountId } = data;
+
+    if (!accountId) {
+      return NextResponse.json({ error: 'accountId is required' }, { status: 400 });
+    }
+
+    const account = await prisma.account.findFirst({
+      where: { id: accountId, userId: user.id },
+      select: { id: true },
+    });
+
+    if (!account) {
+      return NextResponse.json({ error: 'Account not found' }, { status: 404 });
+    }
+
+    await prisma.account.delete({ where: { id: accountId } });
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+}

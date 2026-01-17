@@ -55,6 +55,15 @@ npm install
 TS_NODE="./node_modules/.bin/ts-node"
 TS_NODE_COMPILER_OPTIONS='{"module":"CommonJS"}'
 RESET_DB_DONE="0"
+if [ -x ./node_modules/.bin/prisma ]; then
+  PRISMA_CMD=("./node_modules/.bin/prisma")
+else
+  PRISMA_CMD=(npx -y prisma@5.15.0)
+fi
+
+run_prisma() {
+  "${PRISMA_CMD[@]}" "$@"
+}
 
 echo "Bootstrapping secrets..."
 "$TS_NODE" --compiler-options "$TS_NODE_COMPILER_OPTIONS" scripts/bootstrap-secrets.ts
@@ -152,19 +161,41 @@ fi
 echo "Syncing database schema..."
 if [ "$RESET_STATE" = "1" ] || [ "$RESET_STATE" = "true" ]; then
   echo "Resetting database..."
-  if [ -x ./node_modules/.bin/prisma ]; then
-    ./node_modules/.bin/prisma db push --force-reset --accept-data-loss
-  else
-    npx -y prisma@5.15.0 db push --force-reset --accept-data-loss
-  fi
+  run_prisma db push --force-reset --accept-data-loss
   RESET_DB_DONE="1"
 fi
 
 if [ "$RESET_DB_DONE" = "0" ]; then
-  if [ -x ./node_modules/.bin/prisma ]; then
-    ./node_modules/.bin/prisma db push --accept-data-loss
+  if [ -d prisma/migrations ] && [ "$(find prisma/migrations -mindepth 1 -maxdepth 1 -type d | wc -l)" -gt 0 ]; then
+    has_migration_table="false"
+    if command -v psql >/dev/null 2>&1 && [ -n "${host:-}" ] && [ -n "${db:-}" ]; then
+      if [ -n "${password:-}" ]; then
+        has_migration_table="$(PGPASSWORD="$password" psql -h "$host" -p "${port:-5432}" -U "$user" -d "$db" -tAc "SELECT to_regclass('public._prisma_migrations') IS NOT NULL" 2>/dev/null | tr -d '[:space:]')"
+      else
+        has_migration_table="$(psql -h "$host" -p "${port:-5432}" -U "$user" -d "$db" -tAc "SELECT to_regclass('public._prisma_migrations') IS NOT NULL" 2>/dev/null | tr -d '[:space:]')"
+      fi
+    fi
+
+    if [ "$has_migration_table" = "true" ]; then
+      run_prisma migrate deploy
+    else
+      run_prisma db push --accept-data-loss
+      for dir in prisma/migrations/*; do
+        if [ -d "$dir" ]; then
+          run_prisma migrate resolve --applied "$(basename "$dir")"
+        fi
+      done
+    fi
   else
-    npx -y prisma@5.15.0 db push --accept-data-loss
+    run_prisma db push --accept-data-loss
+  fi
+else
+  if [ -d prisma/migrations ] && [ "$(find prisma/migrations -mindepth 1 -maxdepth 1 -type d | wc -l)" -gt 0 ]; then
+    for dir in prisma/migrations/*; do
+      if [ -d "$dir" ]; then
+        run_prisma migrate resolve --applied "$(basename "$dir")"
+      fi
+    done
   fi
 fi
 

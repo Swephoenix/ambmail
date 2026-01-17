@@ -45,7 +45,12 @@ export async function POST(req: Request) {
         data: {
           name: profile.name,
           department: profile.department,
-          ...(profile.password ? { passwordHash: hashPassword(profile.password) } : {}),
+          ...(profile.password
+            ? {
+              passwordHash: hashPassword(profile.password),
+              passwordEncrypted: encrypt(profile.password),
+            }
+            : {}),
         },
       });
     } else {
@@ -55,6 +60,7 @@ export async function POST(req: Request) {
           department: profile.department,
           username: profile.username,
           passwordHash: hashPassword(profile.password),
+          passwordEncrypted: encrypt(profile.password),
           role: 'USER',
         },
       });

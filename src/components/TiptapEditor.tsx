@@ -10,6 +10,7 @@ import { Link } from '@tiptap/extension-link';
 import { Image } from '@tiptap/extension-image';
 import { FontFamily } from '@tiptap/extension-font-family';
 import { Placeholder } from '@tiptap/extension-placeholder';
+import { HardBreak } from '@tiptap/extension-hard-break';
 import { FontSize } from './extensions/FontSize';
 import EditorToolbar from './EditorToolbar';
 import { useEffect, useState } from 'react';
@@ -26,6 +27,14 @@ interface TiptapEditorProps {
 export default function TiptapEditor({ value, onChange, placeholder, signature, onRegisterInsert, onFilesDropped }: TiptapEditorProps) {
   const [isDragActive, setIsDragActive] = useState(false);
   const [dragDepth, setDragDepth] = useState(0);
+  const LineBreak = HardBreak.extend({
+    addKeyboardShortcuts() {
+      return {
+        Enter: () => this.editor.commands.setHardBreak(),
+        'Shift-Enter': () => this.editor.commands.setHardBreak(),
+      };
+    },
+  });
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -45,6 +54,7 @@ export default function TiptapEditor({ value, onChange, placeholder, signature, 
         gapcursor: false,
         hardBreak: false,
       }),
+      LineBreak,
       Underline,
       TextAlign.configure({
         types: ['paragraph', 'heading'],
