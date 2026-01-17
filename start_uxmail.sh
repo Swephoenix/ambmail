@@ -29,6 +29,38 @@ install_packages() {
   fi
 }
 
+read_pkg_version() {
+  local pkg="$1"
+  node -e "const p=require('./package.json'); const v=(p.dependencies&&p.dependencies['$pkg'])||(p.devDependencies&&p.devDependencies['$pkg'])||''; console.log(v);" 2>/dev/null
+}
+
+version_major() {
+  local raw="$1"
+  raw="${raw#^}"
+  raw="${raw#~}"
+  raw="${raw#v}"
+  raw="${raw%%-*}"
+  raw="${raw%%+*}"
+  printf '%s' "${raw%%.*}"
+}
+
+ensure_prisma_latest() {
+  local update_flag="${UXMAIL_PRISMA_UPDATE:-1}"
+  if [ "$update_flag" != "1" ] && [ "$update_flag" != "true" ]; then
+    return 0
+  fi
+  local prisma_ver client_ver prisma_major client_major
+  prisma_ver="$(read_pkg_version prisma)"
+  client_ver="$(read_pkg_version @prisma/client)"
+  prisma_major="$(version_major "$prisma_ver")"
+  client_major="$(version_major "$client_ver")"
+  if [ -z "$prisma_major" ] || [ "$prisma_major" -lt 7 ] || [ -z "$client_major" ] || [ "$client_major" -lt 7 ]; then
+    echo "Updating Prisma packages to latest..."
+    npm i --save-dev prisma@latest
+    npm i @prisma/client@latest
+  fi
+}
+
 ensure_cmd() {
   local cmd="$1"
   shift
@@ -89,6 +121,7 @@ fi
 
 echo "Installing dependencies..."
 npm install
+ensure_prisma_latest
 
 TS_NODE="./node_modules/.bin/ts-node"
 TS_NODE_COMPILER_OPTIONS='{"module":"CommonJS"}'
@@ -96,7 +129,7 @@ RESET_DB_DONE="0"
 if [ -x ./node_modules/.bin/prisma ]; then
   PRISMA_CMD=("./node_modules/.bin/prisma")
 else
-  PRISMA_CMD=(npx -y prisma@5.15.0)
+  PRISMA_CMD=(npx -y prisma@latest)
 fi
 
 run_prisma() {
