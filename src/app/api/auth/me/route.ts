@@ -1,13 +1,20 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { createSession, getSessionUser, setSessionCookie, verifyPassword } from '@/lib/auth';
+import {
+  createSession,
+  getAdminSessionUser,
+  getSessionUser,
+  setSessionCookie,
+  sessionCookies,
+  verifyPassword,
+} from '@/lib/auth';
 import { rotateAdminCredentialsIfNeeded } from '@/lib/admin-credentials';
 
 export async function GET(req: Request) {
-  const user = await getSessionUser();
+  const { searchParams } = new URL(req.url);
+  const allowAutoLogin = searchParams.get('admin') === '1';
+  const user = allowAutoLogin ? await getAdminSessionUser() : await getSessionUser();
   if (!user) {
-    const { searchParams } = new URL(req.url);
-    const allowAutoLogin = searchParams.get('admin') === '1';
     const autoLoginEnabled = process.env.ADMIN_AUTO_LOGIN !== '0';
     const adminUsername = process.env.ADMIN_USERNAME;
     const adminPassword = process.env.ADMIN_PASSWORD;
@@ -22,7 +29,7 @@ export async function GET(req: Request) {
       ) {
         const adminCredentials = await rotateAdminCredentialsIfNeeded(admin.id);
         const token = await createSession(admin.id);
-        await setSessionCookie(token);
+        await setSessionCookie(token, { cookieName: sessionCookies.admin });
         return NextResponse.json({
           id: admin.id,
           username: adminCredentials?.adminUsername ?? admin.username,

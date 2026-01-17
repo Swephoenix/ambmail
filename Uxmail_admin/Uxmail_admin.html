@@ -241,7 +241,7 @@
         <div class="modal" style="text-align: center;">
             <h3 style="margin-bottom: 1rem;">Massimportera via CSV</h3>
             <p style="color:var(--text-light); font-size: 0.9rem; margin-bottom: 1.5rem;">Format: Namn, Avdelning, Användarnamn, Inloggningslösenord, E-post, Lösenord, IMAP, SMTP</p>
-            <button class="btn-danger-text" style="color:var(--primary); margin-bottom: 2rem; display: block; width: 100%;" onclick="downloadTemplate()">📥 Ladda ner CSV-mall</button>
+            <button class="btn-danger-text" style="color:var(--primary); margin-bottom: 2rem; display: block; width: 100%;" onclick="downloadTemplate()">📥 Ladda ner demo.csv</button>
             <div style="border: 2px dashed var(--border); padding: 3rem; border-radius: 12px; cursor: pointer; background: #fafafa;" onclick="document.getElementById('csv-file').click()">
                 <input type="file" id="csv-file" class="hidden" onchange="handleCSVImport()">
                 <div id="csv-status" style="color:var(--text-light); font-weight: 500;">Klicka här för att välja fil</div>
@@ -338,7 +338,7 @@
                 if (!res.ok) throw new Error('Invalid credentials');
                 const loginData = await res.json();
                 if (loginData.role !== 'ADMIN') {
-                    await fetch('/api/auth/logout', { method: 'POST' });
+                    await fetch('/api/auth/logout?admin=1', { method: 'POST' });
                     throw new Error('Forbidden');
                 }
                 document.getElementById('login-screen').classList.add('hidden');
@@ -360,7 +360,7 @@
             }
         }
         async function logout() {
-            await fetch('/api/auth/logout', { method: 'POST' });
+            await fetch('/api/auth/logout?admin=1', { method: 'POST' });
             location.reload();
         }
 
@@ -857,17 +857,23 @@
                     if(i===0 || !row.trim()) return;
                     const c = row.split(sep).map(x => x.trim().replace(/^"|"$/g, ''));
                     if(c.length >= 8) {
+                        const accounts = [];
+                        for (let idx = 4; idx + 3 < c.length; idx += 4) {
+                            if (!c[idx]) continue;
+                            accounts.push({
+                                email: c[idx],
+                                password: c[idx + 1],
+                                imapHost: c[idx + 2],
+                                smtpHost: c[idx + 3]
+                            });
+                        }
+                        if (accounts.length === 0) return;
                         const profile = {
                             name: c[0],
                             department: c[1],
                             username: c[2],
                             password: c[3],
-                            accounts: [{
-                                email: c[4],
-                                password: c[5],
-                                imapHost: c[6],
-                                smtpHost: c[7]
-                            }]
+                            accounts
                         };
                         profiles.push(profile);
                         count++;
@@ -907,10 +913,10 @@
         }
 
         function downloadTemplate() {
-            const content = "Namn,Avdelning,Användarnamn,Inloggningslösenord,E-post,Lösenord,IMAP,SMTP\nJohan Ek,IT,johan,AppLosen123,johan@bolag.se,Lösen123,imap.bolag.se,smtp.bolag.se";
+            const content = "Namn,Avdelning,Anvandarnamn,Inloggningslosenord,E-post,Losenord,IMAP,SMTP,E-post2,Losenord2,IMAP2,SMTP2\nJohan Ek,IT,johan,AppLosen123,johan@bolag.se,Losen123,imap.bolag.se,smtp.bolag.se,johan.sales@bolag.se,Losen123,imap.bolag.se,smtp.bolag.se\nSara Lind,HR,sara,AppLosen456,sara@bolag.se,Losen456,imap.bolag.se,smtp.bolag.se,,,,\nAnders Olsson,Ekonomi,anders,AppLosen789,anders@bolag.se,Losen789,imap.bolag.se,smtp.bolag.se,anders.privat@bolag.se,Losen789,imap.bolag.se,smtp.bolag.se";
             const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob); link.download = "mall.csv"; link.click();
+            link.href = URL.createObjectURL(blob); link.download = "demo.csv"; link.click();
         }
 
         function showToast(msg, undo=false) {

@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { hashPassword, verifyPassword } from '@/lib/password';
 
 const SESSION_COOKIE = 'uxmail_session';
+const ADMIN_SESSION_COOKIE = 'uxmail_admin_session';
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export { hashPassword, verifyPassword };
 
@@ -20,9 +21,13 @@ export async function createSession(userId: string) {
   return token;
 }
 
-export async function setSessionCookie(token: string) {
+export async function setSessionCookie(
+  token: string,
+  options: { cookieName?: string } = {},
+) {
   const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, token, {
+  const cookieName = options.cookieName ?? SESSION_COOKIE;
+  cookieStore.set(cookieName, token, {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
@@ -31,9 +36,10 @@ export async function setSessionCookie(token: string) {
   });
 }
 
-export async function clearSessionCookie() {
+export async function clearSessionCookie(options: { cookieName?: string } = {}) {
   const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, '', {
+  const cookieName = options.cookieName ?? SESSION_COOKIE;
+  cookieStore.set(cookieName, '', {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',
@@ -42,9 +48,9 @@ export async function clearSessionCookie() {
   });
 }
 
-export async function getSessionUser() {
+export async function getSessionUser(cookieName: string = SESSION_COOKIE) {
   const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE)?.value;
+  const token = cookieStore.get(cookieName)?.value;
   if (!token) return null;
 
   const session = await prisma.userSession.findUnique({
@@ -65,10 +71,21 @@ export async function requireUser() {
   return getSessionUser();
 }
 
+export async function getAdminSessionUser() {
+  const adminUser = await getSessionUser(ADMIN_SESSION_COOKIE);
+  if (adminUser) return adminUser;
+  return getSessionUser();
+}
+
 export async function requireAdmin() {
-  const user = await getSessionUser();
+  const user = await getAdminSessionUser();
   if (!user || user.role !== 'ADMIN') {
     return null;
   }
   return user;
 }
+
+export const sessionCookies = {
+  user: SESSION_COOKIE,
+  admin: ADMIN_SESSION_COOKIE,
+};
