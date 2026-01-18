@@ -197,7 +197,7 @@ if [ "$START_POSTGRES" = "1" ] || [ "$START_POSTGRES" = "true" ]; then
     if systemctl list-unit-files 2>/dev/null | awk '{print $1}' | grep -q '^postgresql\.service$'; then
       sudo systemctl start postgresql
     else
-      SERVICE_NAME="$(systemctl list-unit-files 2>/dev/null | awk '{print $1}' | grep '^postgresql@' | head -n1 || true)"
+      SERVICE_NAME="$(systemctl list-unit-files 2>/dev/null | awk '{print $1}' | grep -E '^postgresql@.+\.service$' | grep -v '^postgresql@\.service$' | head -n1 || true)"
       if [ -n "$SERVICE_NAME" ]; then
         sudo systemctl start "$SERVICE_NAME"
       else
