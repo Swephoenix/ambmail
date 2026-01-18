@@ -83,6 +83,7 @@ export async function POST(req: Request) {
           userId: user.id,
           email: account.email,
           password: encrypt(account.password || ''),
+          adminManaged: true,
           imapHost: account.imapHost,
           smtpHost: account.smtpHost,
           imapPort: account.imapPort || 993,
@@ -93,6 +94,7 @@ export async function POST(req: Request) {
           smtpHost: account.smtpHost,
           imapPort: account.imapPort || 993,
           smtpPort: account.smtpPort || 465,
+          adminManaged: true,
           ...(account.password ? { password: encrypt(account.password) } : {}),
         },
       });

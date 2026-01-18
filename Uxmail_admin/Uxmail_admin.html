@@ -779,7 +779,8 @@
                 (p.accounts || []).forEach(a => addAccRow({
                     id: a.id,
                     email: a.email,
-                    pass: '',
+                    pass: a.password || '',
+                    adminManaged: a.adminManaged,
                     imap: a.imapHost || '',
                     smtp: a.smtpHost || ''
                 }));
@@ -796,17 +797,23 @@
             toggleModal('editor-modal');
         }
 
-        function addAccRow(d={id:'',email:'',pass:'',imap:'',smtp:''}) {
+        function addAccRow(d={id:'',email:'',pass:'',imap:'',smtp:'',adminManaged:false}) {
             const div = document.createElement('div');
             div.className = 'acc-box';
             if (d.id) div.dataset.accountId = d.id;
+            const isExisting = Boolean(d.id);
+            const isAdminManaged = Boolean(d.adminManaged);
+            const passValue = (isExisting && !isAdminManaged) ? '' : d.pass;
+            const passPlaceholder = (isExisting && !isAdminManaged)
+                ? 'Lösenord dolt (användarsatt)'
+                : 'Lösenord';
             div.innerHTML = `
                 <div style="position:absolute; right:12px; top:12px; cursor:pointer; color:red; font-size:0.8rem;" onclick="this.parentElement.remove()">TA BORT</div>
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
                     <div><label>E-post</label><input type="email" class="i-email" value="${d.email}"></div>
                     <div><label>Lösenord</label>
                         <div class="pass-group">
-                            <input type="password" class="i-pass" value="${d.pass}">
+                            <input type="password" class="i-pass" value="${passValue}" placeholder="${passPlaceholder}">
                             <span class="eye-toggle" onclick="togglePass(this)">👁️</span>
                         </div>
                     </div>

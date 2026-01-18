@@ -16,8 +16,26 @@ type AccountInput = {
 
 async function serializeUsers() {
   const users = await prisma.user.findMany({
-    include: {
-      accounts: true,
+    select: {
+      id: true,
+      name: true,
+      department: true,
+      username: true,
+      mailQuotaMb: true,
+      passwordEncrypted: true,
+      role: true,
+      accounts: {
+        select: {
+          id: true,
+          email: true,
+          password: true,
+          adminManaged: true,
+          imapHost: true,
+          smtpHost: true,
+          imapPort: true,
+          smtpPort: true,
+        },
+      },
     },
     orderBy: { name: 'asc' },
   });
@@ -41,11 +59,20 @@ async function serializeUsers() {
     accounts: user.accounts.map((account) => ({
       id: account.id,
       email: account.email,
+      adminManaged: account.adminManaged,
+      password: account.adminManaged && account.password
+        ? (() => {
+          try {
+            return decrypt(account.password);
+          } catch {
+            return '';
+          }
+        })()
+        : '',
       imapHost: account.imapHost,
       smtpHost: account.smtpHost,
       imapPort: account.imapPort,
       smtpPort: account.smtpPort,
-      hasPassword: Boolean(account.password),
     })),
   }));
 }
@@ -84,6 +111,7 @@ export async function POST(req: Request) {
         create: accounts.map((account: AccountInput) => ({
           email: account.email,
           password: encrypt(account.password || ''),
+          adminManaged: true,
           imapHost: account.imapHost,
           smtpHost: account.smtpHost,
           imapPort: account.imapPort || 993,
@@ -109,8 +137,14 @@ export async function PUT(req: Request) {
     return NextResponse.json({ error: 'id, name, and username are required' }, { status: 400 });
   }
 
-  const existingAccounts = await prisma.account.findMany({ where: { userId: id } });
+  const existingAccounts = await prisma.account.findMany({
+    where: { userId: id },
+    select: { id: true, adminManaged: true },
+  });
   const existingAccountIds = new Set(existingAccounts.map((account) => account.id));
+  const existingAccountAdminManaged = new Map(
+    existingAccounts.map((account) => [account.id, account.adminManaged])
+  );
   const incomingIds = new Set(accounts.map((account: AccountInput) => account.id).filter(Boolean));
 
   const toDelete = existingAccounts.filter((account) => !incomingIds.has(account.id));
@@ -124,7 +158,9 @@ export async function PUT(req: Request) {
       smtpPort: account.smtpPort || 465,
     };
 
-    const passwordUpdate = account.password ? { password: encrypt(account.password) } : {};
+    const passwordUpdate = account.password
+      ? { password: encrypt(account.password), adminManaged: true }
+      : {};
 
     if (account.id && existingAccountIds.has(account.id)) {
       return prisma.account.update({
@@ -132,6 +168,9 @@ export async function PUT(req: Request) {
         data: {
           ...accountData,
           ...passwordUpdate,
+          ...(existingAccountAdminManaged.get(account.id)
+            ? { adminManaged: true }
+            : {}),
         },
       });
     }
@@ -140,6 +179,7 @@ export async function PUT(req: Request) {
       data: {
         ...accountData,
         password: encrypt(account.password || ''),
+        adminManaged: true,
         userId: id,
       },
     });

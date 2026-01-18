@@ -38,6 +38,7 @@ export async function POST(req: Request) {
         userId: user.id,
         email,
         password: encrypt(password),
+        adminManaged: false,
         name,
         imapHost,
         imapPort: parseInt(imapPort),
