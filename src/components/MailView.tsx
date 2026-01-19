@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type WheelEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import { format } from 'date-fns';
-import { Reply, ReplyAll, Forward, Trash2, MoreHorizontal, FolderInput, User, ChevronDown, ChevronUp, File, FileArchive, FileImage, FileSpreadsheet, FileText, Mail } from 'lucide-react';
+import { Reply, ReplyAll, Forward, Trash2, MoreHorizontal, FolderInput, User, ChevronDown, ChevronUp, File, FileArchive, FileImage, FileSpreadsheet, FileText, Mail, ZoomIn, ZoomOut, RefreshCcw, X } from 'lucide-react';
 
 interface MailViewProps {
   email: any | null;
@@ -66,6 +66,12 @@ export default function MailView({
   const [mimeLoading, setMimeLoading] = useState(false);
   const [mimeError, setMimeError] = useState('');
   const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const [imagePreview, setImagePreview] = useState<{ src: string; alt: string } | null>(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const lastPanPoint = useRef({ x: 0, y: 0 });
+  const emailContentRef = useRef<HTMLDivElement | null>(null);
 
   const formatBytes = (bytes?: number) => {
     if (!bytes || bytes <= 0) return '';
@@ -91,7 +97,69 @@ export default function MailView({
     setMimeLoading(false);
     setMimeError('');
     setIsMoreOpen(false);
+    setImagePreview(null);
   }, [email?.uid, email?.folder, email?.accountId]);
+
+  useEffect(() => {
+    const container = emailContentRef.current;
+    if (!container) return;
+
+    const handleImageClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target || target.tagName !== 'IMG') return;
+      const img = target as HTMLImageElement;
+      const src = img.currentSrc || img.src;
+      if (!src) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setImagePreview({ src, alt: img.alt || 'Inline image' });
+      setZoomLevel(1);
+      setPanOffset({ x: 0, y: 0 });
+    };
+
+    container.addEventListener('click', handleImageClick);
+    return () => container.removeEventListener('click', handleImageClick);
+  }, [email?.uid, email?.folder, email?.accountId]);
+
+  useEffect(() => {
+    if (!imagePreview) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setImagePreview(null);
+      }
+    };
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [imagePreview]);
+
+  const clampZoom = (value: number) => Math.min(6, Math.max(0.2, value));
+
+  const handleWheelZoom = (event: WheelEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const direction = event.deltaY > 0 ? -0.12 : 0.12;
+    setZoomLevel(current => clampZoom(current + direction));
+  };
+
+  const handlePanStart = (event: ReactMouseEvent<HTMLImageElement>) => {
+    setIsPanning(true);
+    lastPanPoint.current = { x: event.clientX, y: event.clientY };
+  };
+
+  const handlePanMove = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!isPanning) return;
+    const deltaX = event.clientX - lastPanPoint.current.x;
+    const deltaY = event.clientY - lastPanPoint.current.y;
+    lastPanPoint.current = { x: event.clientX, y: event.clientY };
+    setPanOffset(prev => ({ x: prev.x + deltaX, y: prev.y + deltaY }));
+  };
+
+  const handlePanEnd = () => {
+    setIsPanning(false);
+  };
 
   if (isLoading) {
     return (
@@ -386,6 +454,7 @@ export default function MailView({
         <div className="prose max-w-none text-gray-800 leading-relaxed">
           {/* In a real app we'd handle HTML/Sanitization */}
           <div
+            ref={emailContentRef}
             className="email-content"
             dangerouslySetInnerHTML={{ __html: email.body || 'No content' }}
           />
@@ -408,6 +477,72 @@ export default function MailView({
               {mimeLoading && <div className="text-gray-500">Hamta MIME-kod...</div>}
               {!mimeLoading && mimeError && <div className="text-red-600">{mimeError}</div>}
               {!mimeLoading && !mimeError && (mimeContent || 'Ingen MIME-kod hittades.')}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {imagePreview && (
+        <div
+          className="absolute inset-0 z-50 bg-black/70 flex items-center justify-center p-4"
+          onMouseDown={event => {
+            if (event.target === event.currentTarget) {
+              setImagePreview(null);
+            }
+          }}
+        >
+          <div className="relative w-full h-full max-w-6xl max-h-[90vh] bg-gray-900/80 rounded-2xl border border-white/10 overflow-hidden">
+            <div className="absolute top-3 right-3 z-10 flex items-center gap-2">
+              <button
+                onClick={() => setZoomLevel(current => clampZoom(current + 0.2))}
+                className="h-9 w-9 rounded-full bg-white/10 text-white hover:bg-white/20 flex items-center justify-center"
+                title="Zooma in"
+              >
+                <ZoomIn size={18} />
+              </button>
+              <button
+                onClick={() => setZoomLevel(current => clampZoom(current - 0.2))}
+                className="h-9 w-9 rounded-full bg-white/10 text-white hover:bg-white/20 flex items-center justify-center"
+                title="Zooma ut"
+              >
+                <ZoomOut size={18} />
+              </button>
+              <button
+                onClick={() => {
+                  setZoomLevel(1);
+                  setPanOffset({ x: 0, y: 0 });
+                }}
+                className="h-9 w-9 rounded-full bg-white/10 text-white hover:bg-white/20 flex items-center justify-center"
+                title="Aterstall vy"
+              >
+                <RefreshCcw size={18} />
+              </button>
+              <button
+                onClick={() => setImagePreview(null)}
+                className="h-9 w-9 rounded-full bg-white/10 text-white hover:bg-white/20 flex items-center justify-center"
+                title="Stang"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div
+              className="absolute inset-0 flex items-center justify-center"
+              onWheel={handleWheelZoom}
+              onMouseMove={handlePanMove}
+              onMouseUp={handlePanEnd}
+              onMouseLeave={handlePanEnd}
+            >
+              <img
+                src={imagePreview.src}
+                alt={imagePreview.alt}
+                onMouseDown={handlePanStart}
+                draggable={false}
+                className={`max-w-full max-h-full select-none ${isPanning ? 'cursor-grabbing' : 'cursor-grab'}`}
+                style={{
+                  transform: `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`,
+                  transformOrigin: 'center',
+                }}
+              />
             </div>
           </div>
         </div>
