@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
 import { Reply, ReplyAll, Forward, Trash2, MoreHorizontal, FolderInput, User, ChevronDown, ChevronUp, File, FileArchive, FileImage, FileSpreadsheet, FileText } from 'lucide-react';
 
@@ -57,6 +57,10 @@ export default function MailView({
 }: MailViewProps) {
   const [showAllRecipients, setShowAllRecipients] = useState(false);
   const [expandedAttachments, setExpandedAttachments] = useState<number[]>([]);
+  const [isMimeOpen, setIsMimeOpen] = useState(false);
+  const [mimeContent, setMimeContent] = useState('');
+  const [mimeLoading, setMimeLoading] = useState(false);
+  const [mimeError, setMimeError] = useState('');
 
   const formatBytes = (bytes?: number) => {
     if (!bytes || bytes <= 0) return '';
@@ -132,6 +136,36 @@ export default function MailView({
     return <File size={20} />;
   };
 
+  useEffect(() => {
+    setIsMimeOpen(false);
+    setMimeContent('');
+    setMimeLoading(false);
+    setMimeError('');
+  }, [email?.uid, email?.folder, email?.accountId]);
+
+  const handleOpenMime = async () => {
+    if (!email?.accountId || !email?.uid || !email?.folder) return;
+    setIsMimeOpen(true);
+    if (mimeContent || mimeLoading) return;
+    setMimeLoading(true);
+    setMimeError('');
+    try {
+      const res = await fetch(
+        `/api/mail/mime?accountId=${encodeURIComponent(email.accountId)}&uid=${email.uid}&folder=${encodeURIComponent(email.folder)}`
+      );
+      if (!res.ok) {
+        const message = await res.text();
+        throw new Error(message || 'Failed to fetch MIME');
+      }
+      const text = await res.text();
+      setMimeContent(text);
+    } catch (error: any) {
+      setMimeError(error?.message || 'Failed to fetch MIME');
+    } finally {
+      setMimeLoading(false);
+    }
+  };
+
   return (
     <div className="flex-1 flex flex-col h-full bg-white overflow-hidden">
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
@@ -173,6 +207,14 @@ export default function MailView({
             title="Flytta till mapp"
           >
             <FolderInput size={20} />
+          </button>
+          <button
+            onClick={handleOpenMime}
+            className="px-3 py-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors inline-flex items-center gap-2 text-sm font-medium"
+            title="Visa MIME"
+          >
+            <FileText size={18} />
+            MIME
           </button>
         </div>
         <button className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors">
@@ -306,6 +348,27 @@ export default function MailView({
           />
         </div>
       </div>
+
+      {isMimeOpen && (
+        <div className="absolute inset-0 bg-black/40 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+              <div className="text-sm font-semibold text-gray-700">MIME-kod</div>
+              <button
+                onClick={() => setIsMimeOpen(false)}
+                className="text-sm font-medium text-gray-600 hover:text-gray-900"
+              >
+                Stang
+              </button>
+            </div>
+            <div className="p-4 overflow-auto text-xs font-mono text-gray-800 whitespace-pre-wrap">
+              {mimeLoading && <div className="text-gray-500">Hamta MIME-kod...</div>}
+              {!mimeLoading && mimeError && <div className="text-red-600">{mimeError}</div>}
+              {!mimeLoading && !mimeError && (mimeContent || 'Ingen MIME-kod hittades.')}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
