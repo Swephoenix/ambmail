@@ -174,6 +174,9 @@ export default function Home() {
         setComposeWindows(prev => [...prev, newWindow]);
         setSelectedEmail(null);
       } else {
+        const listEmail = emails.find(email => email.uid === uid);
+        const baseFlags = Array.isArray(listEmail?.flags) ? listEmail?.flags : [];
+        data.flags = [...new Set([...baseFlags, '\\Seen'])];
         setSelectedEmail(data);
 
         // Automatically mark as read in UI
@@ -224,6 +227,14 @@ export default function Home() {
       }
       return email;
     }));
+    setSelectedEmail(prev => {
+      if (!prev || prev.uid !== uid) return prev;
+      const existingFlags = Array.isArray(prev.flags) ? prev.flags : [];
+      const newFlags = isRead
+        ? existingFlags.filter((f: string) => f !== '\\Seen')
+        : [...new Set([...existingFlags, '\\Seen'])];
+      return { ...prev, flags: newFlags };
+    });
 
     try {
       const res = await fetch('/api/mail/flags', {
@@ -869,6 +880,9 @@ export default function Home() {
             <MailView
               email={selectedEmail}
               isLoading={isLoadingBody}
+              onMarkUnread={(email) => {
+                handleToggleRead(email.uid, true);
+              }}
               onReply={async (email) => {
                 // Determine which signature to use based on recipient's domain
                 let signature = '';

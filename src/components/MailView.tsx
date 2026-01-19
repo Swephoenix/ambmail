@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
-import { Reply, ReplyAll, Forward, Trash2, MoreHorizontal, FolderInput, User, ChevronDown, ChevronUp, File, FileArchive, FileImage, FileSpreadsheet, FileText } from 'lucide-react';
+import { Reply, ReplyAll, Forward, Trash2, MoreHorizontal, FolderInput, User, ChevronDown, ChevronUp, File, FileArchive, FileImage, FileSpreadsheet, FileText, Mail } from 'lucide-react';
 
 interface MailViewProps {
   email: any | null;
@@ -12,6 +12,7 @@ interface MailViewProps {
   onForward?: (email: any) => void;
   onDelete?: (email: any) => void;
   onMoveToFolder?: (email: any) => void;
+  onMarkUnread?: (email: any) => void;
   onComposeTo?: (address: string) => void;
 }
 
@@ -53,6 +54,7 @@ export default function MailView({
   onForward = () => {},
   onDelete = () => {},
   onMoveToFolder = () => {},
+  onMarkUnread = () => {},
   onComposeTo = () => {}
 }: MailViewProps) {
   const [showAllRecipients, setShowAllRecipients] = useState(false);
@@ -61,6 +63,7 @@ export default function MailView({
   const [mimeContent, setMimeContent] = useState('');
   const [mimeLoading, setMimeLoading] = useState(false);
   const [mimeError, setMimeError] = useState('');
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
 
   const formatBytes = (bytes?: number) => {
     if (!bytes || bytes <= 0) return '';
@@ -79,6 +82,14 @@ export default function MailView({
     if (Number.isNaN(date.getTime())) return '—';
     return format(date, 'yyyy-MM-dd HH:mm');
   };
+
+  useEffect(() => {
+    setIsMimeOpen(false);
+    setMimeContent('');
+    setMimeLoading(false);
+    setMimeError('');
+    setIsMoreOpen(false);
+  }, [email?.uid, email?.folder, email?.accountId]);
 
   if (isLoading) {
     return (
@@ -119,6 +130,7 @@ export default function MailView({
   const attachmentTotals = attachments.reduce((total, attachment) => {
     return total + (attachment.size || 0);
   }, 0);
+  const isRead = Array.isArray(email.flags) && email.flags.includes('\\Seen');
 
   const isPreviewable = (contentType?: string) => {
     if (!contentType) return false;
@@ -135,13 +147,6 @@ export default function MailView({
     if (contentType.includes('zip') || contentType.includes('compressed')) return <FileArchive size={20} />;
     return <File size={20} />;
   };
-
-  useEffect(() => {
-    setIsMimeOpen(false);
-    setMimeContent('');
-    setMimeLoading(false);
-    setMimeError('');
-  }, [email?.uid, email?.folder, email?.accountId]);
 
   const handleOpenMime = async () => {
     if (!email?.accountId || !email?.uid || !email?.folder) return;
@@ -208,18 +213,40 @@ export default function MailView({
           >
             <FolderInput size={20} />
           </button>
-          <button
-            onClick={handleOpenMime}
-            className="px-3 py-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors inline-flex items-center gap-2 text-sm font-medium"
-            title="Visa MIME"
-          >
-            <FileText size={18} />
-            MIME
-          </button>
+          {isRead && (
+            <button
+              onClick={() => onMarkUnread(email)}
+              className="px-3 py-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors inline-flex items-center gap-2 text-sm font-medium"
+              title="Markera som oläst"
+            >
+              <Mail size={18} />
+              Markera som oläst
+            </button>
+          )}
         </div>
-        <button className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors">
-          <MoreHorizontal size={20} />
-        </button>
+        <div className="relative">
+          <button
+            className="p-2 hover:bg-gray-100 rounded-lg text-gray-600 transition-colors"
+            onClick={() => setIsMoreOpen(prev => !prev)}
+            title="Fler alternativ"
+          >
+            <MoreHorizontal size={20} />
+          </button>
+          {isMoreOpen && (
+            <div className="absolute right-0 mt-2 w-48 rounded-lg border border-gray-200 bg-white shadow-lg z-10">
+              <button
+                onClick={() => {
+                  setIsMoreOpen(false);
+                  handleOpenMime();
+                }}
+                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2"
+              >
+                <FileText size={16} />
+                Visa MIME
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-8">
