@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, Send, Maximize2, Minimize2, ExternalLink, Paperclip } from 'lucide-react';
+import { X, Send, Maximize2, Minimize2, ExternalLink, Paperclip, Code } from 'lucide-react';
 import toast from 'react-hot-toast';
 import TiptapEditor from './TiptapEditor';
 import EmailInput from './EmailInput';
@@ -159,6 +159,8 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
   const [isMaximized, setIsMaximized] = useState(false);
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
   const [isSignatureInserted, setIsSignatureInserted] = useState(false);
+  const [showHtmlImport, setShowHtmlImport] = useState(false);
+  const [htmlDraft, setHtmlDraft] = useState('');
   const [attachments, setAttachments] = useState<Array<{
     token: string;
     name: string;
@@ -574,6 +576,21 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
     }
   };
 
+  const openHtmlImport = () => {
+    setHtmlDraft(body || '');
+    setShowHtmlImport(true);
+  };
+
+  const applyHtmlImport = () => {
+    const trimmed = htmlDraft.trim();
+    if (!trimmed) {
+      toast.error('Klistra in HTML-kod först');
+      return;
+    }
+    setBody(trimmed);
+    setShowHtmlImport(false);
+  };
+
   const handlePopout = () => {
     const draftId = Date.now().toString();
     const data = { accountId, to, subject, body };
@@ -736,6 +753,14 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
                   <Paperclip size={16} />
                   {isUploading ? 'Laddar upp...' : 'Bifoga filer'}
                 </button>
+                <button
+                  type="button"
+                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800"
+                  onClick={openHtmlImport}
+                >
+                  <Code size={16} />
+                  Importera HTML
+                </button>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -812,6 +837,54 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
               <Send size={16} />
             </button>
           </div>
+          {showHtmlImport && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center">
+              <button
+                type="button"
+                className="absolute inset-0 bg-black/40"
+                onClick={() => setShowHtmlImport(false)}
+                aria-label="Close HTML import"
+              />
+              <div className="relative w-full max-w-2xl mx-4 rounded-xl bg-white shadow-2xl border border-gray-200 p-5">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-lg font-semibold text-gray-900">Importera HTML</h4>
+                  <button
+                    type="button"
+                    className="text-gray-500 hover:text-gray-700"
+                    onClick={() => setShowHtmlImport(false)}
+                    aria-label="Close"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+                <p className="text-sm text-gray-600 mt-1">
+                  Klistra in HTML-koden som ska bli mejlets innehåll.
+                </p>
+                <textarea
+                  value={htmlDraft}
+                  onChange={(e) => setHtmlDraft(e.target.value)}
+                  className="mt-3 h-64 w-full resize-none rounded-lg border border-gray-300 px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="<html>...</html>"
+                />
+                <div className="mt-4 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    className="px-4 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                    onClick={() => setShowHtmlImport(false)}
+                  >
+                    Avbryt
+                  </button>
+                  <button
+                    type="button"
+                    className="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                    onClick={applyHtmlImport}
+                  >
+                    Skapa mejl
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

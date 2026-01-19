@@ -11,6 +11,11 @@ import { Image } from '@tiptap/extension-image';
 import { FontFamily } from '@tiptap/extension-font-family';
 import { Placeholder } from '@tiptap/extension-placeholder';
 import { HardBreak } from '@tiptap/extension-hard-break';
+import { Table } from '@tiptap/extension-table';
+import { TableRow } from '@tiptap/extension-table-row';
+import { TableHeader } from '@tiptap/extension-table-header';
+import { TableCell } from '@tiptap/extension-table-cell';
+import { Paragraph } from '@tiptap/extension-paragraph';
 import { FontSize } from './extensions/FontSize';
 import EditorToolbar from './EditorToolbar';
 import { useEffect, useState } from 'react';
@@ -310,6 +315,75 @@ export default function TiptapEditor({ value, onChange, placeholder, signature, 
       };
     },
   });
+  const StyledParagraph = Paragraph.extend({
+    parseHTML() {
+      return [
+        { tag: 'p' },
+        { tag: 'div' },
+      ];
+    },
+    addAttributes() {
+      return {
+        ...this.parent?.(),
+        style: {
+          default: null,
+          parseHTML: element => element.getAttribute('style'),
+          renderHTML: attributes => (attributes.style ? { style: attributes.style } : {}),
+        },
+      };
+    },
+  });
+  const StyledTable = Table.extend({
+    addAttributes() {
+      return {
+        ...this.parent?.(),
+        style: {
+          default: null,
+          parseHTML: element => element.getAttribute('style'),
+          renderHTML: attributes => (attributes.style ? { style: attributes.style } : {}),
+        },
+        cellpadding: {
+          default: null,
+          parseHTML: element => element.getAttribute('cellpadding'),
+          renderHTML: attributes => (attributes.cellpadding ? { cellpadding: attributes.cellpadding } : {}),
+        },
+        cellspacing: {
+          default: null,
+          parseHTML: element => element.getAttribute('cellspacing'),
+          renderHTML: attributes => (attributes.cellspacing ? { cellspacing: attributes.cellspacing } : {}),
+        },
+        border: {
+          default: null,
+          parseHTML: element => element.getAttribute('border'),
+          renderHTML: attributes => (attributes.border ? { border: attributes.border } : {}),
+        },
+      };
+    },
+  });
+  const StyledTableCell = TableCell.extend({
+    addAttributes() {
+      return {
+        ...this.parent?.(),
+        style: {
+          default: null,
+          parseHTML: element => element.getAttribute('style'),
+          renderHTML: attributes => (attributes.style ? { style: attributes.style } : {}),
+        },
+      };
+    },
+  });
+  const StyledTableHeader = TableHeader.extend({
+    addAttributes() {
+      return {
+        ...this.parent?.(),
+        style: {
+          default: null,
+          parseHTML: element => element.getAttribute('style'),
+          renderHTML: attributes => (attributes.style ? { style: attributes.style } : {}),
+        },
+      };
+    },
+  });
   const LineBreak = HardBreak.extend({
     addKeyboardShortcuts() {
       return {
@@ -328,6 +402,7 @@ export default function TiptapEditor({ value, onChange, placeholder, signature, 
         code: false,
         codeBlock: false,
         heading: false,
+        paragraph: false,
         listItem: false,
         orderedList: false,
         bulletList: false,
@@ -337,6 +412,7 @@ export default function TiptapEditor({ value, onChange, placeholder, signature, 
         gapcursor: false,
         hardBreak: false,
       }),
+      StyledParagraph,
       LineBreak,
       Underline,
       TextAlign.configure({
@@ -348,6 +424,10 @@ export default function TiptapEditor({ value, onChange, placeholder, signature, 
         openOnClick: false,
       }),
       InlineImage,
+      StyledTable.configure({ resizable: false }),
+      TableRow,
+      StyledTableHeader,
+      StyledTableCell,
       FontFamily,
       FontSize,
       Placeholder.configure({
