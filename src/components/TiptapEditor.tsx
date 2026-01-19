@@ -21,14 +21,60 @@ interface TiptapEditorProps {
   onChange: (html: string) => void;
   placeholder?: string;
   signature?: string;
-  onRegisterInsert?: (insert: (html: string) => void) => void;
-  onFilesDropped?: (files: File[]) => void;
+  onRegisterInsert?: (insert: (html: string, insertPos?: number) => void) => void;
+  onFilesDropped?: (files: File[], insertPos?: number) => void;
 }
 
 export default function TiptapEditor({ value, onChange, placeholder, signature, onRegisterInsert, onFilesDropped }: TiptapEditorProps) {
   const [isDragActive, setIsDragActive] = useState(false);
   const [dragDepth, setDragDepth] = useState(0);
+  const findImageToRight = (state: any, pos: number) => {
+    const direct = state.doc.nodeAt(pos);
+    if (direct?.type?.name === 'image') return { pos, node: direct };
+    const $pos = state.doc.resolve(pos);
+    const childAfter = $pos.parent.childAfter($pos.parentOffset);
+    if (childAfter.node?.type.name === 'image') {
+      return { pos: $pos.start() + childAfter.offset, node: childAfter.node };
+    }
+    if ($pos.parentOffset === $pos.parent.content.size) {
+      const nextBlockPos = $pos.after();
+      const nextBlock = state.doc.nodeAt(nextBlockPos);
+      if (nextBlock?.type?.name === 'paragraph') {
+        const firstChild = nextBlock.firstChild;
+        if (firstChild?.type?.name === 'image') {
+          return { pos: nextBlockPos + 1, node: firstChild };
+        }
+      }
+    }
+    return null;
+  };
+
+  const findImageToLeft = (state: any, pos: number) => {
+    const direct = pos > 0 ? state.doc.nodeAt(pos - 1) : null;
+    if (direct?.type?.name === 'image') return { pos: pos - 1, node: direct };
+    const $pos = state.doc.resolve(pos);
+    const childBefore = $pos.parent.childBefore($pos.parentOffset);
+    if (childBefore.node?.type.name === 'image') {
+      return { pos: $pos.start() + childBefore.offset, node: childBefore.node };
+    }
+    if ($pos.parentOffset === 0) {
+      const parentPos = $pos.before();
+      const $parentPos = state.doc.resolve(parentPos);
+      const prevBlock = $parentPos.nodeBefore;
+      if (prevBlock?.type?.name === 'paragraph') {
+        const lastChild = prevBlock.lastChild;
+        if (lastChild?.type?.name === 'image') {
+          const prevBlockStart = parentPos - prevBlock.nodeSize;
+          const lastChildPos = prevBlockStart + 1 + (prevBlock.content.size - lastChild.nodeSize);
+          return { pos: lastChildPos, node: lastChild };
+        }
+      }
+    }
+    return null;
+  };
   const InlineImage = Image.extend({
+    inline: true,
+    group: 'inline',
     draggable: true,
     addAttributes() {
       return {
@@ -49,6 +95,18 @@ export default function TiptapEditor({ value, onChange, placeholder, signature, 
               ? { 'data-uxmail-cid': attributes['data-uxmail-cid'] }
               : {},
         },
+        indent: {
+          default: 0,
+          parseHTML: element => {
+            const raw = element.getAttribute('data-uxmail-indent') || '0';
+            const parsed = parseInt(raw, 10);
+            return Number.isNaN(parsed) ? 0 : parsed;
+          },
+          renderHTML: attributes =>
+            attributes.indent
+              ? { 'data-uxmail-indent': attributes.indent }
+              : {},
+        },
         style: {
           default: null,
           parseHTML: element => element.getAttribute('style'),
@@ -56,7 +114,8 @@ export default function TiptapEditor({ value, onChange, placeholder, signature, 
             const width = attributes.width ? `width:${attributes.width};` : '';
             const existing = attributes.style ? `${attributes.style};` : '';
             const base = 'max-width:100%;height:auto;';
-            return { style: `${existing}${width}${base}` };
+            const indent = attributes.indent ? `transform:translateX(${attributes.indent}px);` : '';
+            return { style: `${existing}${width}${base}${indent}` };
           },
         },
       };
@@ -64,7 +123,8 @@ export default function TiptapEditor({ value, onChange, placeholder, signature, 
     addNodeView() {
       return ({ node, editor, getPos }) => {
         const wrapper = document.createElement('span');
-        wrapper.style.display = 'inline-block';
+        wrapper.style.display = 'inline-flex';
+        wrapper.style.alignItems = 'flex-start';
         wrapper.style.overflow = 'hidden';
         wrapper.style.border = '2px solid transparent';
         wrapper.style.borderRadius = '4px';
@@ -73,9 +133,13 @@ export default function TiptapEditor({ value, onChange, placeholder, signature, 
         wrapper.style.minHeight = '0';
         wrapper.style.position = 'relative';
         wrapper.style.boxSizing = 'border-box';
-        wrapper.style.verticalAlign = 'top';
-        wrapper.style.lineHeight = '0';
+        if (node.attrs.indent) {
+          wrapper.style.transform = `translateX(${node.attrs.indent}px)`;
+        }
+        wrapper.style.verticalAlign = 'baseline';
+        wrapper.style.lineHeight = 'normal';
         wrapper.style.height = 'auto';
+        wrapper.style.maxWidth = '100%';
 
         const img = document.createElement('img');
         img.src = node.attrs.src;
@@ -233,6 +297,11 @@ export default function TiptapEditor({ value, onChange, placeholder, signature, 
             } else {
               img.removeAttribute('data-uxmail-cid');
             }
+            if (node.attrs.indent) {
+              wrapper.style.transform = `translateX(${node.attrs.indent}px)`;
+            } else {
+              wrapper.style.transform = 'translateX(0)';
+            }
             applySize();
             return true;
           },
@@ -292,19 +361,88 @@ export default function TiptapEditor({ value, onChange, placeholder, signature, 
         class: 'prose prose-sm sm:prose-base prose-p:my-0 max-w-none focus:outline-none min-h-[250px] p-4 font-serif',
       },
       handleKeyDown: (view, event) => {
-        if (event.key !== 'Enter') return false;
         const { state, dispatch } = view;
         const { selection, schema, tr } = state;
-        if (!(selection instanceof NodeSelection) || selection.node.type.name !== 'image') return false;
-        const insertPos = selection.from;
-        const paragraph = schema.nodes.paragraph?.create();
-        if (!paragraph) return false;
-        tr.insert(insertPos, paragraph);
-        tr.setSelection(TextSelection.create(tr.doc, insertPos + 1));
-        dispatch(tr);
-        return true;
+        if (event.key === 'Enter') {
+          const hardBreak = schema.nodes.hardBreak?.create();
+          if (!hardBreak) return false;
+          if (selection instanceof NodeSelection && selection.node.type.name === 'image') {
+            const insertPos = selection.to;
+            tr.insert(insertPos, hardBreak);
+            tr.setSelection(TextSelection.create(tr.doc, insertPos + 1));
+            dispatch(tr);
+            return true;
+          }
+          if (selection instanceof TextSelection && selection.empty) {
+            const imageToRight = findImageToRight(state, selection.from);
+            if (!imageToRight) return false;
+            const insertPos = imageToRight.pos + imageToRight.node.nodeSize;
+            tr.insert(insertPos, hardBreak);
+            tr.setSelection(TextSelection.create(tr.doc, insertPos + 1));
+            dispatch(tr);
+            return true;
+          }
+          return false;
+        }
+        if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+          if (selection instanceof NodeSelection && selection.node.type.name === 'image') {
+            const pos = event.key === 'ArrowLeft' ? selection.from : selection.to;
+            tr.setSelection(TextSelection.create(tr.doc, pos));
+            dispatch(tr);
+            return true;
+          }
+          if (selection instanceof TextSelection && selection.empty) {
+            if (event.key === 'ArrowLeft') {
+              const imageToLeft = findImageToLeft(state, selection.from);
+              if (!imageToLeft) return false;
+              if (imageToLeft.pos + imageToLeft.node.nodeSize !== selection.from) return false;
+              tr.setSelection(TextSelection.create(tr.doc, imageToLeft.pos));
+              dispatch(tr);
+              return true;
+            }
+            const imageToRight = findImageToRight(state, selection.from);
+            if (!imageToRight) return false;
+            if (imageToRight.pos !== selection.from) return false;
+            tr.setSelection(TextSelection.create(tr.doc, imageToRight.pos + imageToRight.node.nodeSize));
+            dispatch(tr);
+            return true;
+          }
+          return false;
+        }
+        if (event.key === ' ' || event.code === 'Space') {
+          if (selection instanceof NodeSelection && selection.node.type.name === 'image') {
+            const insertPos = selection.from;
+            tr.insertText('\u00A0', insertPos);
+            tr.setSelection(TextSelection.create(tr.doc, insertPos + 1));
+            dispatch(tr);
+            return true;
+          }
+          if (selection instanceof TextSelection && selection.empty) {
+            const imageToRight = findImageToRight(state, selection.from);
+            if (!imageToRight) return false;
+            tr.insertText('\u00A0', imageToRight.pos);
+            tr.setSelection(TextSelection.create(tr.doc, imageToRight.pos + 1));
+            dispatch(tr);
+            return true;
+          }
+          return false;
+        }
+        if (event.key === 'Backspace') {
+          if (selection instanceof NodeSelection && selection.node.type.name === 'image') return false;
+          if (selection instanceof TextSelection && selection.empty) {
+            const nodeBefore = selection.$from.nodeBefore;
+            if (nodeBefore?.type.name !== 'image') return false;
+            const deleteFrom = Math.max(0, selection.from - nodeBefore.nodeSize);
+            tr.delete(deleteFrom, selection.from);
+            tr.setSelection(TextSelection.create(tr.doc, deleteFrom));
+            dispatch(tr);
+            return true;
+          }
+          return false;
+        }
+        return false;
       },
-      handlePaste: (_view, event) => {
+      handlePaste: (view, event) => {
         if (!onFilesDropped) return false;
         const clipboard = event.clipboardData;
         if (!clipboard) return false;
@@ -322,7 +460,7 @@ export default function TiptapEditor({ value, onChange, placeholder, signature, 
         const images = files.filter((file) => file.type.startsWith('image/'));
         if (images.length === 0) return false;
         event.preventDefault();
-        onFilesDropped(images);
+        onFilesDropped(images, view.state.selection.from);
         return true;
       },
     },
@@ -344,7 +482,11 @@ export default function TiptapEditor({ value, onChange, placeholder, signature, 
 
   useEffect(() => {
     if (!editor || !onRegisterInsert) return;
-    onRegisterInsert((html: string) => {
+    onRegisterInsert((html: string, insertPos?: number) => {
+      if (typeof insertPos === 'number') {
+        editor.chain().focus().insertContentAt(insertPos, html).run();
+        return;
+      }
       editor.chain().focus().insertContent(html).run();
     });
   }, [editor, onRegisterInsert]);
@@ -361,7 +503,8 @@ export default function TiptapEditor({ value, onChange, placeholder, signature, 
     event.preventDefault();
     setIsDragActive(false);
     setDragDepth(0);
-    onFilesDropped(Array.from(event.dataTransfer.files));
+    const insertPos = editor?.state.selection.from;
+    onFilesDropped(Array.from(event.dataTransfer.files), insertPos);
   };
 
   const handleDragEnter = (event: React.DragEvent<HTMLDivElement>) => {

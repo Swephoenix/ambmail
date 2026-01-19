@@ -169,7 +169,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
     previewUrl?: string;
   }>>([]);
   const [isUploading, setIsUploading] = useState(false);
-  const insertContentRef = useRef<(html: string) => void>();
+  const insertContentRef = useRef<(html: string, insertPos?: number) => void>();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const attachmentsRef = useRef(attachments);
 
@@ -212,7 +212,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
     }
   }, [accountSignature, isSignatureInserted, initialData?.uid, body, initialData?.body]);
 
-  const uploadFiles = async (files: File[], inlineByDefault = false) => {
+  const uploadFiles = async (files: File[], inlineByDefault = false, insertPos?: number) => {
     if (files.length === 0) return;
     setIsUploading(true);
     try {
@@ -246,12 +246,13 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
               const width = Math.round(naturalWidth * scale);
               const height = Math.round(naturalHeight * scale);
               insertContentRef.current?.(
-                `<img src="${previewUrl}" data-uxmail-cid="${cid}" width="${width}" height="${height}" alt="${file.name}">`
+                `<img src="${previewUrl}" data-uxmail-cid="${cid}" width="${width}" height="${height}" alt="${file.name}">`,
+                insertPos
               );
             };
             img.src = previewUrl;
           } else {
-            insertContentRef.current(`<img src="cid:${cid}" alt="${file.name}">`);
+            insertContentRef.current(`<img src="cid:${cid}" alt="${file.name}">`, insertPos);
           }
         }
         return {
@@ -794,7 +795,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
               onRegisterInsert={(insert) => {
                 insertContentRef.current = insert;
               }}
-              onFilesDropped={(files) => uploadFiles(files, true)}
+              onFilesDropped={(files, insertPos) => uploadFiles(files, true, insertPos)}
             />
           </div>
 
