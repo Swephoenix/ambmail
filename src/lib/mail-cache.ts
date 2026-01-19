@@ -185,6 +185,8 @@ async function prefetchBodiesForFolder(account: MailAccount, folder: string, lim
         contentType: attachment.contentType,
         size: attachment.size,
         contentId: attachment.contentId || null,
+        contentDisposition: attachment.contentDisposition || null,
+        isInline: attachment.contentDisposition === 'inline' || Boolean(attachment.contentId),
       }));
 
       await prisma.emailMessage.upsert({

@@ -26,6 +26,8 @@ interface AttachmentMeta {
   contentType?: string;
   size?: number;
   contentId?: string | null;
+  contentDisposition?: string | null;
+  isInline?: boolean;
 }
 
 function parseAddress(input: string): Recipient {
@@ -121,13 +123,25 @@ export default function MailView({
   const displayRecipients = showAllRecipients ? recipients : recipients.slice(0, 3);
   const remainingCount = recipients.length - 3;
   const attachments: AttachmentMeta[] = email.attachments || [];
+  const visibleAttachments = attachments.filter(
+    attachment => !(attachment.isInline || attachment.contentDisposition === 'inline' || Boolean(attachment.contentId))
+  );
   const toggleAttachment = (index: number) => {
     setExpandedAttachments(prev =>
       prev.includes(index) ? prev.filter(item => item !== index) : [...prev, index]
     );
   };
 
-  const attachmentTotals = attachments.reduce((total, attachment) => {
+  const getAttachmentName = (attachment: AttachmentMeta, index: number, inlineIndex: number) => {
+    const rawName = attachment.filename || '';
+    const placeholderName = rawName.trim().toLowerCase() === 'attachment';
+    if (attachment.contentType?.startsWith('image/') && (attachment.isInline || attachment.contentId) && placeholderName) {
+      return `Inline image ${inlineIndex}`;
+    }
+    return rawName || `attachment-${index}`;
+  };
+
+  const attachmentTotals = visibleAttachments.reduce((total, attachment) => {
     return total + (attachment.size || 0);
   }, 0);
   const isRead = Array.isArray(email.flags) && email.flags.includes('\\Seen');
@@ -303,18 +317,20 @@ export default function MailView({
           </div>
         </div>
 
-        {attachments.length > 0 && (
+        {visibleAttachments.length > 0 && (
           <div className="mb-8 rounded-2xl border border-gray-200 bg-gray-50 p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-gray-700">
-                Attachments ({attachments.length})
+                Attachments ({visibleAttachments.length})
               </h3>
               {attachmentTotals > 0 ? (
                 <span className="text-xs text-gray-500">{formatBytes(attachmentTotals)}</span>
               ) : null}
             </div>
             <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-              {attachments.map((attachment, index) => (
+              {visibleAttachments.map((attachment, index) => {
+                const displayName = getAttachmentName(attachment, index, index + 1);
+                return (
                 <div key={index} className="flex flex-col gap-3 rounded-xl border border-gray-200 bg-white p-3 shadow-sm">
                   <div className="flex items-start gap-3">
                     <div className="h-10 w-10 rounded-lg bg-gray-100 text-gray-600 flex items-center justify-center">
@@ -322,7 +338,7 @@ export default function MailView({
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="font-semibold text-gray-900 truncate">
-                        {attachment.filename || `attachment-${index}`}
+                        {displayName}
                       </div>
                       <div className="text-xs text-gray-500">
                         {attachment.contentType || 'Unknown type'}
@@ -349,7 +365,7 @@ export default function MailView({
                   {expandedAttachments.includes(index) && attachment.contentType?.startsWith('image/') && (
                     <img
                       src={`/api/mail/attachment?accountId=${encodeURIComponent(email.accountId)}&folder=${encodeURIComponent(email.folder)}&uid=${email.uid}&index=${index}&inline=1`}
-                      alt={attachment.filename || `attachment-${index}`}
+                      alt={displayName}
                       className="max-w-full max-h-96 rounded-lg border border-gray-200"
                       loading="lazy"
                     />
@@ -357,12 +373,12 @@ export default function MailView({
                   {expandedAttachments.includes(index) && attachment.contentType === 'application/pdf' && (
                     <iframe
                       src={`/api/mail/attachment?accountId=${encodeURIComponent(email.accountId)}&folder=${encodeURIComponent(email.folder)}&uid=${email.uid}&index=${index}&inline=1`}
-                      title={attachment.filename || `attachment-${index}`}
+                      title={displayName}
                       className="w-full h-96 rounded-lg border border-gray-200"
                     />
                   )}
                 </div>
-              ))}
+              )})}
             </div>
           </div>
         )}

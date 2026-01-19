@@ -128,6 +128,8 @@ export async function GET(req: Request) {
       contentType: attachment.contentType,
       size: attachment.size,
       contentId: attachment.contentId || null,
+      contentDisposition: attachment.contentDisposition || null,
+      isInline: attachment.contentDisposition === 'inline' || Boolean(attachment.contentId),
     }));
 
     await prisma.emailMessage.upsert({
