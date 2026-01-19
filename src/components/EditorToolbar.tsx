@@ -29,6 +29,7 @@ export default function EditorToolbar({ editor, onInsertSignature }: EditorToolb
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showFontPicker, setShowFontPicker] = useState(false);
   const [showFontSizePicker, setShowFontSizePicker] = useState(false);
+  const [imageWidth, setImageWidth] = useState(320);
   const emojiRef = useRef<HTMLDivElement>(null);
   const colorRef = useRef<HTMLDivElement>(null);
   const fontPickerRef = useRef<HTMLDivElement>(null);
@@ -103,12 +104,23 @@ export default function EditorToolbar({ editor, onInsertSignature }: EditorToolb
   useEffect(() => {
     if (!editor) return;
 
+    const syncImageWidth = () => {
+      if (!editor.isActive('image')) return;
+      const widthAttr = editor.getAttributes('image')?.width;
+      const parsed = parseInt(widthAttr, 10);
+      if (!Number.isNaN(parsed)) {
+        setImageWidth(parsed);
+      }
+    };
+
     const handleUpdate = () => {
       forceUpdate(prev => prev + 1);
+      syncImageWidth();
     };
 
     const handleSelectionUpdate = () => {
       forceUpdate(prev => prev + 1);
+      syncImageWidth();
     };
 
     editor.on('update', handleUpdate);
@@ -169,6 +181,16 @@ export default function EditorToolbar({ editor, onInsertSignature }: EditorToolb
     }
   };
 
+  const applyImageWidth = (value: number) => {
+    const clamped = Math.max(80, Math.min(800, value));
+    setImageWidth(clamped);
+    editor.chain().focus().updateAttributes('image', { width: `${clamped}px` }).run();
+  };
+
+  const clearImageWidth = () => {
+    editor.chain().focus().updateAttributes('image', { width: null }).run();
+  };
+
   const setLink = () => {
     const previousUrl = editor.getAttributes('link').href;
     const url = window.prompt('URL', previousUrl);
@@ -213,6 +235,7 @@ export default function EditorToolbar({ editor, onInsertSignature }: EditorToolb
   );
 
   const Divider = () => <div className="w-px h-6 bg-gray-200 mx-1 self-center shrink-0" />;
+  const isImageSelected = editor.isActive('image');
 
   return (
     <div className="border-b border-gray-200 bg-white p-2 flex items-center gap-1 sticky top-0 z-10 overflow-x-auto no-scrollbar shadow-sm">
@@ -236,6 +259,40 @@ export default function EditorToolbar({ editor, onInsertSignature }: EditorToolb
       </div>
 
       <Divider />
+
+      {isImageSelected && (
+        <>
+          <div className="flex items-center gap-2 shrink-0 px-2">
+            <span className="text-xs text-gray-500">Bildstorlek</span>
+            <input
+              type="range"
+              min={80}
+              max={800}
+              step={10}
+              value={imageWidth}
+              onChange={(event) => applyImageWidth(Number(event.target.value))}
+              className="w-28"
+              title="Bildstorlek"
+            />
+            <input
+              type="number"
+              min={80}
+              max={800}
+              value={imageWidth}
+              onChange={(event) => applyImageWidth(Number(event.target.value))}
+              className="w-16 rounded border border-gray-200 px-2 py-1 text-xs"
+            />
+            <button
+              type="button"
+              onClick={clearImageWidth}
+              className="text-xs text-gray-500 hover:text-gray-700"
+            >
+              Auto
+            </button>
+          </div>
+          <Divider />
+        </>
+      )}
 
       {/* Font & Format Group */}
       <div className="flex gap-0.5 shrink-0 items-center">

@@ -14,6 +14,7 @@ export async function GET() {
       id: true,
       email: true,
       name: true,
+      senderName: true,
       signature: true,
       imapHost: true,
       imapPort: true,

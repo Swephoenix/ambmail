@@ -14,6 +14,7 @@ import { HardBreak } from '@tiptap/extension-hard-break';
 import { FontSize } from './extensions/FontSize';
 import EditorToolbar from './EditorToolbar';
 import { useEffect, useState } from 'react';
+import { NodeSelection, TextSelection } from 'prosemirror-state';
 
 interface TiptapEditorProps {
   value: string;
@@ -27,6 +28,219 @@ interface TiptapEditorProps {
 export default function TiptapEditor({ value, onChange, placeholder, signature, onRegisterInsert, onFilesDropped }: TiptapEditorProps) {
   const [isDragActive, setIsDragActive] = useState(false);
   const [dragDepth, setDragDepth] = useState(0);
+  const InlineImage = Image.extend({
+    draggable: true,
+    addAttributes() {
+      return {
+        ...this.parent?.(),
+        width: {
+          default: null,
+          parseHTML: element => element.getAttribute('width') || element.style.width || null,
+          renderHTML: attributes =>
+            attributes.width
+              ? { width: attributes.width }
+              : {},
+        },
+        'data-uxmail-cid': {
+          default: null,
+          parseHTML: element => element.getAttribute('data-uxmail-cid'),
+          renderHTML: attributes =>
+            attributes['data-uxmail-cid']
+              ? { 'data-uxmail-cid': attributes['data-uxmail-cid'] }
+              : {},
+        },
+        style: {
+          default: null,
+          parseHTML: element => element.getAttribute('style'),
+          renderHTML: attributes => {
+            const width = attributes.width ? `width:${attributes.width};` : '';
+            const existing = attributes.style ? `${attributes.style};` : '';
+            const base = 'max-width:100%;height:auto;';
+            return { style: `${existing}${width}${base}` };
+          },
+        },
+      };
+    },
+    addNodeView() {
+      return ({ node, editor, getPos }) => {
+        const wrapper = document.createElement('span');
+        wrapper.style.display = 'inline-block';
+        wrapper.style.overflow = 'hidden';
+        wrapper.style.border = '2px solid transparent';
+        wrapper.style.borderRadius = '4px';
+        wrapper.draggable = true;
+        wrapper.style.minWidth = '80px';
+        wrapper.style.minHeight = '0';
+        wrapper.style.position = 'relative';
+        wrapper.style.boxSizing = 'border-box';
+        wrapper.style.verticalAlign = 'top';
+        wrapper.style.lineHeight = '0';
+        wrapper.style.height = 'auto';
+
+        const img = document.createElement('img');
+        img.src = node.attrs.src;
+        if (node.attrs.alt) img.alt = node.attrs.alt;
+        if (node.attrs.title) img.title = node.attrs.title;
+        if (node.attrs['data-uxmail-cid']) {
+          img.setAttribute('data-uxmail-cid', node.attrs['data-uxmail-cid']);
+        }
+        img.style.width = '100%';
+        img.style.height = 'auto';
+        img.style.objectFit = 'contain';
+        img.style.objectPosition = 'top left';
+        img.style.display = 'block';
+        img.style.margin = '0';
+        img.style.maxWidth = 'none';
+        img.style.maxHeight = 'none';
+        wrapper.appendChild(img);
+
+        const resizeHandle = document.createElement('div');
+        resizeHandle.style.position = 'absolute';
+        resizeHandle.style.right = '2px';
+        resizeHandle.style.bottom = '2px';
+        resizeHandle.style.width = '12px';
+        resizeHandle.style.height = '12px';
+        resizeHandle.style.borderRadius = '2px';
+        resizeHandle.style.background = '#3b82f6';
+        resizeHandle.style.cursor = 'nwse-resize';
+        resizeHandle.style.display = 'none';
+        resizeHandle.style.boxShadow = '0 0 0 1px #ffffff';
+        resizeHandle.style.transform = 'scale(1)';
+        resizeHandle.style.transition = 'transform 120ms ease, box-shadow 120ms ease';
+        resizeHandle.style.zIndex = '1';
+        resizeHandle.draggable = false;
+        wrapper.appendChild(resizeHandle);
+
+        const setInitialSize = () => {
+          if (node.attrs.width || node.attrs.height) return;
+          const naturalWidth = img.naturalWidth || 0;
+          const naturalHeight = img.naturalHeight || 0;
+          if (!naturalWidth || !naturalHeight) return;
+          const maxWidth = 600;
+          const scale = naturalWidth > maxWidth ? maxWidth / naturalWidth : 1;
+          const width = Math.round(naturalWidth * scale);
+          const height = Math.round(naturalHeight * scale);
+          wrapper.style.width = `${width}px`;
+          updateAttrs(`${width}px`);
+        };
+        img.addEventListener('load', setInitialSize);
+
+        const applySize = () => {
+          if (node.attrs.width) wrapper.style.width = node.attrs.width;
+        };
+        applySize();
+
+        const updateAttrs = (width: string) => {
+          const pos = getPos?.();
+          if (typeof pos !== 'number') return;
+          editor.commands.command(({ tr }) => {
+            tr.setNodeMarkup(pos, undefined, {
+              ...node.attrs,
+              width,
+            });
+            return true;
+          });
+        };
+
+        const syncFromWrapper = () => {
+          const rect = wrapper.getBoundingClientRect();
+          if (!rect.width || !rect.height) return;
+          updateAttrs(`${Math.round(rect.width)}px`);
+        };
+        wrapper.addEventListener('mouseup', syncFromWrapper);
+        wrapper.addEventListener('touchend', syncFromWrapper);
+
+        const showHandle = () => {
+          resizeHandle.style.transform = 'scale(1.15)';
+          resizeHandle.style.boxShadow = '0 0 0 2px #93c5fd';
+        };
+
+        const hideHandle = () => {
+          resizeHandle.style.transform = 'scale(1)';
+          resizeHandle.style.boxShadow = '0 0 0 1px #ffffff';
+        };
+
+        wrapper.addEventListener('mouseenter', showHandle);
+        wrapper.addEventListener('mouseleave', hideHandle);
+
+        const minSize = 80;
+        const startResize = (startEvent: PointerEvent) => {
+          startEvent.preventDefault();
+          startEvent.stopPropagation();
+          resizeHandle.setPointerCapture(startEvent.pointerId);
+          const rect = wrapper.getBoundingClientRect();
+          const startWidth = rect.width || minSize;
+          const startX = startEvent.clientX;
+          const startY = startEvent.clientY;
+
+          const onMove = (moveEvent: PointerEvent) => {
+            const currentX = moveEvent.clientX;
+            const currentY = moveEvent.clientY;
+            const deltaX = currentX - startX;
+            const deltaY = currentY - startY;
+            const delta = Math.max(deltaX, deltaY);
+            const editorWidth = editor?.view?.dom?.clientWidth || 0;
+            const maxWidth = editorWidth ? Math.max(minSize, Math.round(editorWidth - 32)) : Number.POSITIVE_INFINITY;
+            const rawWidth = Math.round(startWidth + delta);
+            const nextWidth = Math.max(minSize, Math.min(maxWidth, rawWidth));
+            wrapper.style.width = `${nextWidth}px`;
+          };
+
+          const onEnd = () => {
+            resizeHandle.removeEventListener('pointermove', onMove);
+            resizeHandle.removeEventListener('pointerup', onEnd);
+            resizeHandle.removeEventListener('pointercancel', onEnd);
+            syncFromWrapper();
+          };
+
+          resizeHandle.addEventListener('pointermove', onMove);
+          resizeHandle.addEventListener('pointerup', onEnd);
+          resizeHandle.addEventListener('pointercancel', onEnd);
+        };
+
+        resizeHandle.addEventListener('pointerdown', startResize);
+
+        const destroy = () => {
+          img.removeEventListener('load', setInitialSize);
+          img.removeEventListener('load', setInitialSize);
+          wrapper.removeEventListener('mouseup', syncFromWrapper);
+          wrapper.removeEventListener('touchend', syncFromWrapper);
+          wrapper.removeEventListener('mouseenter', showHandle);
+          wrapper.removeEventListener('mouseleave', hideHandle);
+          resizeHandle.removeEventListener('pointerdown', startResize);
+        };
+
+        return {
+          dom: wrapper,
+          selectNode: () => {
+            wrapper.style.borderColor = '#3b82f6';
+            resizeHandle.style.display = 'block';
+          },
+          deselectNode: () => {
+            wrapper.style.borderColor = 'transparent';
+            resizeHandle.style.display = 'none';
+          },
+          update: updatedNode => {
+            if (updatedNode.type.name !== node.type.name) return false;
+            node = updatedNode;
+            img.src = node.attrs.src;
+            if (node.attrs.alt) img.alt = node.attrs.alt;
+            else img.removeAttribute('alt');
+            if (node.attrs.title) img.title = node.attrs.title;
+            else img.removeAttribute('title');
+            if (node.attrs['data-uxmail-cid']) {
+              img.setAttribute('data-uxmail-cid', node.attrs['data-uxmail-cid']);
+            } else {
+              img.removeAttribute('data-uxmail-cid');
+            }
+            applySize();
+            return true;
+          },
+          destroy,
+        };
+      };
+    },
+  });
   const LineBreak = HardBreak.extend({
     addKeyboardShortcuts() {
       return {
@@ -64,7 +278,7 @@ export default function TiptapEditor({ value, onChange, placeholder, signature, 
       Link.configure({
         openOnClick: false,
       }),
-      Image,
+      InlineImage,
       FontFamily,
       FontSize,
       Placeholder.configure({
@@ -76,6 +290,40 @@ export default function TiptapEditor({ value, onChange, placeholder, signature, 
     editorProps: {
       attributes: {
         class: 'prose prose-sm sm:prose-base prose-p:my-0 max-w-none focus:outline-none min-h-[250px] p-4 font-serif',
+      },
+      handleKeyDown: (view, event) => {
+        if (event.key !== 'Enter') return false;
+        const { state, dispatch } = view;
+        const { selection, schema, tr } = state;
+        if (!(selection instanceof NodeSelection) || selection.node.type.name !== 'image') return false;
+        const insertPos = selection.from;
+        const paragraph = schema.nodes.paragraph?.create();
+        if (!paragraph) return false;
+        tr.insert(insertPos, paragraph);
+        tr.setSelection(TextSelection.create(tr.doc, insertPos + 1));
+        dispatch(tr);
+        return true;
+      },
+      handlePaste: (_view, event) => {
+        if (!onFilesDropped) return false;
+        const clipboard = event.clipboardData;
+        if (!clipboard) return false;
+        const files: File[] = [];
+        if (clipboard.files && clipboard.files.length > 0) {
+          files.push(...Array.from(clipboard.files));
+        } else if (clipboard.items && clipboard.items.length > 0) {
+          for (const item of Array.from(clipboard.items)) {
+            if (item.kind === 'file') {
+              const file = item.getAsFile();
+              if (file) files.push(file);
+            }
+          }
+        }
+        const images = files.filter((file) => file.type.startsWith('image/'));
+        if (images.length === 0) return false;
+        event.preventDefault();
+        onFilesDropped(images);
+        return true;
       },
     },
     onUpdate: ({ editor }) => {

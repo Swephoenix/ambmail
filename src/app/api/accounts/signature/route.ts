@@ -8,7 +8,7 @@ export async function PUT(req: Request) {
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const { accountId, signature } = await req.json();
+    const { accountId, signature, senderName } = await req.json();
 
     if (!accountId) {
       return NextResponse.json({ error: 'accountId is required' }, { status: 400 });
@@ -22,12 +22,13 @@ export async function PUT(req: Request) {
     }
     const updatedAccount = await prisma.account.update({
       where: { id: accountId },
-      data: { signature },
+      data: { signature, senderName },
     });
 
     return NextResponse.json({
       success: true,
-      signature: updatedAccount.signature
+      signature: updatedAccount.signature,
+      senderName: updatedAccount.senderName,
     });
   } catch (error: any) {
     console.error('Update signature error:', error);
@@ -50,14 +51,17 @@ export async function GET(req: Request) {
 
     const account = await prisma.account.findFirst({
       where: { id: accountId, userId: user.id },
-      select: { signature: true },
+      select: { signature: true, senderName: true },
     });
 
     if (!account) {
       return NextResponse.json({ error: 'Account not found' }, { status: 404 });
     }
 
-    return NextResponse.json({ signature: account.signature });
+    return NextResponse.json({
+      signature: account.signature,
+      senderName: account.senderName,
+    });
   } catch (error: any) {
     console.error('Get signature error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

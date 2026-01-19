@@ -43,7 +43,11 @@ export default function Home() {
 
   // Signature modal state
   const [showSignatureModal, setShowSignatureModal] = useState(false);
-  const [currentSignatureAccount, setCurrentSignatureAccount] = useState<{id: string, signature: string} | null>(null);
+  const [currentSignatureAccount, setCurrentSignatureAccount] = useState<{
+    id: string;
+    signature: string;
+    senderName: string;
+  } | null>(null);
 
   // Cache for accounts to avoid unnecessary API calls
   const [accountsCache, setAccountsCache] = useState<{data: Account[], timestamp: number} | null>(null);
@@ -331,11 +335,16 @@ export default function Home() {
   const [newFolderName, setNewFolderName] = useState('');
 
   const handleEditSignature = (accountId: string, currentSignature: string) => {
-    setCurrentSignatureAccount({ id: accountId, signature: currentSignature });
+    const account = accounts.find(acc => acc.id === accountId);
+    setCurrentSignatureAccount({
+      id: accountId,
+      signature: currentSignature,
+      senderName: account?.senderName || '',
+    });
     setShowSignatureModal(true);
   };
 
-  const handleSaveSignature = async (signature: string) => {
+  const handleSaveSignature = async (signature: string, senderName: string) => {
     if (!currentSignatureAccount) return;
 
     try {
@@ -344,7 +353,8 @@ export default function Home() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           accountId: currentSignatureAccount.id,
-          signature
+          signature,
+          senderName
         }),
       });
 
@@ -354,7 +364,7 @@ export default function Home() {
       // Update the accounts state with the new signature
       setAccounts(prev => prev.map(account =>
         account.id === currentSignatureAccount.id
-          ? { ...account, signature }
+          ? { ...account, signature, senderName }
           : account
       ));
 
@@ -1268,6 +1278,7 @@ export default function Home() {
             onClose={() => setShowSignatureModal(false)}
             onSave={handleSaveSignature}
             initialSignature={currentSignatureAccount.signature}
+            initialSenderName={currentSignatureAccount.senderName}
           />
         </Suspense>
       )}

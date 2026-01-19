@@ -28,8 +28,10 @@ export async function POST(req: Request) {
     console.log('Connecting to SMTP for account:', account.email);
     const transporter = await getSmtpTransporter(account as any);
 
+    const fromName = account.senderName || account.name || account.email;
+    const fromHeader = `"${fromName}" <${account.email}>`;
     console.log('Sending email with options:', {
-      from: `"${account.name || account.email}" <${account.email}>`,
+      from: fromHeader,
       to,
       subject
     });
@@ -67,12 +69,15 @@ export async function POST(req: Request) {
       });
     }
 
+    const bodyText = body;
+    const bodyHtml = body.replace(/\n/g, '<br>');
+
     await transporter.sendMail({
-      from: `"${account.name || account.email}" <${account.email}>`,
+      from: fromHeader,
       to,
       subject,
-      text: body,
-      html: body.replace(/\n/g, '<br>'), // Simple text to html conversion
+      text: bodyText,
+      html: bodyHtml, // Simple text to html conversion
       attachments: mailAttachments,
     });
 
@@ -83,11 +88,11 @@ export async function POST(req: Request) {
     try {
       sentConnection = await getImapConnection(account as any);
       const mail = new MailComposer({
-        from: `"${account.name || account.email}" <${account.email}>`,
+        from: fromHeader,
         to,
         subject,
-        text: body,
-        html: body.replace(/\n/g, '<br>'),
+        text: bodyText,
+        html: bodyHtml,
         attachments: mailAttachments,
       });
       const raw = await mail.compile().build();

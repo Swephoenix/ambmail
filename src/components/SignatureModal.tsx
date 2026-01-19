@@ -12,24 +12,33 @@ function cn(...inputs: any[]) {
 interface SignatureModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSave: (signature: string) => void;
+  onSave: (signature: string, senderName: string) => void;
   initialSignature: string;
+  initialSenderName: string;
 }
 
-export default function SignatureModal({ isOpen, onClose, onSave, initialSignature }: SignatureModalProps) {
+export default function SignatureModal({
+  isOpen,
+  onClose,
+  onSave,
+  initialSignature,
+  initialSenderName
+}: SignatureModalProps) {
   const [signature, setSignature] = useState(initialSignature);
+  const [senderName, setSenderName] = useState(initialSenderName);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setSignature(initialSignature);
+      setSenderName(initialSenderName);
     }
-  }, [isOpen, initialSignature]);
+  }, [isOpen, initialSignature, initialSenderName]);
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await onSave(signature);
+      await onSave(signature, senderName);
       onClose();
     } catch (error) {
       console.error('Error saving signature:', error);
@@ -54,6 +63,19 @@ export default function SignatureModal({ isOpen, onClose, onSave, initialSignatu
             onChange={setSignature}
             placeholder="Skriv din signatur här..."
           />
+          <div className="mt-6 rounded-lg border border-gray-200 p-4">
+            <h3 className="text-sm font-semibold text-gray-900">Avsandare</h3>
+            <p className="text-xs text-gray-500 mt-1">
+              Namnet visas i fran-faltet hos mottagaren.
+            </p>
+            <input
+              type="text"
+              value={senderName}
+              onChange={(event) => setSenderName(event.target.value)}
+              placeholder="T.ex. Anna Svensson"
+              className="mt-3 w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-200"
+            />
+          </div>
         </div>
 
         <div className="p-6 border-t border-gray-200 flex justify-end gap-3">

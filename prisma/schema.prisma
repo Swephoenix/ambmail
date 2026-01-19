@@ -70,6 +70,7 @@ model Account {
   password  String   // Encrypted
   adminManaged Boolean @default(false)
   name      String?
+  senderName String?
   imapHost  String
   imapPort  Int      @default(993)
   smtpHost  String

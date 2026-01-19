@@ -166,10 +166,12 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
     type: string;
     inline: boolean;
     cid?: string;
+    previewUrl?: string;
   }>>([]);
   const [isUploading, setIsUploading] = useState(false);
   const insertContentRef = useRef<(html: string) => void>();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const attachmentsRef = useRef(attachments);
 
   // State for tracking input value separately from the email list
   const [inputValue, setInputValue] = useState<string>('');
@@ -225,19 +227,41 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
         throw new Error(result.error || 'Upload failed');
       }
 
-      const uploaded = (result.files || []).map((file: any) => {
-        const inline = inlineByDefault && file.type?.startsWith('image/');
+      const uploaded = (result.files || []).map((file: any, index: number) => {
+        const localFile = files[index];
+        const type = file.type || localFile?.type || '';
+        const inline = inlineByDefault && type.startsWith('image/');
         const cid = inline ? `inline-${file.token}` : undefined;
+        const previewUrl = localFile && type.startsWith('image/')
+          ? URL.createObjectURL(localFile)
+          : undefined;
         if (inline && insertContentRef.current) {
-          insertContentRef.current(`<img src="cid:${cid}" alt="${file.name}">`);
+          if (previewUrl) {
+            const img = new window.Image();
+            img.onload = () => {
+              const naturalWidth = img.naturalWidth || 0;
+              const naturalHeight = img.naturalHeight || 0;
+              const maxWidth = 600;
+              const scale = naturalWidth > maxWidth ? maxWidth / naturalWidth : 1;
+              const width = Math.round(naturalWidth * scale);
+              const height = Math.round(naturalHeight * scale);
+              insertContentRef.current?.(
+                `<img src="${previewUrl}" data-uxmail-cid="${cid}" width="${width}" height="${height}" alt="${file.name}">`
+              );
+            };
+            img.src = previewUrl;
+          } else {
+            insertContentRef.current(`<img src="cid:${cid}" alt="${file.name}">`);
+          }
         }
         return {
           token: file.token,
           name: file.name,
           size: file.size,
-          type: file.type || '',
+          type,
           inline,
           cid,
+          previewUrl,
         };
       });
 
@@ -262,7 +286,23 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
     if (!attachment || !attachment.type.startsWith('image/') || attachment.inline) return;
     const cid = `inline-${attachment.token}`;
     if (insertContentRef.current) {
-      insertContentRef.current(`<img src="cid:${cid}" alt="${attachment.name}">`);
+      if (attachment.previewUrl) {
+        const img = new window.Image();
+        img.onload = () => {
+          const naturalWidth = img.naturalWidth || 0;
+          const naturalHeight = img.naturalHeight || 0;
+          const maxWidth = 600;
+          const scale = naturalWidth > maxWidth ? maxWidth / naturalWidth : 1;
+          const width = Math.round(naturalWidth * scale);
+          const height = Math.round(naturalHeight * scale);
+          insertContentRef.current?.(
+            `<img src="${attachment.previewUrl}" data-uxmail-cid="${cid}" width="${width}" height="${height}" alt="${attachment.name}">`
+          );
+        };
+        img.src = attachment.previewUrl;
+      } else {
+        insertContentRef.current(`<img src="cid:${cid}" alt="${attachment.name}">`);
+      }
     }
     setAttachments((prev) =>
       prev.map((item) =>
@@ -272,8 +312,26 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
   };
 
   const removeAttachment = (attachmentToken: string) => {
+    const attachment = attachments.find((item) => item.token === attachmentToken);
+    if (attachment?.previewUrl) {
+      URL.revokeObjectURL(attachment.previewUrl);
+    }
     setAttachments((prev) => prev.filter((item) => item.token !== attachmentToken));
   };
+
+  useEffect(() => {
+    attachmentsRef.current = attachments;
+  }, [attachments]);
+
+  useEffect(() => {
+    return () => {
+      attachmentsRef.current.forEach((attachment) => {
+        if (attachment.previewUrl) {
+          URL.revokeObjectURL(attachment.previewUrl);
+        }
+      });
+    };
+  }, []);
 
   // Ref to store the timeout ID for proper cleanup
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -451,6 +509,15 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
     if (accountSignature && !body.includes(accountSignature)) {
       finalBody = accountSignature + (body ? `<br /><br />${body}` : '');
     }
+    for (const attachment of attachments) {
+      if (!attachment.inline || !attachment.cid || !attachment.previewUrl) continue;
+      finalBody = finalBody.split(attachment.previewUrl).join(`cid:${attachment.cid}`);
+    }
+    const attachmentsToSend = attachments.filter((item) => {
+      if (!item.inline) return true;
+      if (!item.cid) return false;
+      return finalBody.includes(`cid:${item.cid}`);
+    });
 
     console.log('Sending email with data:', { accountId, to: toEmails, subject, body: finalBody.substring(0, 100) + '...' });
     setIsSending(true);
@@ -463,7 +530,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
           to: toEmails,
           subject,
           body: finalBody,
-          attachments: attachments.map((item) => ({
+          attachments: attachmentsToSend.map((item) => ({
             token: item.token,
             filename: item.name,
             contentType: item.type,
@@ -487,6 +554,11 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
           detail: { accountId, folder: result.sentFolder }
         }));
       }
+      attachments.forEach((attachment) => {
+        if (attachment.previewUrl) {
+          URL.revokeObjectURL(attachment.previewUrl);
+        }
+      });
       setAttachments([]);
       if (mode === 'standalone') {
         window.close();
@@ -671,25 +743,26 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
                   onChange={handleFileSelect}
                 />
               </div>
-              {attachments.length > 0 && (
-                <span className="text-xs text-gray-500">{attachments.length} bilagor</span>
+              {attachments.filter((attachment) => !attachment.inline).length > 0 && (
+                <span className="text-xs text-gray-500">
+                  {attachments.filter((attachment) => !attachment.inline).length} bilagor
+                </span>
               )}
             </div>
-            {attachments.length > 0 && (
+            {attachments.filter((attachment) => !attachment.inline).length > 0 && (
               <div className="mt-3 border border-gray-200 rounded-lg p-3 space-y-2">
-                {attachments.map((attachment) => (
+                {attachments
+                  .filter((attachment) => !attachment.inline)
+                  .map((attachment) => (
                   <div key={attachment.token} className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2">
                       <span className="text-gray-700">{attachment.name}</span>
                       <span className="text-xs text-gray-400">
                         {Math.round(attachment.size / 1024)} KB
                       </span>
-                      {attachment.inline && (
-                        <span className="text-xs text-green-600">Inline</span>
-                      )}
                     </div>
                     <div className="flex items-center gap-2">
-                      {!attachment.inline && attachment.type.startsWith('image/') && (
+                      {attachment.type.startsWith('image/') && (
                         <button
                           type="button"
                           className="text-xs text-blue-600 hover:text-blue-800"
