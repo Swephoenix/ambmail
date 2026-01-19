@@ -6,6 +6,13 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
 AUTO_INSTALL="${UXMAIL_AUTO_INSTALL:-1}"
+STEP_NUM=0
+
+log_step() {
+  STEP_NUM=$((STEP_NUM + 1))
+  echo ""
+  echo "==> Step ${STEP_NUM}: $1"
+}
 
 have_cmd() {
   command -v "$1" >/dev/null 2>&1
@@ -123,13 +130,14 @@ check_node_version() {
   fi
 }
 
-echo "Checking dependencies..."
+log_step "Checking dependencies"
 ensure_cmd node nodejs
 ensure_cmd npm nodejs npm
 check_node_version
 
 RESET_STATE="${UXMAIL_RESET:-1}"
 if [ "$RESET_STATE" = "1" ] || [ "$RESET_STATE" = "true" ]; then
+  log_step "Resetting local state"
   echo "WARNING: This will wipe the database and regenerate secrets."
   echo "Resetting local state (database + secrets)..."
   rm -f .uxmail.key .uxmail.secrets
@@ -139,6 +147,7 @@ if [ "$RESET_STATE" = "1" ] || [ "$RESET_STATE" = "true" ]; then
   fi
 fi
 
+log_step "Preparing environment file"
 if [ ! -f .env ]; then
   if [ -f .env.example ]; then
     cp .env.example .env
@@ -149,11 +158,12 @@ if [ ! -f .env ]; then
   fi
 fi
 
+log_step "Loading environment"
 set -a
 source ./.env
 set +a
 
-echo "Installing dependencies..."
+log_step "Installing npm dependencies"
 npm install
 ensure_prisma_latest
 ensure_node_packages @prisma/adapter-pg pg
@@ -172,15 +182,16 @@ run_prisma() {
   "${PRISMA_CMD[@]}" "$@"
 }
 
-echo "Generating Prisma client..."
+log_step "Generating Prisma client"
 run_prisma generate
 
-echo "Bootstrapping secrets..."
+log_step "Bootstrapping secrets"
 "$TS_NODE" --compiler-options "$TS_NODE_COMPILER_OPTIONS" scripts/bootstrap-secrets.ts
 if [ -f .uxmail.secrets ]; then
   echo "Generated secrets stored in .uxmail.secrets"
 fi
 
+log_step "Reloading environment with secrets"
 set -a
 source ./.env
 set +a
@@ -188,6 +199,7 @@ set +a
 START_POSTGRES="${UXMAIL_START_POSTGRES:-1}"
 SETUP_DB="${UXMAIL_SETUP_DB:-1}"
 if [ "$START_POSTGRES" = "1" ] || [ "$START_POSTGRES" = "true" ]; then
+  log_step "Ensuring PostgreSQL is running"
   ensure_cmd psql postgresql-client
   ensure_cmd pg_isready postgresql-client
   if have_cmd brew; then
@@ -221,6 +233,7 @@ else
   echo "Ensure your PostgreSQL is running."
 fi
 if [ "$SETUP_DB" = "1" ] || [ "$SETUP_DB" = "true" ]; then
+  log_step "Setting up local database"
   if [ -x ./scripts/setup_postgres_local.sh ]; then
     ./scripts/setup_postgres_local.sh
   else
@@ -232,6 +245,7 @@ fi
 DB_USER="${POSTGRES_USER:-uxmail}"
 DB_NAME="${POSTGRES_DB:-uxmail_db}"
 
+log_step "Checking database readiness"
 if command -v pg_isready >/dev/null 2>&1; then
   DB_CHECK_INFO="$(node -e 'const u=new URL(process.env.DATABASE_URL); const db=u.pathname.startsWith("/") ? u.pathname.slice(1) : u.pathname; console.log(["host="+u.hostname,"port="+(u.port||5432),"user="+u.username,"password="+u.password,"db="+db].join("\n"))')"
   host=""
@@ -282,7 +296,7 @@ else
   echo "pg_isready not found; skipping DB readiness check."
 fi
 
-echo "Syncing database schema..."
+log_step "Syncing database schema"
 if [ "$RESET_STATE" = "1" ] || [ "$RESET_STATE" = "true" ]; then
   echo "Resetting database..."
   run_prisma db push --force-reset --accept-data-loss
@@ -323,15 +337,16 @@ else
   fi
 fi
 
-echo "Ensuring admin user..."
+log_step "Ensuring admin user"
+echo "Creating/ensuring a local admin account for the Uxmail app (no system changes)."
 "$TS_NODE" --compiler-options "$TS_NODE_COMPILER_OPTIONS" scripts/create-admin.ts
 
-echo "Starting background sync worker..."
+log_step "Starting background sync worker"
 "$TS_NODE" --compiler-options "$TS_NODE_COMPILER_OPTIONS" scripts/sync-worker.ts &
 WORKER_PID=$!
 trap 'kill $WORKER_PID 2>/dev/null' EXIT
 
-echo "Starting app server (frontend + backend)..."
+log_step "Starting app server (frontend + backend)"
 ADMIN_PANEL_PORT="3000"
 PORT_CHECK_PID=""
 if command -v lsof >/dev/null 2>&1; then
