@@ -546,7 +546,9 @@ export default function Home() {
 
   const isTrashFolder = (folder: string) => {
     const normalized = folder.trim().toLowerCase();
-    return normalized === 'trash' || normalized === 'papperskorg';
+    if (normalized === 'trash' || normalized === 'papperskorg') return true;
+    const parts = normalized.split(/[/.]/).filter(Boolean);
+    return parts.includes('trash') || parts.includes('papperskorg');
   };
 
   const handleEmailSelectToggle = (uid: number) => {
@@ -567,10 +569,9 @@ export default function Home() {
     }
   };
 
-  const handleDeleteSelected = async () => {
+  const deleteSelectedEmails = async (confirmMessage?: string) => {
     if (selectedEmails.length === 0 || !activeAccountId) return;
-
-    if (!window.confirm(`Are you sure you want to delete ${selectedEmails.length} email(s)?`)) {
+    if (confirmMessage && !window.confirm(confirmMessage)) {
       return;
     }
 
@@ -604,6 +605,15 @@ export default function Home() {
       console.error('Delete error:', error);
       toast.error('Failed to delete emails: ' + error.message);
     }
+  };
+
+  const handleDeleteSelected = async () => {
+    await deleteSelectedEmails(`Are you sure you want to delete ${selectedEmails.length} email(s)?`);
+  };
+
+  const handlePermanentDeleteSelected = async () => {
+    if (!isTrashFolder(activeFolder)) return;
+    await deleteSelectedEmails('Radera valda mejl permanent?');
   };
 
   const [showMoveModal, setShowMoveModal] = useState(false);
@@ -738,6 +748,14 @@ export default function Home() {
       console.error('Delete error:', error);
       toast.error('Failed to delete email: ' + error.message);
     }
+  };
+
+  const handlePermanentDeleteEmail = async (uid: number) => {
+    if (!activeAccountId || !isTrashFolder(activeFolder)) return;
+    if (!window.confirm('Radera mejlet permanent?')) {
+      return;
+    }
+    await handleDeleteEmail(uid);
   };
 
   const handleEmptyTrash = async () => {
@@ -1186,6 +1204,10 @@ export default function Home() {
             onMoveSelected={handleMoveSelected}
             onEmptyTrash={handleEmptyTrash}
             showEmptyTrash={isTrashFolder(activeFolder)}
+            onDeleteEmail={handleDeleteEmail}
+            onPermanentDeleteEmail={handlePermanentDeleteEmail}
+            onPermanentDeleteSelected={handlePermanentDeleteSelected}
+            allowPermanentDelete={isTrashFolder(activeFolder)}
             labelOptions={labelOptions}
           />
           <div className="flex-1 flex flex-col relative">

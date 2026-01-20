@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { sv } from 'date-fns/locale';
-import { RefreshCcw, Search, Trash2, Move, CheckCircle, Square, Star, Tag } from 'lucide-react';
+import { RefreshCcw, Search, Trash2, CheckCircle, Square, Star, Tag, Mail, CircleX } from 'lucide-react';
 
 export interface EmailHeader {
   uid: number;
@@ -33,6 +33,10 @@ interface MailListProps {
   onToggleStar: (uid: number, isStarred: boolean) => void;
   onToggleLabel: (uid: number, label: string, isApplied: boolean) => void;
   onOpenLabelManager: () => void;
+  onDeleteEmail?: (uid: number) => void;
+  onPermanentDeleteEmail?: (uid: number) => void;
+  onPermanentDeleteSelected?: () => void;
+  allowPermanentDelete?: boolean;
   showStarredOnly: boolean;
   onToggleStarFilter: () => void;
   activeLabelFilter: string | null;
@@ -59,6 +63,10 @@ export default function MailList({
   onToggleStar,
   onToggleLabel,
   onOpenLabelManager,
+  onDeleteEmail = () => {},
+  onPermanentDeleteEmail = () => {},
+  onPermanentDeleteSelected = () => {},
+  allowPermanentDelete = false,
   showStarredOnly,
   onToggleStarFilter,
   activeLabelFilter,
@@ -78,11 +86,19 @@ export default function MailList({
   const isAllSelected = emails.length > 0 && emails.every(email => selectedEmails.includes(email.uid));
   const [labelMenuUid, setLabelMenuUid] = useState<number | null>(null);
   const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  const [bulkLabelMenuOpen, setBulkLabelMenuOpen] = useState(false);
+  const emailByUid = useMemo(() => {
+    return emails.reduce<Record<number, EmailHeader>>((acc, email) => {
+      acc[email.uid] = email;
+      return acc;
+    }, {});
+  }, [emails]);
   useEffect(() => {
     const handleClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
       if (!target?.closest('[data-label-menu]')) {
         setLabelMenuUid(null);
+        setBulkLabelMenuOpen(false);
       }
       if (!target?.closest('[data-filter-menu]')) {
         setFilterMenuOpen(false);
@@ -105,6 +121,27 @@ export default function MailList({
     return format(date, 'd MMM yyyy HH:mm', { locale: sv });
   };
 
+  const handleBulkStar = () => {
+    selectedEmails.forEach((uid) => {
+      const email = emailByUid[uid];
+      const isStarred = email?.flags?.includes('\\Flagged');
+      if (!isStarred) {
+        onToggleStar(uid, false);
+      }
+    });
+  };
+
+  const handleBulkLabel = (labelName: string) => {
+    selectedEmails.forEach((uid) => {
+      const email = emailByUid[uid];
+      const appliedLabels = email?.labels || [];
+      if (!appliedLabels.includes(labelName)) {
+        onToggleLabel(uid, labelName, false);
+      }
+    });
+    setBulkLabelMenuOpen(false);
+  };
+
   return (
     <div className="w-80 md:w-96 flex flex-col h-full border-r border-gray-200 bg-white">
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
@@ -118,18 +155,66 @@ export default function MailList({
           {selectedEmails.length > 0 ? (
             <>
               <button
-                onClick={onDeleteSelected}
+                onClick={handleBulkStar}
                 className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                title="Delete selected"
+                title="Stjarnmark valda"
               >
-                <Trash2 size={18} className="text-red-500" />
+                <Star size={18} className="text-yellow-500" />
+              </button>
+              <div className="relative" data-label-menu>
+                <button
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setBulkLabelMenuOpen(prev => !prev);
+                  }}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  title="Etiketter"
+                >
+                  <Tag size={18} className="text-gray-500" />
+                </button>
+                {bulkLabelMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-44 rounded-lg border border-gray-200 bg-white shadow-lg p-2 z-20">
+                    <div className="text-[10px] uppercase text-gray-400 px-1 pb-1">Etiketter</div>
+                    {labelOptions.length === 0 && (
+                      <div className="px-2 py-1 text-xs text-gray-400">Inga etiketter</div>
+                    )}
+                    {labelOptions.map((label) => (
+                      <button
+                        key={label.name}
+                        onClick={() => handleBulkLabel(label.name)}
+                        className="w-full flex items-center gap-2 rounded-md px-2 py-1 text-left hover:bg-gray-50"
+                      >
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: label.colorHex }} />
+                        <span className="text-xs text-gray-700">{label.name}</span>
+                      </button>
+                    ))}
+                    <button
+                      onClick={() => {
+                        setBulkLabelMenuOpen(false);
+                        onOpenLabelManager();
+                      }}
+                      className="mt-1 w-full text-left rounded-md px-2 py-1 text-xs text-gray-500 hover:bg-gray-50"
+                    >
+                      Hantera etiketter
+                    </button>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={onDeleteSelected}
+                className={`p-2 rounded-full transition-colors ${allowPermanentDelete ? 'cursor-not-allowed' : 'hover:bg-gray-100'}`}
+                title="Flytta valda till papperskorgen"
+                aria-disabled={allowPermanentDelete}
+              >
+                <Trash2 size={18} className={allowPermanentDelete ? 'text-gray-300' : 'text-red-500'} />
               </button>
               <button
-                onClick={() => onMoveSelected('')}
-                className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                title="Move selected"
+                onClick={onPermanentDeleteSelected}
+                className={`p-2 rounded-full transition-colors ${allowPermanentDelete ? 'hover:bg-gray-100' : 'cursor-not-allowed'}`}
+                title="Radera valda permanent"
+                aria-disabled={!allowPermanentDelete}
               >
-                <Move size={18} className="text-gray-500" />
+                <CircleX size={18} className={allowPermanentDelete ? 'text-red-500' : 'text-gray-300'} />
               </button>
             </>
           ) : (
@@ -331,90 +416,121 @@ export default function MailList({
                             </div>
                           )}
                         </div>
-                        <div className="text-xs text-gray-600 whitespace-nowrap text-right font-medium">
-                          {formatTimestamp(email.date)}
+                        <div className="flex flex-col items-end gap-1 text-right">
+                          <div className="text-xs text-gray-600 whitespace-nowrap font-medium">
+                            {formatTimestamp(email.date)}
+                          </div>
+                          <div className="flex items-center -space-x-0.5">
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                onToggleStar(email.uid, isStarred);
+                              }}
+                              className="h-6 w-6 flex items-center justify-center text-gray-400 hover:text-yellow-500 transition-colors"
+                              title={isStarred ? 'Ta bort stjarna' : 'Stjarnmark'}
+                            >
+                              <Star
+                                size={14}
+                                className={isStarred ? 'text-yellow-500' : 'text-gray-400'}
+                                fill={isStarred ? 'currentColor' : 'none'}
+                              />
+                            </button>
+                            <div className="relative" data-label-menu>
+                              <button
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setLabelMenuUid(prev => (prev === email.uid ? null : email.uid));
+                                }}
+                                className="h-6 w-6 flex items-center justify-center text-gray-400 hover:text-gray-700 transition-colors"
+                                title="Etiketter"
+                              >
+                                <Tag size={14} />
+                              </button>
+                              {labelMenuUid === email.uid && (
+                                <div className="absolute right-0 mt-2 w-44 rounded-lg border border-gray-200 bg-white shadow-lg p-2 z-20">
+                                  <div className="text-[10px] uppercase text-gray-400 px-1 pb-1">Etiketter</div>
+                                  <div className="space-y-1">
+                                    {labelOptions.length === 0 && (
+                                      <div className="px-2 py-1 text-xs text-gray-400">Inga etiketter</div>
+                                    )}
+                                    {labelOptions.map((label) => {
+                                      const isApplied = appliedLabels.includes(label.name);
+                                      return (
+                                        <button
+                                          key={label.name}
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            onToggleLabel(email.uid, label.name, isApplied);
+                                          }}
+                                          className="w-full flex items-center justify-between gap-2 rounded-md px-2 py-1 text-left hover:bg-gray-50"
+                                        >
+                                          <span className="flex items-center gap-2">
+                                            <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: label.colorHex }} />
+                                            <span className="text-xs text-gray-700">{label.name}</span>
+                                          </span>
+                                          {isApplied && <CheckCircle size={14} className="text-blue-500" />}
+                                        </button>
+                                      );
+                                    })}
+                                    <button
+                                      onClick={(event) => {
+                                        event.stopPropagation();
+                                        setLabelMenuUid(null);
+                                        onOpenLabelManager();
+                                      }}
+                                      className="w-full flex items-center justify-between gap-2 rounded-md px-2 py-1 text-left text-xs text-gray-500 hover:bg-gray-50"
+                                    >
+                                      Hantera etiketter
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                if (!isRead) return;
+                                onToggleRead(email.uid, isRead);
+                              }}
+                              className={`h-6 w-6 flex items-center justify-center transition-colors ${isRead ? 'text-gray-400 hover:text-blue-600' : 'text-gray-300 cursor-not-allowed'}`}
+                              title="Gör oläst"
+                              aria-disabled={!isRead}
+                            >
+                              <Mail size={14} />
+                            </button>
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                if (allowPermanentDelete) return;
+                                onDeleteEmail(email.uid);
+                              }}
+                              className={`h-6 w-6 flex items-center justify-center transition-colors ${
+                                allowPermanentDelete ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-amber-600'
+                              }`}
+                              title={allowPermanentDelete ? 'Redan i papperskorgen' : 'Flytta till papperskorgen'}
+                              aria-disabled={allowPermanentDelete}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                if (!allowPermanentDelete) return;
+                                onPermanentDeleteEmail(email.uid);
+                              }}
+                              className={`h-6 w-6 flex items-center justify-center transition-colors ${
+                                allowPermanentDelete ? 'text-gray-400 hover:text-red-500' : 'text-gray-300 cursor-not-allowed'
+                              }`}
+                              title={allowPermanentDelete ? 'Radera permanent' : 'Endast i papperskorgen'}
+                              aria-disabled={!allowPermanentDelete}
+                            >
+                              <CircleX size={14} />
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </button>
                   </div>
-
-                  <div className="absolute right-4 top-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                    <button
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        onToggleStar(email.uid, isStarred);
-                      }}
-                      className="p-1.5 bg-white border border-gray-200 rounded-md shadow-sm hover:bg-gray-50"
-                      title={isStarred ? 'Ta bort stjarna' : 'Stjarnmark'}
-                    >
-                      <Star
-                        size={14}
-                        className={isStarred ? 'text-yellow-500' : 'text-gray-400'}
-                        fill={isStarred ? 'currentColor' : 'none'}
-                      />
-                    </button>
-                    <div className="relative" data-label-menu>
-                      <button
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setLabelMenuUid(prev => (prev === email.uid ? null : email.uid));
-                        }}
-                        className="p-1.5 bg-white border border-gray-200 rounded-md shadow-sm hover:bg-gray-50"
-                        title="Etiketter"
-                      >
-                        <Tag size={14} className="text-gray-400" />
-                      </button>
-                        {labelMenuUid === email.uid && (
-                          <div className="absolute right-0 mt-2 w-44 rounded-lg border border-gray-200 bg-white shadow-lg p-2 z-20">
-                            <div className="text-[10px] uppercase text-gray-400 px-1 pb-1">Etiketter</div>
-                          <div className="space-y-1">
-                            {labelOptions.length === 0 && (
-                              <div className="px-2 py-1 text-xs text-gray-400">Inga etiketter</div>
-                            )}
-                          {labelOptions.map((label) => {
-                            const isApplied = appliedLabels.includes(label.name);
-                            return (
-                              <button
-                                key={label.name}
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  onToggleLabel(email.uid, label.name, isApplied);
-                                }}
-                                className="w-full flex items-center justify-between gap-2 rounded-md px-2 py-1 text-left hover:bg-gray-50"
-                              >
-                                <span className="flex items-center gap-2">
-                                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: label.colorHex }} />
-                                  <span className="text-xs text-gray-700">{label.name}</span>
-                                </span>
-                                {isApplied && <CheckCircle size={14} className="text-blue-500" />}
-                              </button>
-                            );
-                          })}
-                              <button
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setLabelMenuUid(null);
-                                  onOpenLabelManager();
-                                }}
-                                className="w-full flex items-center justify-between gap-2 rounded-md px-2 py-1 text-left text-xs text-gray-500 hover:bg-gray-50"
-                              >
-                                Hantera etiketter
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleRead(email.uid, isRead);
-                    }}
-                    className="absolute right-4 bottom-4 p-1.5 bg-white border border-gray-200 rounded-md shadow-sm opacity-0 group-hover:opacity-100 hover:bg-gray-50 transition-all z-10"
-                  >
-                    <div className={`w-3 h-3 rounded-full border-2 ${isRead ? 'border-blue-600' : 'bg-blue-600 border-blue-600'}`} />
-                  </button>
                 </div>
               );
             })}
