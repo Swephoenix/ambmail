@@ -3,7 +3,7 @@
 import {
   Settings, Plus, Check,
   Inbox, Send, File, Archive, Trash2, AlertCircle,
-  ChevronDown, ChevronRight, ChevronLeft, User, Star, FileSignature, LogOut
+  ChevronDown, ChevronRight, User, FileSignature, LogOut
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -43,7 +43,7 @@ export default function Sidebar({ accounts, activeAccountId, activeFolder, onSel
   const [expandedAccounts, setExpandedAccounts] = useState<Record<string, boolean>>(
     accounts.reduce((acc, curr) => ({ ...acc, [curr.id]: true }), {})
   );
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
 
   const toggleAccount = (id: string) => {
     setExpandedAccounts(prev => ({ ...prev, [id]: !prev[id] }));
@@ -71,15 +71,9 @@ export default function Sidebar({ accounts, activeAccountId, activeFolder, onSel
         "flex flex-col h-full bg-gray-50 border-r border-gray-200 text-gray-900 flex-shrink-0 transition-all duration-300 relative",
         isCollapsed ? "w-20" : "w-64"
       )}
+      onMouseEnter={() => setIsCollapsed(false)}
+      onMouseLeave={() => setIsCollapsed(true)}
     >
-      {/* Toggle Button */}
-      <button
-        onClick={() => setIsCollapsed(!isCollapsed)}
-        className="absolute -right-3 top-20 bg-white border border-gray-200 rounded-full p-1 shadow-sm hover:bg-gray-50 z-10 text-gray-500 hover:text-gray-900"
-      >
-        {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
-      </button>
-
       {/* Header / Logo */}
       <div className={cn(
         "flex items-center justify-center border-b border-gray-100 bg-white min-h-[73px] transition-all relative overflow-hidden",

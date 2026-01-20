@@ -2,7 +2,7 @@
 
 import { useState, useEffect, lazy, Suspense } from 'react';
 import Sidebar, { Account } from '@/components/Sidebar';
-import MailList, { EmailHeader } from '@/components/MailList';
+import MailList, { EmailHeader, LabelOption } from '@/components/MailList';
 import MailView from '@/components/MailView';
 
 // Lazy load modal and compose components for better initial load performance
@@ -13,6 +13,61 @@ const ManageAccountsModal = lazy(() => import('@/components/ManageAccountsModal'
 import toast from 'react-hot-toast';
 import { Plus } from 'lucide-react';
 import Image from 'next/image';
+
+type LabelDefinition = {
+  id: string;
+  name: string;
+  color: string;
+};
+
+const LABEL_COLOR_OPTIONS = [
+  { key: 'red', name: 'Rod', hex: '#DC2626', text: '#7F1D1D' },
+  { key: 'amber', name: 'Amber', hex: '#D97706', text: '#78350F' },
+  { key: 'orange', name: 'Orange', hex: '#EA580C', text: '#7C2D12' },
+  { key: 'yellow', name: 'Gul', hex: '#CA8A04', text: '#713F12' },
+  { key: 'lime', name: 'Lime', hex: '#65A30D', text: '#365314' },
+  { key: 'green', name: 'Grön', hex: '#16A34A', text: '#14532D' },
+  { key: 'emerald', name: 'Smaragd', hex: '#059669', text: '#064E3B' },
+  { key: 'teal', name: 'Teal', hex: '#0D9488', text: '#134E4A' },
+  { key: 'cyan', name: 'Cyan', hex: '#0891B2', text: '#164E63' },
+  { key: 'sky', name: 'Sky', hex: '#0284C7', text: '#0C4A6E' },
+  { key: 'blue', name: 'Bla', hex: '#2563EB', text: '#1E3A8A' },
+  { key: 'indigo', name: 'Indigo', hex: '#4F46E5', text: '#312E81' },
+  { key: 'violet', name: 'Violett', hex: '#7C3AED', text: '#4C1D95' },
+  { key: 'purple', name: 'Lila', hex: '#9333EA', text: '#581C87' },
+  { key: 'fuchsia', name: 'Fuchsia', hex: '#C026D3', text: '#701A75' },
+  { key: 'pink', name: 'Rosa', hex: '#DB2777', text: '#831843' },
+  { key: 'rose', name: 'Rose', hex: '#E11D48', text: '#881337' },
+  { key: 'slate', name: 'Skiffer', hex: '#475569', text: '#0F172A' },
+  { key: 'stone', name: 'Sten', hex: '#78716C', text: '#292524' },
+  { key: 'gray', name: 'Gra', hex: '#6B7280', text: '#1F2937' },
+];
+
+const isHexColor = (value: string) => /^#[0-9A-Fa-f]{6}$/.test(value);
+
+const pickTextColor = (hex: string) => {
+  const normalized = hex.replace('#', '');
+  const r = parseInt(normalized.slice(0, 2), 16);
+  const g = parseInt(normalized.slice(2, 4), 16);
+  const b = parseInt(normalized.slice(4, 6), 16);
+  const luminance = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+  return luminance > 0.6 ? '#111827' : '#ffffff';
+};
+
+const getLabelColorOption = (color: string) => {
+  const match = LABEL_COLOR_OPTIONS.find(option => option.key === color || option.hex.toLowerCase() === color.toLowerCase());
+  if (match) return match;
+  if (isHexColor(color)) {
+    return { key: color, name: color, hex: color, text: pickTextColor(color) };
+  }
+  return LABEL_COLOR_OPTIONS[LABEL_COLOR_OPTIONS.length - 1];
+};
+
+const getNextAvailableColor = (usedColors: Set<string>) => {
+  const next = LABEL_COLOR_OPTIONS.find(option => !usedColors.has(option.hex.toUpperCase()));
+  return next ? next.hex : LABEL_COLOR_OPTIONS[0].hex;
+};
+
 
 export default function Home() {
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
@@ -40,6 +95,13 @@ export default function Home() {
   // Multi-select state
   const [selectedEmails, setSelectedEmails] = useState<number[]>([]);
   const [storageUsage, setStorageUsage] = useState<{ usedBytes: number; quotaMb: number | null } | null>(null);
+  const [showStarredOnly, setShowStarredOnly] = useState(false);
+  const [activeLabelFilter, setActiveLabelFilter] = useState<string | null>(null);
+  const [labelDefinitions, setLabelDefinitions] = useState<LabelDefinition[]>([]);
+  const [labelEdits, setLabelEdits] = useState<Record<string, { name: string; color: string }>>({});
+  const [showLabelManager, setShowLabelManager] = useState(false);
+  const [newLabelName, setNewLabelName] = useState('');
+  const [newLabelColor, setNewLabelColor] = useState(LABEL_COLOR_OPTIONS[0].hex);
 
   // Signature modal state
   const [showSignatureModal, setShowSignatureModal] = useState(false);
@@ -52,6 +114,25 @@ export default function Home() {
   // Cache for accounts to avoid unnecessary API calls
   const [accountsCache, setAccountsCache] = useState<{data: Account[], timestamp: number} | null>(null);
   const ACCOUNTS_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+  const labelOptions: LabelOption[] = labelDefinitions.map(label => {
+    const color = getLabelColorOption(label.color);
+    return {
+      name: label.name,
+      colorHex: color.hex,
+      textHex: color.text,
+    };
+  });
+
+  const visibleEmails = emails.filter(email => {
+    if (showStarredOnly && !(Array.isArray(email.flags) && email.flags.includes('\\Flagged'))) {
+      return false;
+    }
+    if (activeLabelFilter && !(Array.isArray(email.labels) && email.labels.includes(activeLabelFilter))) {
+      return false;
+    }
+    return true;
+  });
 
   // Cache for email lists to avoid unnecessary API calls
   const [emailCache, setEmailCache] = useState<Record<string, {data: any[], timestamp: number}>>({});
@@ -98,6 +179,21 @@ export default function Home() {
       setStorageUsage({ usedBytes, quotaMb });
     } catch (error) {
       console.error('Failed to fetch storage usage:', error);
+    }
+  };
+
+  const fetchLabelDefinitions = async () => {
+    try {
+      const res = await fetch('/api/mail/labels/definitions');
+      if (res.status === 401) {
+        setLabelDefinitions([]);
+        return;
+      }
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+      setLabelDefinitions(data);
+    } catch (error) {
+      console.error('Failed to fetch labels:', error);
     }
   };
 
@@ -180,7 +276,9 @@ export default function Home() {
       } else {
         const listEmail = emails.find(email => email.uid === uid);
         const baseFlags = Array.isArray(listEmail?.flags) ? listEmail?.flags : [];
+        const baseLabels = Array.isArray(listEmail?.labels) ? listEmail?.labels : [];
         data.flags = [...new Set([...baseFlags, '\\Seen'])];
+        data.labels = baseLabels;
         setSelectedEmail(data);
 
         // Automatically mark as read in UI
@@ -256,6 +354,184 @@ export default function Home() {
       if (data.error) throw new Error(data.error);
     } catch (error: any) {
       toast.error('Kunde inte uppdatera status: ' + error.message);
+    }
+  };
+
+  const handleToggleStar = async (uid: number, isStarred: boolean) => {
+    const action = isStarred ? 'remove' : 'add';
+
+    setEmails(prev => prev.map(email => {
+      if (email.uid === uid) {
+        const newFlags = isStarred
+          ? email.flags.filter((f: string) => f !== '\\Flagged')
+          : [...new Set([...email.flags, '\\Flagged'])];
+        return { ...email, flags: newFlags };
+      }
+      return email;
+    }));
+    setSelectedEmail(prev => {
+      if (!prev || prev.uid !== uid) return prev;
+      const existingFlags = Array.isArray(prev.flags) ? prev.flags : [];
+      const newFlags = isStarred
+        ? existingFlags.filter((f: string) => f !== '\\Flagged')
+        : [...new Set([...existingFlags, '\\Flagged'])];
+      return { ...prev, flags: newFlags };
+    });
+
+    try {
+      const res = await fetch('/api/mail/flags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accountId: activeAccountId,
+          uid,
+          folder: activeFolder,
+          action,
+          flag: '\\Flagged'
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+    } catch (error: any) {
+      toast.error('Kunde inte uppdatera stjarna: ' + error.message);
+    }
+  };
+
+  const handleToggleLabel = async (uid: number, label: string, isApplied: boolean) => {
+    const action = isApplied ? 'remove' : 'add';
+
+    setEmails(prev => prev.map(email => {
+      if (email.uid === uid) {
+        const existingLabels = Array.isArray(email.labels) ? email.labels : [];
+        const nextLabels = isApplied
+          ? existingLabels.filter((item: string) => item !== label)
+          : [...new Set([...existingLabels, label])];
+        return { ...email, labels: nextLabels };
+      }
+      return email;
+    }));
+    setSelectedEmail(prev => {
+      if (!prev || prev.uid !== uid) return prev;
+      const existingLabels = Array.isArray(prev.labels) ? prev.labels : [];
+      const nextLabels = isApplied
+        ? existingLabels.filter((item: string) => item !== label)
+        : [...new Set([...existingLabels, label])];
+      return { ...prev, labels: nextLabels };
+    });
+
+    try {
+      const res = await fetch('/api/mail/labels', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accountId: activeAccountId,
+          uid,
+          folder: activeFolder,
+          action,
+          label
+        }),
+      });
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+    } catch (error: any) {
+      toast.error('Kunde inte uppdatera etikett: ' + error.message);
+    }
+  };
+
+  const applyLabelRename = (previousName: string, nextName: string) => {
+    if (previousName === nextName) return;
+    setEmails(prev => prev.map(email => {
+      if (!Array.isArray(email.labels)) return email;
+      if (!email.labels.includes(previousName)) return email;
+      const nextLabels = email.labels.map((item: string) => item === previousName ? nextName : item);
+      return { ...email, labels: nextLabels };
+    }));
+    setSelectedEmail(prev => {
+      if (!prev || !Array.isArray(prev.labels)) return prev;
+      if (!prev.labels.includes(previousName)) return prev;
+      return { ...prev, labels: prev.labels.map((item: string) => item === previousName ? nextName : item) };
+    });
+  };
+
+  const applyLabelRemoval = (labelName: string) => {
+    setEmails(prev => prev.map(email => {
+      if (!Array.isArray(email.labels)) return email;
+      if (!email.labels.includes(labelName)) return email;
+      return { ...email, labels: email.labels.filter((item: string) => item !== labelName) };
+    }));
+    setSelectedEmail(prev => {
+      if (!prev || !Array.isArray(prev.labels)) return prev;
+      if (!prev.labels.includes(labelName)) return prev;
+      return { ...prev, labels: prev.labels.filter((item: string) => item !== labelName) };
+    });
+  };
+
+  const handleCreateLabel = async () => {
+    const trimmed = newLabelName.trim();
+    if (!trimmed) {
+      toast.error('Ange ett etikett-namn');
+      return;
+    }
+    try {
+      const res = await fetch('/api/mail/labels/definitions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: trimmed, color: newLabelColor }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create label');
+      setLabelDefinitions(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+      setNewLabelName('');
+      const usedColors = new Set(labelDefinitions.map(label => getLabelColorOption(label.color).hex.toUpperCase()));
+      setNewLabelColor(getNextAvailableColor(usedColors));
+      toast.success('Etikett skapad');
+    } catch (error: any) {
+      toast.error('Kunde inte skapa etikett: ' + error.message);
+    }
+  };
+
+  const handleUpdateLabel = async (id: string) => {
+    const edits = labelEdits[id];
+    const original = labelDefinitions.find(label => label.id === id);
+    if (!edits || !original) return;
+    const trimmed = edits.name.trim();
+    if (!trimmed) {
+      toast.error('Etikett-namn kan inte vara tomt');
+      return;
+    }
+    try {
+      const res = await fetch('/api/mail/labels/definitions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, name: trimmed, color: edits.color }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to update label');
+      setLabelDefinitions(prev => prev.map(label => label.id === id ? data : label).sort((a, b) => a.name.localeCompare(b.name)));
+      applyLabelRename(original.name, trimmed);
+      toast.success('Etikett uppdaterad');
+    } catch (error: any) {
+      toast.error('Kunde inte uppdatera etikett: ' + error.message);
+    }
+  };
+
+  const handleDeleteLabel = async (id: string) => {
+    const existing = labelDefinitions.find(label => label.id === id);
+    if (!existing) return;
+    if (!window.confirm(`Ta bort etiketten \"${existing.name}\"?`)) return;
+    try {
+      const res = await fetch('/api/mail/labels/definitions', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to delete label');
+      setLabelDefinitions(prev => prev.filter(label => label.id !== id));
+      applyLabelRemoval(existing.name);
+      toast.success('Etikett borttagen');
+    } catch (error: any) {
+      toast.error('Kunde inte ta bort etikett: ' + error.message);
     }
   };
 
@@ -656,11 +932,28 @@ export default function Home() {
     setActiveFolder('INBOX');
     setEmails([]);
     setSelectedEmail(null);
+    setLabelDefinitions([]);
   };
 
   useEffect(() => {
     checkAuth();
   }, []);
+
+  useEffect(() => {
+    const nextEdits: Record<string, { name: string; color: string }> = {};
+    labelDefinitions.forEach(label => {
+      const normalized = getLabelColorOption(label.color);
+      nextEdits[label.id] = { name: label.name, color: normalized.hex };
+    });
+    setLabelEdits(nextEdits);
+  }, [labelDefinitions]);
+
+  useEffect(() => {
+    const used = new Set(labelDefinitions.map(label => getLabelColorOption(label.color).hex.toUpperCase()));
+    if (used.has(newLabelColor.toUpperCase())) {
+      setNewLabelColor(getNextAvailableColor(used));
+    }
+  }, [labelDefinitions, newLabelColor]);
 
 
   // Start fetching accounts and emails as soon as the component mounts
@@ -670,6 +963,7 @@ export default function Home() {
       // Fetch accounts first
       await fetchAccounts();
       await fetchStorageUsage();
+      await fetchLabelDefinitions();
     };
 
     initializeApp();
@@ -862,10 +1156,17 @@ export default function Home() {
       ) : (
         <>
           <MailList
-            emails={emails}
+            emails={visibleEmails}
             selectedEmailUid={selectedEmail?.uid}
             onEmailSelect={(uid) => fetchEmailBody(activeAccountId!, uid)}
             onToggleRead={handleToggleRead}
+            onToggleStar={handleToggleStar}
+            onToggleLabel={handleToggleLabel}
+            onOpenLabelManager={() => setShowLabelManager(true)}
+            showStarredOnly={showStarredOnly}
+            onToggleStarFilter={() => setShowStarredOnly(prev => !prev)}
+            activeLabelFilter={activeLabelFilter}
+            onSelectLabelFilter={setActiveLabelFilter}
             isLoading={isLoadingList}
             onRefresh={() => {
               // Clear cache for this folder to ensure fresh data
@@ -885,6 +1186,7 @@ export default function Home() {
             onMoveSelected={handleMoveSelected}
             onEmptyTrash={handleEmptyTrash}
             showEmptyTrash={isTrashFolder(activeFolder)}
+            labelOptions={labelOptions}
           />
           <div className="flex-1 flex flex-col relative">
             <MailView
@@ -1266,6 +1568,101 @@ export default function Home() {
               >
                 Cancel
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLabelManager && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-lg">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-bold">Etiketter</h3>
+              <button
+                onClick={() => setShowLabelManager(false)}
+                className="px-3 py-1 text-sm text-gray-500 hover:text-gray-800"
+              >
+                Stang
+              </button>
+            </div>
+
+            <div className="mt-4 space-y-3 max-h-[50vh] overflow-y-auto pr-1">
+              {labelDefinitions.length === 0 && (
+                <div className="text-sm text-gray-500">Inga etiketter skapade.</div>
+              )}
+              {labelDefinitions.map(label => {
+                const edits = labelEdits[label.id] || { name: label.name, color: label.color };
+                return (
+                  <div key={label.id} className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        value={edits.name}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          setLabelEdits(prev => ({ ...prev, [label.id]: { ...edits, name: value } }));
+                        }}
+                        className="flex-1 border border-gray-200 rounded-md px-3 py-2 text-sm"
+                        placeholder="Etikett"
+                      />
+                      <button
+                        onClick={() => handleUpdateLabel(label.id)}
+                        className="px-3 py-2 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                      >
+                        Spara
+                      </button>
+                      <button
+                        onClick={() => handleDeleteLabel(label.id)}
+                        className="px-2 py-2 text-xs text-red-600 hover:text-red-800"
+                      >
+                        Radera
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={edits.color}
+                        onChange={(event) => {
+                          const value = event.target.value.toUpperCase();
+                          setLabelEdits(prev => ({ ...prev, [label.id]: { ...edits, color: value } }));
+                        }}
+                        className="h-8 w-8 rounded border border-gray-200"
+                        title="Valj färg"
+                      />
+                      <span className="text-xs text-gray-500">{edits.color}</span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+              <div className="mt-6 border-t border-gray-200 pt-4">
+              <h4 className="text-sm font-semibold text-gray-700 mb-2">Skapa ny etikett</h4>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <input
+                    value={newLabelName}
+                    onChange={(event) => setNewLabelName(event.target.value)}
+                    className="flex-1 border border-gray-200 rounded-md px-3 py-2 text-sm"
+                    placeholder="Namn"
+                  />
+                  <button
+                    onClick={handleCreateLabel}
+                    className="px-3 py-2 text-sm bg-gray-900 text-white rounded-md hover:bg-black"
+                  >
+                    Skapa
+                  </button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={newLabelColor}
+                    onChange={(event) => setNewLabelColor(event.target.value.toUpperCase())}
+                    className="h-8 w-8 rounded border border-gray-200"
+                    title="Valj färg"
+                  />
+                  <span className="text-xs text-gray-500">{newLabelColor}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>

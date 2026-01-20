@@ -1,8 +1,9 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { sv } from 'date-fns/locale';
-import { RefreshCcw, Search, Trash2, FolderPlus, Move, CheckCircle, Square } from 'lucide-react';
+import { RefreshCcw, Search, Trash2, Move, CheckCircle, Square, Star, Tag } from 'lucide-react';
 
 export interface EmailHeader {
   uid: number;
@@ -11,10 +12,17 @@ export interface EmailHeader {
   to?: string;
   date: string | Date | null;
   flags: string[];
+  labels?: string[];
   preview?: string;
   messageId?: string;
   inReplyTo?: string;
   references?: string;
+}
+
+export interface LabelOption {
+  name: string;
+  colorHex: string;
+  textHex: string;
 }
 
 interface MailListProps {
@@ -22,9 +30,17 @@ interface MailListProps {
   selectedEmailUid: number | null;
   onEmailSelect: (uid: number) => void;
   onToggleRead: (uid: number, isRead: boolean) => void;
+  onToggleStar: (uid: number, isStarred: boolean) => void;
+  onToggleLabel: (uid: number, label: string, isApplied: boolean) => void;
+  onOpenLabelManager: () => void;
+  showStarredOnly: boolean;
+  onToggleStarFilter: () => void;
+  activeLabelFilter: string | null;
+  onSelectLabelFilter: (label: string | null) => void;
   isLoading: boolean;
   onRefresh: () => void;
   folderName: string;
+  labelOptions: LabelOption[];
   // New props for multi-select functionality
   selectedEmails?: number[];
   onEmailSelectToggle?: (uid: number) => void;
@@ -40,9 +56,17 @@ export default function MailList({
   selectedEmailUid,
   onEmailSelect,
   onToggleRead,
+  onToggleStar,
+  onToggleLabel,
+  onOpenLabelManager,
+  showStarredOnly,
+  onToggleStarFilter,
+  activeLabelFilter,
+  onSelectLabelFilter,
   isLoading,
   onRefresh,
   folderName,
+  labelOptions,
   selectedEmails = [],
   onEmailSelectToggle = () => {},
   onSelectAll = () => {},
@@ -52,6 +76,22 @@ export default function MailList({
   showEmptyTrash = false
 }: MailListProps) {
   const isAllSelected = emails.length > 0 && emails.every(email => selectedEmails.includes(email.uid));
+  const [labelMenuUid, setLabelMenuUid] = useState<number | null>(null);
+  const [filterMenuOpen, setFilterMenuOpen] = useState(false);
+  useEffect(() => {
+    const handleClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!target?.closest('[data-label-menu]')) {
+        setLabelMenuUid(null);
+      }
+      if (!target?.closest('[data-filter-menu]')) {
+        setFilterMenuOpen(false);
+      }
+    };
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, []);
+
   const formatTimestamp = (value: string | Date | null) => {
     if (!value) return '--';
     const date = new Date(value);
@@ -121,8 +161,80 @@ export default function MailList({
           <input
             type="text"
             placeholder="Search mail..."
-            className="w-full pl-10 pr-4 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-10 pr-16 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
+          <div className="absolute right-2 top-2.5 flex items-center gap-2">
+            <button
+              onClick={onToggleStarFilter}
+              title={showStarredOnly ? 'Visa alla' : 'Visa stjarnmarkerade'}
+              aria-pressed={showStarredOnly}
+              className="flex h-4 w-4 items-center justify-center"
+            >
+              <Star
+                size={16}
+                className={showStarredOnly ? 'text-yellow-500' : 'text-gray-400'}
+                fill={showStarredOnly ? 'currentColor' : 'none'}
+              />
+            </button>
+            <div className="relative" data-filter-menu>
+              <button
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setFilterMenuOpen(prev => !prev);
+                }}
+                title={activeLabelFilter ? `Etikett: ${activeLabelFilter}` : 'Filtrera etiketter'}
+                aria-pressed={Boolean(activeLabelFilter)}
+                className="flex h-4 w-4 items-center justify-center"
+              >
+                <Tag size={16} className={activeLabelFilter ? 'text-blue-600' : 'text-gray-400'} />
+              </button>
+              {filterMenuOpen && (
+                <div className="absolute right-0 mt-2 w-44 rounded-lg border border-gray-200 bg-white shadow-lg p-2 z-20">
+                  <div className="text-[10px] uppercase text-gray-400 px-1 pb-1">Filter</div>
+                  <button
+                    onClick={() => {
+                      onSelectLabelFilter(null);
+                      setFilterMenuOpen(false);
+                    }}
+                    className="w-full text-left rounded-md px-2 py-1 text-xs text-gray-600 hover:bg-gray-50"
+                  >
+                    Alla etiketter
+                  </button>
+                  {labelOptions.length === 0 && (
+                    <div className="px-2 py-1 text-xs text-gray-400">Inga etiketter</div>
+                  )}
+                  {labelOptions.map((label) => {
+                    const isActive = activeLabelFilter === label.name;
+                    return (
+                      <button
+                        key={label.name}
+                        onClick={() => {
+                          onSelectLabelFilter(label.name);
+                          setFilterMenuOpen(false);
+                        }}
+                        className="w-full flex items-center justify-between gap-2 rounded-md px-2 py-1 text-left hover:bg-gray-50"
+                      >
+                        <span className="flex items-center gap-2">
+                          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: label.colorHex }} />
+                          <span className="text-xs text-gray-700">{label.name}</span>
+                        </span>
+                        {isActive && <CheckCircle size={14} className="text-blue-500" />}
+                      </button>
+                    );
+                  })}
+                  <button
+                    onClick={() => {
+                      setFilterMenuOpen(false);
+                      onOpenLabelManager();
+                    }}
+                    className="mt-1 w-full text-left rounded-md px-2 py-1 text-xs text-gray-500 hover:bg-gray-50"
+                  >
+                    Skapa/hantera etiketter
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -154,7 +266,9 @@ export default function MailList({
             )}
             {emails.map((email) => {
               const isRead = email.flags.includes('\\Seen');
+              const isStarred = email.flags.includes('\\Flagged');
               const isSelected = selectedEmails.includes(email.uid);
+              const appliedLabels = email.labels || [];
               return (
                 <div key={email.uid} className="relative group">
                   <div
@@ -193,12 +307,103 @@ export default function MailList({
                           <div className="text-xs text-gray-500 truncate mt-1">
                             {email.preview || 'No content'}
                           </div>
+                          {appliedLabels.length > 0 && (
+                            <div className="mt-2 flex flex-wrap gap-1">
+                              {appliedLabels.map((label) => {
+                                const labelDef = labelOptions.find(option => option.name === label);
+                                const chipStyle = labelDef
+                                  ? {
+                                      backgroundColor: `${labelDef.colorHex}1A`,
+                                      borderColor: `${labelDef.colorHex}33`,
+                                      color: labelDef.textHex,
+                                    }
+                                  : undefined;
+                                return (
+                                  <span
+                                    key={label}
+                                    className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold"
+                                    style={chipStyle}
+                                  >
+                                    {label}
+                                  </span>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                         <div className="text-xs text-gray-600 whitespace-nowrap text-right font-medium">
                           {formatTimestamp(email.date)}
                         </div>
                       </div>
                     </button>
+                  </div>
+
+                  <div className="absolute right-4 top-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                    <button
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onToggleStar(email.uid, isStarred);
+                      }}
+                      className="p-1.5 bg-white border border-gray-200 rounded-md shadow-sm hover:bg-gray-50"
+                      title={isStarred ? 'Ta bort stjarna' : 'Stjarnmark'}
+                    >
+                      <Star
+                        size={14}
+                        className={isStarred ? 'text-yellow-500' : 'text-gray-400'}
+                        fill={isStarred ? 'currentColor' : 'none'}
+                      />
+                    </button>
+                    <div className="relative" data-label-menu>
+                      <button
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setLabelMenuUid(prev => (prev === email.uid ? null : email.uid));
+                        }}
+                        className="p-1.5 bg-white border border-gray-200 rounded-md shadow-sm hover:bg-gray-50"
+                        title="Etiketter"
+                      >
+                        <Tag size={14} className="text-gray-400" />
+                      </button>
+                        {labelMenuUid === email.uid && (
+                          <div className="absolute right-0 mt-2 w-44 rounded-lg border border-gray-200 bg-white shadow-lg p-2 z-20">
+                            <div className="text-[10px] uppercase text-gray-400 px-1 pb-1">Etiketter</div>
+                          <div className="space-y-1">
+                            {labelOptions.length === 0 && (
+                              <div className="px-2 py-1 text-xs text-gray-400">Inga etiketter</div>
+                            )}
+                          {labelOptions.map((label) => {
+                            const isApplied = appliedLabels.includes(label.name);
+                            return (
+                              <button
+                                key={label.name}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  onToggleLabel(email.uid, label.name, isApplied);
+                                }}
+                                className="w-full flex items-center justify-between gap-2 rounded-md px-2 py-1 text-left hover:bg-gray-50"
+                              >
+                                <span className="flex items-center gap-2">
+                                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: label.colorHex }} />
+                                  <span className="text-xs text-gray-700">{label.name}</span>
+                                </span>
+                                {isApplied && <CheckCircle size={14} className="text-blue-500" />}
+                              </button>
+                            );
+                          })}
+                              <button
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setLabelMenuUid(null);
+                                  onOpenLabelManager();
+                                }}
+                                className="w-full flex items-center justify-between gap-2 rounded-md px-2 py-1 text-left text-xs text-gray-500 hover:bg-gray-50"
+                              >
+                                Hantera etiketter
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                    </div>
                   </div>
 
                   <button

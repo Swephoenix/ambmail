@@ -29,6 +29,7 @@ model User {
   sessions     UserSession[]
   prefetchStatus PrefetchStatus?
   addressBooks AddressBookUser[]
+  labels       Label[]
 }
 
 model AddressBook {
@@ -112,6 +113,7 @@ model EmailMessage {
   to           String?
   date         DateTime?
   flags        String[] @default([])
+  labels       String[] @default([])
   preview      String?
   inReplyTo    String?
   references   String?
@@ -144,6 +146,20 @@ model MailSyncState {
 
   @@unique([accountId, folder], name: "account_folder_sync")
   @@index([accountId, folder])
+}
+
+model Label {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  color     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name], name: "userId_label_name")
+  @@index([userId])
 }
 
 model PrefetchStatus {

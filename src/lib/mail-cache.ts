@@ -331,6 +331,7 @@ export function mapCachedEmail(email: {
   uid: number;
   date: Date | null;
   flags: string[];
+  labels?: string[];
   subject: string | null;
   from: string | null;
   to: string | null;
@@ -343,6 +344,7 @@ export function mapCachedEmail(email: {
     uid: email.uid,
     date: email.date,
     flags: email.flags || [],
+    labels: email.labels || [],
     subject: email.subject || 'No Subject',
     from: email.from || 'Unknown',
     to: email.to || '',
