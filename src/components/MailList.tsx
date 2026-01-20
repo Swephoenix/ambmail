@@ -143,12 +143,12 @@ export default function MailList({
   };
 
   return (
-    <div className="w-80 md:w-96 flex flex-col h-full border-r border-gray-200 bg-white">
-      <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+    <div className="w-72 md:w-80 flex flex-col h-full border-r border-gray-200 bg-white">
+      <div className="p-3 border-b border-gray-200 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h2 className="text-xl font-bold capitalize">{folderName.toLowerCase()}</h2>
+          <h2 className="text-lg font-bold capitalize">{folderName.toLowerCase()}</h2>
           {selectedEmails.length > 0 && (
-            <span className="text-sm text-gray-500">({selectedEmails.length} selected)</span>
+            <span className="text-xs text-gray-500">({selectedEmails.length} selected)</span>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -240,13 +240,13 @@ export default function MailList({
         </div>
       </div>
 
-      <div className="p-4 bg-gray-50">
+      <div className="p-3 bg-gray-50">
         <div className="relative">
           <Search className="absolute left-3 top-2.5 text-gray-400" size={16} />
           <input
             type="text"
             placeholder="Search mail..."
-            className="w-full pl-10 pr-16 py-2 bg-white border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-10 pr-16 py-1.5 bg-white border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <div className="absolute right-2 top-2.5 flex items-center gap-2">
             <button
@@ -325,13 +325,13 @@ export default function MailList({
 
       <div className="flex-1 overflow-y-auto">
         {isLoading && emails.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">Loading messages...</div>
+          <div className="p-6 text-center text-gray-500 text-sm">Loading messages...</div>
         ) : emails.length === 0 ? (
-          <div className="p-8 text-center text-gray-500">No messages found</div>
+          <div className="p-6 text-center text-gray-500 text-sm">No messages found</div>
         ) : (
           <>
             {emails.length > 0 && (
-              <div className="px-4 py-2 border-b border-gray-100 flex items-center gap-3 text-xs uppercase tracking-wide text-gray-400">
+              <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-3 text-[10px] uppercase tracking-wide text-gray-400">
                 <button
                   onClick={onSelectAll}
                   className="p-1 hover:bg-gray-100 rounded"
@@ -357,7 +357,7 @@ export default function MailList({
               return (
                 <div key={email.uid} className="relative group">
                   <div
-                    className={`flex items-start p-4 border-b border-gray-100 hover:bg-blue-50 transition-colors ${
+                    className={`flex items-start p-3 border-b border-gray-100 hover:bg-blue-50 transition-colors ${
                       selectedEmailUid === email.uid ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
                     } ${isSelected ? 'bg-blue-100' : ''}`}
                   >
@@ -380,16 +380,16 @@ export default function MailList({
                         <div className="min-w-0">
                           <div className="flex items-start mb-1 gap-2">
                             {!isRead && (
-                              <div className="w-2.5 h-2.5 bg-blue-600 rounded-full flex-shrink-0 mt-1" />
+                              <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0 mt-1" />
                             )}
-                            <span className={`text-sm truncate pr-2 ${isRead ? 'text-gray-600' : 'font-bold text-gray-900'}`}>
+                            <span className={`text-xs truncate pr-2 ${isRead ? 'text-gray-600' : 'font-bold text-gray-900'}`}>
                               {email.from}
                             </span>
                           </div>
-                          <div className={`text-sm truncate ${isRead ? 'text-gray-700' : 'font-bold text-gray-900'}`}>
+                          <div className={`text-xs truncate ${isRead ? 'text-gray-700' : 'font-bold text-gray-900'}`}>
                             {email.subject}
                           </div>
-                          <div className="text-xs text-gray-500 truncate mt-1">
+                          <div className="text-[10px] text-gray-500 truncate mt-1">
                             {email.preview || 'No content'}
                           </div>
                           {appliedLabels.length > 0 && (
@@ -406,7 +406,7 @@ export default function MailList({
                                 return (
                                   <span
                                     key={label}
-                                    className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold"
+                                    className="inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[9px] font-semibold"
                                     style={chipStyle}
                                   >
                                     {label}
@@ -417,7 +417,7 @@ export default function MailList({
                           )}
                         </div>
                         <div className="flex flex-col items-end gap-1 text-right">
-                          <div className="text-xs text-gray-600 whitespace-nowrap font-medium">
+                          <div className="text-[10px] text-gray-600 whitespace-nowrap font-medium">
                             {formatTimestamp(email.date)}
                           </div>
                           <div className="flex items-center -space-x-0.5">
@@ -426,11 +426,11 @@ export default function MailList({
                                 event.stopPropagation();
                                 onToggleStar(email.uid, isStarred);
                               }}
-                              className="h-6 w-6 flex items-center justify-center text-gray-400 hover:text-yellow-500 transition-colors"
+                              className="h-5 w-5 flex items-center justify-center text-gray-400 hover:text-yellow-500 transition-colors"
                               title={isStarred ? 'Ta bort stjarna' : 'Stjarnmark'}
                             >
                               <Star
-                                size={14}
+                                size={12}
                                 className={isStarred ? 'text-yellow-500' : 'text-gray-400'}
                                 fill={isStarred ? 'currentColor' : 'none'}
                               />
@@ -441,10 +441,10 @@ export default function MailList({
                                   event.stopPropagation();
                                   setLabelMenuUid(prev => (prev === email.uid ? null : email.uid));
                                 }}
-                                className="h-6 w-6 flex items-center justify-center text-gray-400 hover:text-gray-700 transition-colors"
+                                className="h-5 w-5 flex items-center justify-center text-gray-400 hover:text-gray-700 transition-colors"
                                 title="Etiketter"
                               >
-                                <Tag size={14} />
+                                <Tag size={12} />
                               </button>
                               {labelMenuUid === email.uid && (
                                 <div className="absolute right-0 mt-2 w-44 rounded-lg border border-gray-200 bg-white shadow-lg p-2 z-20">
@@ -492,11 +492,11 @@ export default function MailList({
                                 if (!isRead) return;
                                 onToggleRead(email.uid, isRead);
                               }}
-                              className={`h-6 w-6 flex items-center justify-center transition-colors ${isRead ? 'text-gray-400 hover:text-blue-600' : 'text-gray-300 cursor-not-allowed'}`}
+                              className={`h-5 w-5 flex items-center justify-center transition-colors ${isRead ? 'text-gray-400 hover:text-blue-600' : 'text-gray-300 cursor-not-allowed'}`}
                               title="Gör oläst"
                               aria-disabled={!isRead}
                             >
-                              <Mail size={14} />
+                              <Mail size={12} />
                             </button>
                             <button
                               onClick={(event) => {
@@ -504,13 +504,13 @@ export default function MailList({
                                 if (allowPermanentDelete) return;
                                 onDeleteEmail(email.uid);
                               }}
-                              className={`h-6 w-6 flex items-center justify-center transition-colors ${
+                              className={`h-5 w-5 flex items-center justify-center transition-colors ${
                                 allowPermanentDelete ? 'text-gray-300 cursor-not-allowed' : 'text-gray-400 hover:text-amber-600'
                               }`}
                               title={allowPermanentDelete ? 'Redan i papperskorgen' : 'Flytta till papperskorgen'}
                               aria-disabled={allowPermanentDelete}
                             >
-                              <Trash2 size={14} />
+                              <Trash2 size={12} />
                             </button>
                             <button
                               onClick={(event) => {
@@ -518,13 +518,13 @@ export default function MailList({
                                 if (!allowPermanentDelete) return;
                                 onPermanentDeleteEmail(email.uid);
                               }}
-                              className={`h-6 w-6 flex items-center justify-center transition-colors ${
+                              className={`h-5 w-5 flex items-center justify-center transition-colors ${
                                 allowPermanentDelete ? 'text-gray-400 hover:text-red-500' : 'text-gray-300 cursor-not-allowed'
                               }`}
                               title={allowPermanentDelete ? 'Radera permanent' : 'Endast i papperskorgen'}
                               aria-disabled={!allowPermanentDelete}
                             >
-                              <CircleX size={14} />
+                              <CircleX size={12} />
                             </button>
                           </div>
                         </div>

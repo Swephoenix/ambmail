@@ -11,7 +11,7 @@ const ComposeEmail = lazy(() => import('@/components/ComposeEmail'));
 const SignatureModal = lazy(() => import('@/components/SignatureModal'));
 const ManageAccountsModal = lazy(() => import('@/components/ManageAccountsModal'));
 import toast from 'react-hot-toast';
-import { Plus } from 'lucide-react';
+import { PenSquare } from 'lucide-react';
 import Image from 'next/image';
 
 type LabelDefinition = {
@@ -1477,8 +1477,9 @@ export default function Home() {
                 setComposeWindows(prev => [...prev, newWindow]);
               }}
               className="absolute bottom-8 right-8 w-14 h-14 bg-blue-600 text-white rounded-full shadow-2xl flex items-center justify-center hover:bg-blue-700 transition-all hover:scale-110 active:scale-95 z-40"
+              title="Skapa nytt mejl"
             >
-              <Plus size={28} />
+              <PenSquare size={26} />
             </button>
           </div>
         </>
