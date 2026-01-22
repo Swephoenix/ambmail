@@ -331,10 +331,12 @@ export default function MailView({
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-8">
-        <h1 className="text-2xl font-bold text-gray-900 mb-6">{email.subject}</h1>
+      <div className="flex-1 overflow-y-auto bg-gray-50 p-8">
+        <div className="mx-auto w-full max-w-4xl rounded-2xl border border-gray-200 bg-white shadow-sm">
+          <div className="p-6">
+            <h1 className="text-2xl font-bold text-gray-900 mb-6">{email.subject}</h1>
 
-        <div className="bg-gray-50 rounded-lg p-4 mb-8">
+            <div className="bg-gray-50 rounded-lg p-4 mb-8">
           <div className="flex items-start">
             <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold mr-4 shrink-0">
               {from.name[0]?.toUpperCase()}
@@ -385,8 +387,8 @@ export default function MailView({
           </div>
         </div>
 
-        {visibleAttachments.length > 0 && (
-          <div className="mb-8 rounded-2xl border border-gray-200 bg-gray-50 p-4">
+            {visibleAttachments.length > 0 && (
+              <div className="mb-8 rounded-2xl border border-gray-200 bg-gray-50 p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-gray-700">
                 Attachments ({visibleAttachments.length})
@@ -451,13 +453,15 @@ export default function MailView({
           </div>
         )}
 
-        <div className="prose prose-sm max-w-none text-gray-800 leading-relaxed">
-          {/* In a real app we'd handle HTML/Sanitization */}
-          <div
-            ref={emailContentRef}
-            className="email-content"
-            dangerouslySetInnerHTML={{ __html: email.body || 'No content' }}
-          />
+            <div className="prose prose-sm max-w-none text-gray-800 leading-relaxed">
+              {/* In a real app we'd handle HTML/Sanitization */}
+              <div
+                ref={emailContentRef}
+                className="email-content"
+                dangerouslySetInnerHTML={{ __html: email.body || 'No content' }}
+              />
+            </div>
+          </div>
         </div>
       </div>
 
