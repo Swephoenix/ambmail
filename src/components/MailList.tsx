@@ -143,7 +143,7 @@ export default function MailList({
   };
 
   return (
-    <div className="w-72 md:w-80 flex flex-col h-full border-r border-gray-200 bg-white">
+    <div className="w-72 md:w-80 lg:w-[360px] xl:w-[400px] flex flex-col h-full border-r border-gray-200 bg-white">
       <div className="p-3 border-b border-gray-200 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <h2 className="text-lg font-bold capitalize">{folderName.toLowerCase()}</h2>
@@ -372,24 +372,40 @@ export default function MailList({
                         <Square size={16} className="text-gray-400" />
                       )}
                     </button>
-                    <button
+                    <div
                       onClick={() => onEmailSelect(email.uid)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          onEmailSelect(email.uid);
+                        }
+                      }}
+                      role="button"
+                      tabIndex={0}
                       className="flex-1 text-left"
                     >
-                      <div className="grid grid-cols-[minmax(0,1fr)_140px] gap-3 items-start">
+                      <div className="grid grid-cols-[minmax(0,1fr)_92px] gap-1.5 items-start">
                         <div className="min-w-0">
                           <div className="flex items-start mb-1 gap-2">
                             {!isRead && (
                               <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0 mt-1" />
                             )}
-                            <span className={`text-xs truncate pr-2 ${isRead ? 'text-gray-600' : 'font-bold text-gray-900'}`}>
+                            <span className={`text-[11px] truncate pr-2 ${isRead ? 'text-gray-600' : 'font-bold text-gray-900'}`}>
                               {email.from}
                             </span>
                           </div>
-                          <div className={`text-xs truncate ${isRead ? 'text-gray-700' : 'font-bold text-gray-900'}`}>
+                          <div className={`text-[11px] whitespace-normal break-words ${isRead ? 'text-gray-700' : 'font-bold text-gray-900'}`}>
                             {email.subject}
                           </div>
-                          <div className="text-[10px] text-gray-500 truncate mt-1">
+                          <div
+                            className="text-[9px] text-gray-500 mt-1"
+                            style={{
+                              display: '-webkit-box',
+                              WebkitLineClamp: 4,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                            }}
+                          >
                             {email.preview || 'No content'}
                           </div>
                           {appliedLabels.length > 0 && (
@@ -417,7 +433,7 @@ export default function MailList({
                           )}
                         </div>
                         <div className="flex flex-col items-end gap-1 text-right">
-                          <div className="text-[10px] text-gray-600 whitespace-nowrap font-medium">
+                          <div className="text-[9px] text-gray-600 whitespace-nowrap font-medium">
                             {formatTimestamp(email.date)}
                           </div>
                           <div className="flex items-center -space-x-0.5">
@@ -529,7 +545,7 @@ export default function MailList({
                           </div>
                         </div>
                       </div>
-                    </button>
+                    </div>
                   </div>
                 </div>
               );

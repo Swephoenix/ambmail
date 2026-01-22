@@ -120,8 +120,8 @@ export async function GET(req: Request) {
     const bodyText = parsed.text || null;
     const body = bodyHtml || bodyText || '';
     const preview = bodyText
-      ? bodyText.trim().substring(0, 100).replace(/\s+/g, ' ')
-      : body.replace(/<[^>]*>?/gm, ' ').trim().substring(0, 100).replace(/\s+/g, ' ');
+      ? bodyText.trim().substring(0, 280).replace(/\s+/g, ' ')
+      : body.replace(/<[^>]*>?/gm, ' ').trim().substring(0, 280).replace(/\s+/g, ' ');
 
     const attachmentsMeta = parsed.attachments.map((attachment) => ({
       filename: attachment.filename || 'attachment',

@@ -373,7 +373,7 @@ export async function fetchEmails(connection: ImapSimple, folder = 'INBOX', limi
       try {
         const parsed = await simpleParser(bodyPart.body);
         const plainText = parsed.text || (parsed.html ? parsed.html.replace(/<[^>]*>?/gm, ' ') : '');
-        preview = plainText.trim().substring(0, 100).replace(/\s+/g, ' ');
+        preview = plainText.trim().substring(0, 280).replace(/\s+/g, ' ');
       } catch (e) {
         preview = 'Preview unavailable';
       }

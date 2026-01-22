@@ -451,7 +451,7 @@ export default function MailView({
           </div>
         )}
 
-        <div className="prose max-w-none text-gray-800 leading-relaxed">
+        <div className="prose prose-sm max-w-none text-gray-800 leading-relaxed">
           {/* In a real app we'd handle HTML/Sanitization */}
           <div
             ref={emailContentRef}
