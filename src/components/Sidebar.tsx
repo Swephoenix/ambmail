@@ -76,8 +76,8 @@ export default function Sidebar({ accounts, activeAccountId, activeFolder, onSel
     >
       {/* Header / Logo */}
       <div className={cn(
-        "flex items-center justify-center border-b border-gray-100 bg-white min-h-[73px] transition-all relative overflow-hidden",
-        isCollapsed ? "p-2" : "p-4"
+        "flex items-center justify-center border-b border-gray-100 bg-white h-14 transition-all relative overflow-hidden",
+        isCollapsed ? "px-2" : "px-4"
       )}>
         <div className="relative w-full h-10 flex items-center justify-center">
           {/* Large Logo */}
