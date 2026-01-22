@@ -255,7 +255,7 @@ export default function MailView({
 
   return (
     <div className="flex-1 flex flex-col h-full bg-white overflow-hidden">
-      <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+      <div className="h-14 px-3 border-b border-gray-200 flex items-center justify-between">
         <div className="flex flex-wrap gap-2">
           <button
             onClick={() => onReply(email)}

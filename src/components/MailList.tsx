@@ -144,7 +144,7 @@ export default function MailList({
 
   return (
     <div className="w-72 md:w-80 lg:w-[360px] xl:w-[400px] flex flex-col h-full border-r border-gray-200 bg-white">
-      <div className="p-3 border-b border-gray-200 flex items-center justify-between">
+      <div className="h-14 px-3 border-b border-gray-200 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <h2 className="text-lg font-bold capitalize">{folderName.toLowerCase()}</h2>
           {selectedEmails.length > 0 && (
