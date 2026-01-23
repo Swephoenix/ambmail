@@ -29,6 +29,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+uxmail.log
 
 # env files (can opt-in for committing if needed)
 .env*
@@ -39,6 +40,12 @@ yarn-error.log*
 
 # generated secrets
 .uxmail.secrets
+
+# local artifacts
+frontend_analysis.txt
+demo.csv
+signature_html.html
+prisma/seed.js
 
 # database files
 *.db
