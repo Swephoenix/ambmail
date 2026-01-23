@@ -10,6 +10,7 @@ const AddAccountModal = lazy(() => import('@/components/AddAccountModal'));
 const ComposeEmail = lazy(() => import('@/components/ComposeEmail'));
 const SignatureModal = lazy(() => import('@/components/SignatureModal'));
 const ManageAccountsModal = lazy(() => import('@/components/ManageAccountsModal'));
+const CalendarModal = lazy(() => import('@/components/CalendarModal'));
 import toast from 'react-hot-toast';
 import { PenSquare } from 'lucide-react';
 import Image from 'next/image';
@@ -110,6 +111,7 @@ export default function Home() {
     signature: string;
     senderName: string;
   } | null>(null);
+  const [showCalendar, setShowCalendar] = useState(false);
 
   // Cache for accounts to avoid unnecessary API calls
   const [accountsCache, setAccountsCache] = useState<{data: Account[], timestamp: number} | null>(null);
@@ -1142,6 +1144,7 @@ export default function Home() {
         onAddAccount={() => setShowAddModal(true)}
         onSettings={() => setShowManageAccounts(true)}
         onEditSignature={handleEditSignature}
+        onOpenCalendar={() => setShowCalendar(true)}
         onLogout={handleLogout}
         currentUserName={currentUser?.name || currentUser?.username}
         storageUsage={storageUsage || undefined}
@@ -1714,6 +1717,12 @@ export default function Home() {
             }}
             onDelete={handleDeleteAccount}
           />
+        </Suspense>
+      )}
+
+      {showCalendar && (
+        <Suspense fallback={null}>
+          <CalendarModal onClose={() => setShowCalendar(false)} />
         </Suspense>
       )}
     </main>

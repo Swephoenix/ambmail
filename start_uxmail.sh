@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
-AUTO_INSTALL="${UXMAIL_AUTO_INSTALL:-1}"
+AUTO_INSTALL="${UXMAIL_AUTO_INSTALL:-0}"
 STEP_NUM=0
 
 log_step() {
@@ -52,7 +52,7 @@ version_major() {
 }
 
 ensure_prisma_latest() {
-  local update_flag="${UXMAIL_PRISMA_UPDATE:-1}"
+  local update_flag="${UXMAIL_PRISMA_UPDATE:-0}"
   if [ "$update_flag" != "1" ] && [ "$update_flag" != "true" ]; then
     return 0
   fi
@@ -163,8 +163,25 @@ set -a
 source ./.env
 set +a
 
+should_install_deps() {
+  if [ ! -d node_modules ]; then
+    return 0
+  fi
+  if [ ! -f package-lock.json ]; then
+    return 1
+  fi
+  if [ package-lock.json -nt node_modules ]; then
+    return 0
+  fi
+  return 1
+}
+
 log_step "Installing npm dependencies"
-npm install
+if should_install_deps; then
+  npm install
+else
+  echo "Dependencies already installed; skipping npm install."
+fi
 ensure_prisma_latest
 ensure_node_packages @prisma/adapter-pg pg
 ensure_node_dev_packages @types/pg
@@ -175,7 +192,8 @@ RESET_DB_DONE="0"
 if [ -x ./node_modules/.bin/prisma ]; then
   PRISMA_CMD=("./node_modules/.bin/prisma")
 else
-  PRISMA_CMD=(npx -y prisma@latest)
+  echo "Prisma CLI not found in node_modules. Run npm install."
+  exit 1
 fi
 
 run_prisma() {

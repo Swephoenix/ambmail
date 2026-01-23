@@ -30,6 +30,7 @@ model User {
   prefetchStatus PrefetchStatus?
   addressBooks AddressBookUser[]
   labels       Label[]
+  calendarEvents CalendarEvent[]
 }
 
 model AddressBook {
@@ -160,6 +161,22 @@ model Label {
 
   @@unique([userId, name], name: "userId_label_name")
   @@index([userId])
+}
+
+model CalendarEvent {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  location  String?
+  startAt   DateTime
+  endAt     DateTime
+  color     String   @default("emerald")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startAt])
 }
 
 model PrefetchStatus {
