@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, Send, Maximize2, Minimize2, ExternalLink, Paperclip, Code } from 'lucide-react';
+import { X, Send, Maximize2, Minimize2, ExternalLink, Paperclip, Code, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
 import TiptapEditor from './TiptapEditor';
 import EmailInput from './EmailInput';
@@ -173,6 +173,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
   const [isUploading, setIsUploading] = useState(false);
   const insertContentRef = useRef<(html: string, insertPos?: number) => void>();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const csvInputRef = useRef<HTMLInputElement | null>(null);
   const attachmentsRef = useRef(attachments);
 
   // State for tracking input value separately from the email list
@@ -273,6 +274,34 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
       toast.error(error.message || 'Failed to upload files');
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const extractEmailsFromText = (text: string) => {
+    const matches = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi) || [];
+    return matches.map((email) => email.trim());
+  };
+
+  const handleCsvSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const emails = extractEmailsFromText(text);
+      if (emails.length === 0) {
+        toast.error('Inga giltiga e-postadresser hittades i CSV.');
+        return;
+      }
+      const merged = Array.from(new Set([...to, ...emails]));
+      setTo(merged);
+      toast.success(`${emails.length} adresser importerade från CSV`);
+    } catch (error) {
+      console.error('Failed to import CSV:', error);
+      toast.error('Kunde inte läsa CSV-filen.');
+    } finally {
+      if (e.target) {
+        e.target.value = '';
+      }
     }
   };
 
@@ -702,7 +731,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
             <div className="relative border-b border-gray-100 pb-4">
               <div className="flex items-center">
                 <span className="text-gray-500 w-16 text-sm font-medium pt-1">To:</span>
-                <div className="flex-1 ml-3">
+                <div className="flex-1 ml-3 flex items-center gap-2">
                   <EmailInput
                     value={to}
                     onChange={setTo}
@@ -710,6 +739,26 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
                     inputValue={inputValue}
                     onInputChange={setInputValue}
                     onKeyDown={handleSuggestionKeyDown}
+                    className={to.length > 3 ? "max-h-24 overflow-y-auto pr-1 items-start" : undefined}
+                  />
+                  <div className="flex flex-col items-start">
+                    <button
+                      type="button"
+                      className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-50 transition-colors"
+                      onClick={() => csvInputRef.current?.click()}
+                      title="Importera adresser från CSV"
+                    >
+                      <Upload size={16} />
+                      Importera CSV
+                    </button>
+                    <span className="mt-1 text-xs text-gray-500">{to.length} adresser</span>
+                  </div>
+                  <input
+                    ref={csvInputRef}
+                    type="file"
+                    accept=".csv,text/csv"
+                    className="hidden"
+                    onChange={handleCsvSelect}
                   />
                 </div>
               </div>

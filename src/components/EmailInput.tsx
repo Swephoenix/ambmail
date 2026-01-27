@@ -177,6 +177,7 @@ export default function EmailInput({ value, onChange, placeholder, className, on
           className="flex items-center gap-1 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm"
         >
           <span>{email}</span>
+          <span className="text-[10px] text-blue-500 translate-y-1 select-none">#{index + 1}</span>
           <button
             type="button"
             onClick={(e) => {
