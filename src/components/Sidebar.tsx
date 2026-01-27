@@ -3,7 +3,7 @@
 import {
   Settings, Plus, Check,
   Inbox, Send, File, Archive, Trash2, AlertCircle,
-  ChevronDown, ChevronRight, User, FileSignature, LogOut, CalendarDays
+  ChevronDown, ChevronRight, ChevronLeft, User, FileSignature, LogOut, CalendarDays
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -44,7 +44,7 @@ export default function Sidebar({ accounts, activeAccountId, activeFolder, onSel
   const [expandedAccounts, setExpandedAccounts] = useState<Record<string, boolean>>(
     accounts.reduce((acc, curr) => ({ ...acc, [curr.id]: true }), {})
   );
-  const [isCollapsed, setIsCollapsed] = useState(true);
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const toggleAccount = (id: string) => {
     setExpandedAccounts(prev => ({ ...prev, [id]: !prev[id] }));
@@ -72,8 +72,6 @@ export default function Sidebar({ accounts, activeAccountId, activeFolder, onSel
         "flex flex-col h-full bg-gray-50 border-r border-gray-200 text-gray-900 flex-shrink-0 transition-all duration-300 relative",
         isCollapsed ? "w-20" : "w-64"
       )}
-      onMouseEnter={() => setIsCollapsed(false)}
-      onMouseLeave={() => setIsCollapsed(true)}
     >
       {/* Header / Logo */}
       <div className={cn(
@@ -111,6 +109,16 @@ export default function Sidebar({ accounts, activeAccountId, activeFolder, onSel
             />
           </div>
         </div>
+        <button
+          onClick={() => setIsCollapsed(prev => !prev)}
+          className={cn(
+            "absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-md border border-gray-200 bg-white text-gray-500 hover:text-gray-900 hover:bg-gray-50 flex items-center justify-center transition-colors",
+            isCollapsed && "right-1"
+          )}
+          title={isCollapsed ? "Fäll ut menyn" : "Fäll ihop menyn"}
+        >
+          {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+        </button>
       </div>
 
       {/* Account List (Tree) */}
@@ -120,21 +128,16 @@ export default function Sidebar({ accounts, activeAccountId, activeFolder, onSel
           const isActiveAccount = activeAccountId === account.id;
 
           return (
-            <div key={account.id} className="select-none">
+            <div key={account.id} className="select-none relative">
               {/* Account Header */}
               <button
                 onClick={() => toggleAccount(account.id)}
                 className={cn(
-                  "w-full flex items-center gap-2 py-1.5 hover:bg-gray-200/50 rounded-lg transition-colors text-left group",
-                  isCollapsed ? "justify-center px-0" : "px-2"
+                  "w-full flex items-center gap-2 py-1.5 hover:bg-gray-200/50 rounded-lg transition-colors text-left group pl-2",
+                  isCollapsed ? "justify-start px-2" : "px-2"
                 )}
                 title={account.email}
               >
-                {!isCollapsed && (
-                  <span className="text-gray-400 group-hover:text-gray-600">
-                    {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                  </span>
-                )}
                 <div className="w-6 h-6 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold border border-blue-200 flex-shrink-0">
                   {account.name?.[0] || account.email[0]}
                 </div>
@@ -143,13 +146,18 @@ export default function Sidebar({ accounts, activeAccountId, activeFolder, onSel
                     {account.name || account.email.split('@')[0]}
                   </span>
                 )}
+                {!isCollapsed && (
+                  <span className="text-gray-400 group-hover:text-gray-600 ml-auto">
+                    {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  </span>
+                )}
               </button>
 
               {/* Account Folders */}
               {isExpanded && (
                 <div className={cn(
-                  "mt-1 space-y-0.5",
-                  !isCollapsed && "ml-6 pl-2 border-l border-gray-200"
+                  "mt-1 space-y-0.5 relative",
+                  !isCollapsed && "ml-0 pl-0"
                 )}>
                   {folders.map((folder) => {
                     const isActive = isActiveAccount && activeFolder === folder.id;
@@ -165,12 +173,12 @@ export default function Sidebar({ accounts, activeAccountId, activeFolder, onSel
                           onClick={() => onSelect(account.id, folder.id)}
                           title={isCollapsed ? folder.name : undefined}
                           className={cn(
-                            "w-full flex items-center gap-2.5 py-1.5 rounded-md text-sm transition-all duration-200",
+                            "w-full flex items-center gap-2.5 py-1.5 rounded-md text-[12px] transition-all duration-200",
                             isBranch && !isCollapsed ? "ml-4 w-[calc(100%-1rem)]" : "",
                             isActive
                               ? "bg-blue-100 text-blue-700 font-medium"
                               : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
-                            isCollapsed ? "justify-center px-0" : "px-3"
+                            isCollapsed ? "justify-start px-2" : "px-3"
                           )}
                         >
                           <Icon size={16} className={isActive ? "text-blue-600" : "text-gray-400"} />
@@ -184,22 +192,22 @@ export default function Sidebar({ accounts, activeAccountId, activeFolder, onSel
                             <button
                               onClick={() => onEditSignature(account.id, account.signature || '')}
                               title={isCollapsed ? "Signatur" : undefined}
-                              className={cn(
-                                "w-full flex items-center gap-2.5 py-1.5 rounded-md text-sm transition-all duration-200 text-gray-600 hover:bg-gray-100 hover:text-gray-900",
-                                isCollapsed ? "justify-center px-0 mt-1" : "px-3"
-                              )}
-                            >
+                            className={cn(
+                              "w-full flex items-center gap-2.5 py-1.5 rounded-md text-sm transition-all duration-200 text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+                              isCollapsed ? "justify-start px-2 mt-1" : "px-3"
+                            )}
+                          >
                               <FileSignature size={16} className="text-gray-400" />
                               {!isCollapsed && <span>Signatur</span>}
                             </button>
                             <button
                               onClick={() => alert('Adressbok för detta konto kommer snart!')}
                               title={isCollapsed ? "Adressbok" : undefined}
-                              className={cn(
-                                "w-full flex items-center gap-2.5 py-1.5 rounded-md text-sm transition-all duration-200 text-gray-600 hover:bg-gray-100 hover:text-gray-900",
-                                isCollapsed ? "justify-center px-0" : "px-3"
-                              )}
-                            >
+                            className={cn(
+                              "w-full flex items-center gap-2.5 py-1.5 rounded-md text-sm transition-all duration-200 text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+                              isCollapsed ? "justify-start px-2" : "px-3"
+                            )}
+                          >
                               <User size={16} className="text-gray-400" />
                               {!isCollapsed && <span>Adressbok</span>}
                             </button>
