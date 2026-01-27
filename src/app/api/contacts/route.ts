@@ -14,8 +14,8 @@ export async function GET(req: Request) {
     where: {
       userId: user.id,
       OR: [
-        { email: { contains: q } },
-        { name: { contains: q } },
+        { email: { contains: q, mode: 'insensitive' } },
+        { name: { contains: q, mode: 'insensitive' } },
       ],
     },
     take: 10,

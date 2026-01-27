@@ -161,6 +161,8 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
   const [isSignatureInserted, setIsSignatureInserted] = useState(false);
   const [showHtmlImport, setShowHtmlImport] = useState(false);
   const [htmlDraft, setHtmlDraft] = useState('');
+  const [showCsvExport, setShowCsvExport] = useState(false);
+  const [csvExportName, setCsvExportName] = useState('uxmail_mejllista');
   const [attachments, setAttachments] = useState<Array<{
     token: string;
     name: string;
@@ -303,6 +305,36 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
         e.target.value = '';
       }
     }
+  };
+
+  const handleCsvExport = (name?: string) => {
+    if (to.length === 0) {
+      toast.error('Inga adresser att exportera.');
+      return;
+    }
+    const baseName = (name || 'uxmail_mejllista').trim() || 'uxmail_mejllista';
+    const safeName = baseName.replace(/[^\w\-]+/g, '_');
+    const header = 'email';
+    const rows = to.map((email) => email.replace(/"/g, '""'));
+    const csv = [header, ...rows].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${safeName}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const openCsvExport = () => {
+    if (to.length === 0) {
+      toast.error('Inga adresser att exportera.');
+      return;
+    }
+    setCsvExportName('uxmail_mejllista');
+    setShowCsvExport(true);
   };
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -742,15 +774,25 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
                     className={to.length > 3 ? "max-h-24 overflow-y-auto pr-1 items-start" : undefined}
                   />
                   <div className="flex flex-col items-start">
-                    <button
-                      type="button"
-                      className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-50 transition-colors"
-                      onClick={() => csvInputRef.current?.click()}
-                      title="Importera adresser från CSV"
-                    >
-                      <Upload size={16} />
-                      Importera CSV
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-50 transition-colors"
+                        onClick={() => csvInputRef.current?.click()}
+                        title="Importera adresser från CSV"
+                      >
+                        <Upload size={16} />
+                        Importera CSV
+                      </button>
+                      <button
+                        type="button"
+                        className="flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-50 transition-colors"
+                        onClick={openCsvExport}
+                        title="Exportera mejllista som CSV"
+                      >
+                        Exportera mejllista som CSV
+                      </button>
+                    </div>
                     <span className="mt-1 text-xs text-gray-500">{to.length} adresser</span>
                   </div>
                   <input
@@ -929,6 +971,57 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
                     onClick={applyHtmlImport}
                   >
                     Skapa mejl
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+          {showCsvExport && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center">
+              <button
+                type="button"
+                className="absolute inset-0 bg-black/40"
+                onClick={() => setShowCsvExport(false)}
+                aria-label="Close CSV export"
+              />
+              <div className="relative w-full max-w-lg mx-4 rounded-xl bg-white shadow-2xl border border-gray-200 p-5">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-lg font-semibold text-gray-900">Exportera mejllista</h4>
+                  <button
+                    type="button"
+                    className="text-gray-500 hover:text-gray-700"
+                    onClick={() => setShowCsvExport(false)}
+                    aria-label="Close"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+                <p className="text-sm text-gray-600 mt-1">
+                  Ange ett namn på listan (lämna tomt för standard).
+                </p>
+                <input
+                  value={csvExportName}
+                  onChange={(e) => setCsvExportName(e.target.value)}
+                  className="mt-3 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="uxmail_mejllista"
+                />
+                <div className="mt-4 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    className="px-4 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                    onClick={() => setShowCsvExport(false)}
+                  >
+                    Avbryt
+                  </button>
+                  <button
+                    type="button"
+                    className="px-4 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                    onClick={() => {
+                      handleCsvExport(csvExportName);
+                      setShowCsvExport(false);
+                    }}
+                  >
+                    Exportera
                   </button>
                 </div>
               </div>
