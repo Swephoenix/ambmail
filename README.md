@@ -52,6 +52,16 @@ Beteende:
 - `UXMAIL_SETUP_DB=1|0` (standard: 1)
 - `ADMIN_AUTO_LOGIN=1|0` (auto-login bara for admin-dashboarden via `/api/auth/me?admin=1`)
 
+## Nextcloud
+
+Uxmail kan kopplas till Nextcloud via OAuth2 for att lista filer, bifoga dem eller skapa delningslankar direkt fran compose-fonstret.
+
+Krav:
+- Nextcloud OAuth2 app aktiverad
+- `NC_BASE_URL`, `NC_PUBLIC_URL`, `NC_OAUTH_DATA_PATH` och `UXMAIL_PUBLIC_URL` satta i `.env`
+
+Se `NEXTCLOUD.md` for fulla detaljer om flodet och endpoints.
+
 ## Admin
 
 - Admin-UI finns pa `/admin` och anvander `Uxmail_admin/Uxmail_admin.html`.
