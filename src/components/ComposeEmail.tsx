@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, Send, Maximize2, Minimize2, ExternalLink, Paperclip, Code, Upload } from 'lucide-react';
+import { X, Send, Maximize2, Minimize2, ExternalLink, Paperclip, Code, Upload, Cloud, Link2, Download } from 'lucide-react';
 import toast from 'react-hot-toast';
 import TiptapEditor from './TiptapEditor';
 import EmailInput from './EmailInput';
@@ -163,6 +163,13 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
   const [htmlDraft, setHtmlDraft] = useState('');
   const [showCsvExport, setShowCsvExport] = useState(false);
   const [csvExportName, setCsvExportName] = useState('uxmail_mejllista');
+  const [showNextcloud, setShowNextcloud] = useState(false);
+  const [ncPath, setNcPath] = useState('');
+  const [ncFiles, setNcFiles] = useState<Array<{ path: string; name: string; isDir: boolean; size: number | null }>>([]);
+  const [ncLoading, setNcLoading] = useState(false);
+  const [ncError, setNcError] = useState<string | null>(null);
+  const [ncConnected, setNcConnected] = useState(false);
+  const [ncAction, setNcAction] = useState<string | null>(null);
   const [attachments, setAttachments] = useState<Array<{
     token: string;
     name: string;
@@ -671,6 +678,116 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
     onClose(windowId);
   };
 
+  const formatSize = (size?: number | null) => {
+    if (!size || size <= 0) return '';
+    if (size < 1024) return `${size} B`;
+    if (size < 1024 * 1024) return `${Math.round(size / 1024)} KB`;
+    return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const openNextcloudModal = async () => {
+    setShowNextcloud(true);
+    setNcError(null);
+    setNcLoading(true);
+    try {
+      const statusRes = await fetch('/api/nextcloud/status');
+      const status = await statusRes.json();
+      if (!statusRes.ok || !status.connected) {
+        setNcConnected(false);
+        setNcFiles([]);
+        setNcPath('');
+        return;
+      }
+      setNcConnected(true);
+      const listRes = await fetch(`/api/nextcloud/files?path=${encodeURIComponent('')}`);
+      const list = await listRes.json();
+      if (!listRes.ok) {
+        throw new Error(list.error || 'Kunde inte läsa filer');
+      }
+      setNcPath(list.path || '');
+      setNcFiles(list.entries || []);
+    } catch (error: any) {
+      setNcError(error.message || 'Kunde inte ansluta till Nextcloud');
+    } finally {
+      setNcLoading(false);
+    }
+  };
+
+  const loadNextcloudPath = async (pathValue: string) => {
+    setNcLoading(true);
+    setNcError(null);
+    try {
+      const res = await fetch(`/api/nextcloud/files?path=${encodeURIComponent(pathValue)}`);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Kunde inte läsa filer');
+      }
+      setNcPath(data.path || '');
+      setNcFiles(data.entries || []);
+    } catch (error: any) {
+      setNcError(error.message || 'Kunde inte läsa filer');
+    } finally {
+      setNcLoading(false);
+    }
+  };
+
+  const handleNextcloudAttach = async (filePath: string) => {
+    setNcAction(filePath);
+    try {
+      const res = await fetch('/api/nextcloud/download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: filePath }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Kunde inte hämta filen');
+      }
+      setAttachments((prev) => [
+        ...prev,
+        {
+          token: data.token,
+          name: data.name,
+          size: data.size,
+          type: data.type || 'application/octet-stream',
+          inline: false,
+        },
+      ]);
+      toast.success('Fil bifogad');
+    } catch (error: any) {
+      toast.error(error.message || 'Kunde inte bifoga filen');
+    } finally {
+      setNcAction(null);
+    }
+  };
+
+  const handleNextcloudLink = async (filePath: string) => {
+    setNcAction(filePath);
+    try {
+      const res = await fetch('/api/nextcloud/share', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: filePath }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Kunde inte skapa länk');
+      }
+      const label = filePath.split('/').filter(Boolean).pop() || 'Nextcloud-fil';
+      const linkHtml = `<p><a href="${data.url}">${label}</a></p>`;
+      if (insertContentRef.current) {
+        insertContentRef.current(linkHtml);
+      } else {
+        setBody((prev) => `${prev || ''}${linkHtml}`);
+      }
+      toast.success('Länk infogad');
+    } catch (error: any) {
+      toast.error(error.message || 'Kunde inte skapa länk');
+    } finally {
+      setNcAction(null);
+    }
+  };
+
   const containerClasses = mode === 'modal'
     ? cn(
         "fixed bg-white shadow-2xl border border-gray-200 flex flex-col z-50 overflow-hidden transition-all duration-300 ease-in-out",
@@ -852,6 +969,14 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
                   <Code size={16} />
                   Importera HTML
                 </button>
+                <button
+                  type="button"
+                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800"
+                  onClick={openNextcloudModal}
+                >
+                  <Cloud size={16} />
+                  Nextcloud
+                </button>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -1024,6 +1149,114 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
                     Exportera
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+          {showNextcloud && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center">
+              <button
+                type="button"
+                className="absolute inset-0 bg-black/40"
+                onClick={() => setShowNextcloud(false)}
+                aria-label="Close Nextcloud"
+              />
+              <div className="relative w-full max-w-3xl mx-4 rounded-xl bg-white shadow-2xl border border-gray-200 p-5">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-900">Nextcloud</h4>
+                    <p className="text-sm text-gray-500">Välj filer att bifoga eller länka.</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="text-gray-500 hover:text-gray-700"
+                    onClick={() => setShowNextcloud(false)}
+                    aria-label="Close"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+                {!ncConnected ? (
+                  <div className="mt-6 rounded-lg border border-dashed border-gray-300 p-4 text-center">
+                    <p className="text-sm text-gray-600">Du behöver logga in till Nextcloud för att se dina filer.</p>
+                    <a
+                      href="/api/nextcloud/auth/start"
+                      className="inline-flex items-center gap-2 mt-3 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700"
+                    >
+                      <Cloud size={16} />
+                      Anslut Nextcloud
+                    </a>
+                  </div>
+                ) : (
+                  <>
+                    <div className="mt-4 flex items-center justify-between">
+                      <div className="text-sm text-gray-500">
+                        Mapp: /{ncPath || ''}
+                      </div>
+                      {ncPath && (
+                        <button
+                          type="button"
+                          className="text-sm text-blue-600 hover:text-blue-800"
+                          onClick={() => {
+                            const parent = ncPath.replace(/\/?[^/]+\/?$/, '');
+                            loadNextcloudPath(parent);
+                          }}
+                        >
+                          ⬅ Upp en nivå
+                        </button>
+                      )}
+                    </div>
+                    {ncError && <p className="mt-2 text-sm text-red-600">{ncError}</p>}
+                    <div className="mt-3 border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-72 overflow-y-auto">
+                      {ncLoading ? (
+                        <div className="p-4 text-sm text-gray-500">Laddar…</div>
+                      ) : ncFiles.length === 0 ? (
+                        <div className="p-4 text-sm text-gray-500">Inga filer hittades.</div>
+                      ) : (
+                        ncFiles.map((item) => (
+                          <div key={item.path} className="flex items-center justify-between p-3">
+                            <button
+                              type="button"
+                              className={`flex items-center gap-2 text-sm ${item.isDir ? 'text-blue-700' : 'text-gray-800'} hover:underline`}
+                              onClick={() => {
+                                if (item.isDir) {
+                                  loadNextcloudPath(item.path);
+                                }
+                              }}
+                            >
+                              <span>{item.isDir ? '📁' : '📄'}</span>
+                              <span className="truncate">{item.name || item.path}</span>
+                              {!item.isDir && item.size ? (
+                                <span className="text-xs text-gray-400">{formatSize(item.size)}</span>
+                              ) : null}
+                            </button>
+                            {!item.isDir && (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  className="inline-flex items-center gap-1 text-xs text-gray-600 hover:text-gray-800"
+                                  onClick={() => handleNextcloudAttach(item.path)}
+                                  disabled={ncAction === item.path}
+                                >
+                                  <Download size={14} />
+                                  {ncAction === item.path ? 'Bifogar…' : 'Bifoga'}
+                                </button>
+                                <button
+                                  type="button"
+                                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+                                  onClick={() => handleNextcloudLink(item.path)}
+                                  disabled={ncAction === item.path}
+                                >
+                                  <Link2 size={14} />
+                                  {ncAction === item.path ? 'Skapar…' : 'Skapa länk'}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )}
