@@ -31,6 +31,7 @@ model User {
   addressBooks AddressBookUser[]
   labels       Label[]
   calendarEvents CalendarEvent[]
+  nextcloudToken NextcloudToken?
 }
 
 model AddressBook {
