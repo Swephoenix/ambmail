@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { createPrismaClient } from '../src/lib/prisma-client';
 import type { MailAccount } from '../src/lib/mail-service';
 import { fetchEmails, getImapConnection } from '../src/lib/mail-service';
@@ -10,11 +11,21 @@ type ImapConnection = Awaited<ReturnType<typeof getImapConnection>>;
 const DEFAULT_INTERVAL_MS = 5 * 60 * 1000;
 const DEFAULT_FETCH_LIMIT = Number.MAX_SAFE_INTEGER;
 
+type MailboxNode = {
+  delimiter?: string;
+  children?: unknown;
+};
+
 function extractFolders(boxList: unknown, parentKey = ''): string[] {
+  if (!boxList || typeof boxList !== 'object') return [];
+
+  const mailboxMap = boxList as Record<string, unknown>;
   const folders: string[] = [];
-  for (const key of Object.keys(boxList)) {
-    const box = boxList[key];
-    const fullPath = parentKey ? `${parentKey}${box.delimiter}${key}` : key;
+  for (const [key, rawBox] of Object.entries(mailboxMap)) {
+    if (!rawBox || typeof rawBox !== 'object') continue;
+    const box = rawBox as MailboxNode;
+    const delimiter = typeof box.delimiter === 'string' ? box.delimiter : '.';
+    const fullPath = parentKey ? `${parentKey}${delimiter}${key}` : key;
     folders.push(fullPath);
     if (box.children) {
       folders.push(...extractFolders(box.children, fullPath));

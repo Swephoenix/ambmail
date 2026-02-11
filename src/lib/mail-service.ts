@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import imaps from 'imap-simple';
 import type { ImapSimple, ImapSimpleOptions } from 'imap-simple';
 import { simpleParser } from 'mailparser';
@@ -65,7 +66,7 @@ export async function getSmtpTransporter(account: MailAccount) {
       rejectUnauthorized: true,
       minVersion: 'TLSv1.2'
     }
-  } as unknown); // Use any to bypass strict type checking for this simple implementation
+  } as any); // Use any to bypass strict type checking for this simple implementation
 }
 
 export async function openMailbox(connection: ImapSimple, folder: string) {
@@ -91,7 +92,7 @@ export async function getDraftsFolder(connection: ImapSimple) {
   // Try to find a folder with the \Drafts attribute
   const boxes = await connection.getBoxes();
   
-  const findDraftsRecursive = (boxList: unknown, parentKey = ''): string | null => {
+  const findDraftsRecursive = (boxList: any, parentKey = ''): string | null => {
     for (const key of Object.keys(boxList)) {
       const box = boxList[key];
       const fullPath = parentKey ? `${parentKey}${box.delimiter}${key}` : key;
@@ -122,7 +123,7 @@ export async function appendDraft(connection: ImapSimple, rawEmail: string) {
 export async function getSentFolder(connection: ImapSimple) {
   const boxes = await connection.getBoxes();
 
-  const findSentRecursive = (boxList: unknown, parentKey = ''): string | null => {
+  const findSentRecursive = (boxList: any, parentKey = ''): string | null => {
     for (const key of Object.keys(boxList)) {
       const box = boxList[key];
       const fullPath = parentKey ? `${parentKey}${box.delimiter}${key}` : key;
@@ -149,7 +150,7 @@ export async function appendSent(connection: ImapSimple, rawEmail: string) {
   return sentFolder;
 }
 
-function extractFolderPaths(boxList: unknown, parentKey = ''): string[] {
+function extractFolderPaths(boxList: any, parentKey = ''): string[] {
   const folders: string[] = [];
   for (const key of Object.keys(boxList || {})) {
     const box = boxList[key];
@@ -165,7 +166,7 @@ function extractFolderPaths(boxList: unknown, parentKey = ''): string[] {
 export async function getTrashFolder(connection: ImapSimple) {
   const boxes = await connection.getBoxes();
 
-  const findTrashRecursive = (boxList: unknown, parentKey = ''): string | null => {
+  const findTrashRecursive = (boxList: any, parentKey = ''): string | null => {
     for (const key of Object.keys(boxList)) {
       const box = boxList[key];
       const fullPath = parentKey ? `${parentKey}${box.delimiter}${key}` : key;
@@ -266,7 +267,7 @@ export async function fetchEmails(connection: ImapSimple, folder = 'INBOX', limi
           console.log('Header body is an object with keys:', Object.keys(headerBody));
 
           // Try to extract the headers from the object
-          const headerObj: unknown = headerBody;
+          const headerObj: any = headerBody;
 
           // Extract subject
           if (headerObj.subject && Array.isArray(headerObj.subject) && headerObj.subject.length > 0) {
@@ -350,14 +351,14 @@ export async function fetchEmails(connection: ImapSimple, folder = 'INBOX', limi
     if (subject === 'No Subject' || from === 'Unknown') {
       console.log('Using fallback - envelope data');
       // Use type assertion to access envelope data
-      const attrs: unknown = item.attributes;
+      const attrs: any = item.attributes;
       console.log('Item attributes envelope:', attrs?.envelope);
       if (attrs && attrs.envelope) { // Use envelope from attributes if available
         if (subject === 'No Subject' && attrs.envelope.subject) {
           subject = attrs.envelope.subject;
         }
         if (from === 'Unknown' && attrs.envelope.from && attrs.envelope.from.length > 0) {
-          from = attrs.envelope.from.map((addr: unknown) =>
+          from = attrs.envelope.from.map((addr: any) =>
             addr.name ? `${addr.name} <${addr.address}>` : addr.address
           ).join(', ');
         }
@@ -435,7 +436,7 @@ function parseHeaders(headerText: string): Record<string, string> {
 
 
 // Function to group emails into conversations
-export function groupEmailsIntoConversations(emails: unknown[]): unknown[] {
+export function groupEmailsIntoConversations(emails: any[]): any[] {
   // Create a map of message IDs to emails for quick lookup
   const emailMap = new Map();
   emails.forEach(email => {
@@ -460,11 +461,11 @@ export function groupEmailsIntoConversations(emails: unknown[]): unknown[] {
 
   // Sort each conversation by date (oldest first)
   const conversations = Array.from(conversationMap.values()).map(conversation => {
-    return conversation.sort((a: unknown, b: unknown) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    return conversation.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
   });
 
   // Sort conversations by the date of the latest email in each conversation
-  return conversations.sort((a: unknown[], b: unknown[]) => {
+  return conversations.sort((a: any[], b: any[]) => {
     const lastEmailA = a[a.length - 1];
     const lastEmailB = b[b.length - 1];
     return new Date(lastEmailB.date).getTime() - new Date(lastEmailA.date).getTime();
