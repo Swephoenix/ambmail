@@ -22,7 +22,7 @@ export async function POST(req: Request) {
   try {
     const url = await createShareLink(token.accessToken, filePath);
     return NextResponse.json({ url });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return NextResponse.json({ error: err.message || 'Share failed' }, { status: 500 });
   }
 }

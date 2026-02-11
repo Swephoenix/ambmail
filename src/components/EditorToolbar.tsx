@@ -3,11 +3,11 @@
 import { 
   Bold, Italic, Underline, 
   AlignLeft, AlignCenter, AlignRight, 
-  List, ListOrdered, Quote, 
+  List, ListOrdered, 
   Undo, Redo, 
   Link as LinkIcon, Image as ImageIcon, 
-  Smile, Lock, FileSignature, 
-  MoreHorizontal, Eraser, Type, ChevronDown
+  Smile, FileSignature, 
+  Eraser, ChevronDown
 } from 'lucide-react';
 import { Editor } from '@tiptap/react';
 import { useState, useRef, useEffect } from 'react';
@@ -15,13 +15,53 @@ import EmojiPicker from 'emoji-picker-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-function cn(...inputs: any[]) {
+function cn(...inputs: unknown[]) {
   return twMerge(clsx(inputs));
 }
 
 interface EditorToolbarProps {
   editor: Editor | null;
   onInsertSignature: (signature?: string) => void;
+}
+
+type ToolbarButtonProps = {
+  onClick: () => void;
+  isActive?: boolean;
+  disabled?: boolean;
+  children: React.ReactNode;
+  title: string;
+  className?: string;
+};
+
+function ToolbarButton({
+  onClick,
+  isActive = false,
+  disabled = false,
+  children,
+  title,
+  className,
+}: ToolbarButtonProps) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className={cn(
+        "p-2 rounded-lg transition-colors flex items-center justify-center min-w-[32px] min-h-[32px]",
+        isActive
+          ? "bg-blue-100 text-blue-700"
+          : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
+        disabled && "opacity-30 cursor-not-allowed hover:bg-transparent hover:text-gray-600",
+        className
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Divider() {
+  return <div className="w-px h-6 bg-gray-200 mx-1 self-center shrink-0" />;
 }
 
 export default function EditorToolbar({ editor, onInsertSignature }: EditorToolbarProps) {
@@ -202,39 +242,6 @@ export default function EditorToolbar({ editor, onInsertSignature }: EditorToolb
     editor.chain().focus().extendMarkRange('link').setLink({ href: url }).run();
   };
 
-  const ToolbarButton = ({ 
-    onClick, 
-    isActive = false, 
-    disabled = false, 
-    children, 
-    title,
-    className 
-  }: { 
-    onClick: () => void, 
-    isActive?: boolean, 
-    disabled?: boolean, 
-    children: React.ReactNode, 
-    title: string,
-    className?: string
-  }) => (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      className={cn(
-        "p-2 rounded-lg transition-colors flex items-center justify-center min-w-[32px] min-h-[32px]",
-        isActive 
-          ? "bg-blue-100 text-blue-700" 
-          : "text-gray-600 hover:bg-gray-100 hover:text-gray-900",
-        disabled && "opacity-30 cursor-not-allowed hover:bg-transparent hover:text-gray-600",
-        className
-      )}
-    >
-      {children}
-    </button>
-  );
-
-  const Divider = () => <div className="w-px h-6 bg-gray-200 mx-1 self-center shrink-0" />;
   const isImageSelected = editor.isActive('image');
 
   return (

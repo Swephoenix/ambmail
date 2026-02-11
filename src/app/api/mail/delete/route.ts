@@ -22,11 +22,11 @@ export async function POST(req: Request) {
     let resolvedFolder = requestedFolder;
     let connection;
     if (isFolderAlias(requestedFolder)) {
-      connection = await getImapConnection(account as any);
+      connection = await getImapConnection(account as unknown);
       resolvedFolder = await resolveFolderAlias(connection, requestedFolder);
     }
     if (!connection) {
-      connection = await getImapConnection(account as any);
+      connection = await getImapConnection(account as unknown);
     }
     const trashFolder = await getTrashFolder(connection);
     await openMailbox(connection, resolvedFolder);
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     if (resolvedFolder === trashFolder) {
       await connection.addFlags(uids, '\\Deleted');
       await new Promise((resolve, reject) => {
-        connection.imap.expunge((err: any) => {
+        connection.imap.expunge((err: unknown) => {
           if (err) {
             reject(err);
           } else {
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
     }
 
     await new Promise((resolve, reject) => {
-      connection.imap.copy(uids, trashFolder, (err: any) => {
+      connection.imap.copy(uids, trashFolder, (err: unknown) => {
         if (err) {
           reject(err);
         } else {
@@ -67,7 +67,7 @@ export async function POST(req: Request) {
 
     await connection.addFlags(uids, '\\Deleted');
     await new Promise((resolve, reject) => {
-      connection.imap.expunge((err: any) => {
+      connection.imap.expunge((err: unknown) => {
         if (err) {
           reject(err);
         } else {
@@ -96,7 +96,7 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ success: true, deletedCount: uids.length, movedTo: trashFolder });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Delete Email Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

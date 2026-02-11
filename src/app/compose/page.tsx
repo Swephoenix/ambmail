@@ -1,28 +1,33 @@
 'use client';
 
 import { useSearchParams } from 'next/navigation';
-import { useEffect, useState, Suspense } from 'react';
+import { useMemo, useState, Suspense } from 'react';
 import ComposeEmail from '@/components/ComposeEmail';
+
+type DraftInitialData = {
+  accountId: string;
+  to?: string;
+  subject?: string;
+  body?: string;
+  uid?: number;
+};
 
 function ComposeContent() {
   const searchParams = useSearchParams();
   const draftId = searchParams.get('draftId');
-  const [initialData, setInitialData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (draftId) {
-      const saved = localStorage.getItem(`draft_${draftId}`);
-      if (saved) {
-        setInitialData(JSON.parse(saved));
-        // Optional: clear it after loading, or keep it to allow refresh
-        // localStorage.removeItem(`draft_${draftId}`);
-      }
+  const [windowId] = useState(() => `standalone-${Date.now()}`);
+  const initialData = useMemo<DraftInitialData | null>(() => {
+    if (!draftId || typeof window === 'undefined') {
+      return null;
     }
-    setLoading(false);
+    const saved = localStorage.getItem(`draft_${draftId}`);
+    if (!saved) return null;
+    try {
+      return JSON.parse(saved) as DraftInitialData;
+    } catch {
+      return null;
+    }
   }, [draftId]);
-
-  if (loading) return <div className="flex items-center justify-center h-screen bg-gray-50">Loading...</div>;
 
   if (!initialData) {
     return (
@@ -35,7 +40,7 @@ function ComposeContent() {
   return (
     <ComposeEmail
       mode="standalone"
-      windowId={`standalone-${Date.now()}`}
+      windowId={windowId}
       accountId={initialData.accountId}
       onClose={() => window.close()}
       onMinimize={() => {}} // No-op for standalone windows

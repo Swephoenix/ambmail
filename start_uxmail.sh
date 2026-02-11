@@ -355,45 +355,41 @@ else
   fi
 fi
 
-log_step "Ensuring admin user"
-echo "Creating/ensuring a local admin account for the Uxmail app (no system changes)."
-"$TS_NODE" --compiler-options "$TS_NODE_COMPILER_OPTIONS" scripts/create-admin.ts
-
 log_step "Starting background sync worker"
 "$TS_NODE" --compiler-options "$TS_NODE_COMPILER_OPTIONS" scripts/sync-worker.ts &
 WORKER_PID=$!
 trap 'kill $WORKER_PID 2>/dev/null' EXIT
 
 log_step "Starting app server (frontend + backend)"
-ADMIN_PANEL_PORT="3000"
+APP_PORT="3000"
 PORT_CHECK_PID=""
 if command -v lsof >/dev/null 2>&1; then
   (
     while [ -d /proc/$PPID ]; do
       if lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | awk '$1=="node" && $9 ~ /:3000$/ {found=1} END {exit !found}'; then
-        ADMIN_PANEL_PORT="3000"
+        APP_PORT="3000"
         break
       fi
       if lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | awk '$1=="node" && $9 ~ /:3001$/ {found=1} END {exit !found}'; then
-        ADMIN_PANEL_PORT="3001"
+        APP_PORT="3001"
         break
       fi
       if lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | awk '$1=="node" && $9 ~ /:3002$/ {found=1} END {exit !found}'; then
-        ADMIN_PANEL_PORT="3002"
+        APP_PORT="3002"
         break
       fi
       if lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | awk '$1=="node" && $9 ~ /:3003$/ {found=1} END {exit !found}'; then
-        ADMIN_PANEL_PORT="3003"
+        APP_PORT="3003"
         break
       fi
       if lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | awk '$1=="node" && $9 ~ /:3004$/ {found=1} END {exit !found}'; then
-        ADMIN_PANEL_PORT="3004"
+        APP_PORT="3004"
         break
       fi
       sleep 0.2
     done
-    if [ -n "$ADMIN_PANEL_PORT" ]; then
-      echo "Admin panel: http://localhost:${ADMIN_PANEL_PORT}/admin"
+    if [ -n "$APP_PORT" ]; then
+      echo "App: http://localhost:${APP_PORT}"
     fi
   ) &
   PORT_CHECK_PID=$!

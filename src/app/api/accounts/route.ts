@@ -33,11 +33,12 @@ export async function POST(req: Request) {
     }
     const data = await req.json();
     const { email, password, name, imapHost, imapPort, smtpHost, smtpPort } = data;
+    const normalizedEmail = String(email || '').trim().toLowerCase();
 
     const account = await prisma.account.create({
       data: {
         userId: user.id,
-        email,
+        email: normalizedEmail,
         password: encrypt(password),
         adminManaged: false,
         name,
@@ -49,7 +50,7 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ id: account.id, email: account.email });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 }
@@ -79,7 +80,7 @@ export async function DELETE(req: Request) {
     await prisma.account.delete({ where: { id: accountId } });
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 }

@@ -33,7 +33,7 @@ interface TiptapEditorProps {
 export default function TiptapEditor({ value, onChange, placeholder, signature, onRegisterInsert, onFilesDropped }: TiptapEditorProps) {
   const [isDragActive, setIsDragActive] = useState(false);
   const [dragDepth, setDragDepth] = useState(0);
-  const findImageToRight = (state: any, pos: number) => {
+  const findImageToRight = (state: unknown, pos: number) => {
     const direct = state.doc.nodeAt(pos);
     if (direct?.type?.name === 'image') return { pos, node: direct };
     const $pos = state.doc.resolve(pos);
@@ -54,7 +54,7 @@ export default function TiptapEditor({ value, onChange, placeholder, signature, 
     return null;
   };
 
-  const findImageToLeft = (state: any, pos: number) => {
+  const findImageToLeft = (state: unknown, pos: number) => {
     const direct = pos > 0 ? state.doc.nodeAt(pos - 1) : null;
     if (direct?.type?.name === 'image') return { pos: pos - 1, node: direct };
     const $pos = state.doc.resolve(pos);
@@ -188,7 +188,6 @@ export default function TiptapEditor({ value, onChange, placeholder, signature, 
           const maxWidth = 600;
           const scale = naturalWidth > maxWidth ? maxWidth / naturalWidth : 1;
           const width = Math.round(naturalWidth * scale);
-          const height = Math.round(naturalHeight * scale);
           wrapper.style.width = `${width}px`;
           updateAttrs(`${width}px`);
         };
@@ -617,7 +616,7 @@ export default function TiptapEditor({ value, onChange, placeholder, signature, 
       {onFilesDropped && (
         <div
           className={`absolute inset-0 z-10 flex items-center justify-center bg-blue-50/90 text-blue-700 text-sm font-semibold transition-opacity duration-200 ${
-            isDragActive ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            isDragActive && dragDepth > 0 ? 'opacity-100' : 'opacity-0 pointer-events-none'
           }`}
         >
           Slapp filerna har for att bifoga

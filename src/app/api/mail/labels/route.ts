@@ -36,7 +36,7 @@ export async function POST(req: Request) {
     let resolvedFolder = requestedFolder;
     let connection;
     if (isFolderAlias(requestedFolder)) {
-      connection = await getImapConnection(account as any);
+      connection = await getImapConnection(account as unknown);
       resolvedFolder = await resolveFolderAlias(connection, requestedFolder);
     }
     if (connection) connection.end();
@@ -76,7 +76,7 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ success: true, labels: Array.from(nextLabels) });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Label Update Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

@@ -24,7 +24,7 @@ export async function GET(req: Request) {
     if (isFolderAlias(requestedFolder)) {
       let connection;
       try {
-        connection = await getImapConnection(account as any);
+        connection = await getImapConnection(account as unknown);
         folder = await resolveFolderAlias(connection, requestedFolder);
       } catch (error) {
         console.error('Folder alias resolution failed:', error);
@@ -38,16 +38,16 @@ export async function GET(req: Request) {
     const hasMissingDates = cachedEmails.some((email) => !email.date);
     if (needsSync) {
       if (cachedEmails.length === 0) {
-        await syncFolderFromImap(account as any, folder);
+        await syncFolderFromImap(account as unknown, folder);
         cachedEmails = await getCachedEmailList(accountId, folder);
       } else {
-        void syncFolderFromImap(account as any, folder).catch((error) => {
+        void syncFolderFromImap(account as unknown, folder).catch((error) => {
           console.error('Background sync error:', error);
         });
       }
     } else if (hasMissingDates) {
       console.info(`[mail] Resyncing ${account.email} ${folder} because cached dates are missing.`);
-      await syncFolderFromImap(account as any, folder);
+      await syncFolderFromImap(account as unknown, folder);
       cachedEmails = await getCachedEmailList(accountId, folder);
     }
 
@@ -59,7 +59,7 @@ export async function GET(req: Request) {
     }
 
     return NextResponse.json(emails);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Mail cache error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

@@ -79,7 +79,6 @@ export default function MailList({
   onEmailSelectToggle = () => {},
   onSelectAll = () => {},
   onDeleteSelected = () => {},
-  onMoveSelected = () => {},
   onEmptyTrash = () => {},
   showEmptyTrash = false
 }: MailListProps) {

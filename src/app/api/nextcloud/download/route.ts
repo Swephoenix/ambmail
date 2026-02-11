@@ -52,7 +52,7 @@ export async function POST(req: Request) {
       size: file.size,
       type: file.contentType,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
     return NextResponse.json({ error: err.message || 'Download failed' }, { status: 500 });
   }
 }

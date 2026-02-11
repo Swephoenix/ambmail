@@ -44,13 +44,11 @@ Vanliga nycklar:
 - `DATABASE_URL` (t.ex. `postgresql://uxmail:uxmailpassword@localhost:5432/uxmail_db?schema=public`)
 - `ENCRYPTION_KEY` (skapad automatiskt om tom)
 - `BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD`
-- `ADMIN_USERNAME` / `ADMIN_PASSWORD` / `ADMIN_NAME`
 
 Beteende:
 - `UXMAIL_RESET=1|0` (standard: 1)
 - `UXMAIL_START_POSTGRES=1|0` (standard: 1)
 - `UXMAIL_SETUP_DB=1|0` (standard: 1)
-- `ADMIN_AUTO_LOGIN=1|0` (auto-login bara for admin-dashboarden via `/api/auth/me?admin=1`)
 
 ## Nextcloud
 
@@ -62,12 +60,11 @@ Krav:
 
 Se `NEXTCLOUD.md` for fulla detaljer om flodet och endpoints.
 
-## Admin
+## Inloggning
 
-- Admin-UI finns pa `/admin` och anvander `Uxmail_admin/Uxmail_admin.html`.
-- Admin auto-login sker endast for admin-dashboarden (inte mail-klienten).
-- Dashboarden visar gron/rod statuslampa per mejlkonto baserat pa IMAP-test.
-- Om losenord saknas visas varning.
+- Inloggning sker med e-postadress + losenord.
+- Vid forsta inloggningen skapas en lokal anvandarprofil automatiskt i databasen.
+- Varje anvandare hanterar sina egna konton i klienten.
 
 ## E-post och forslag
 

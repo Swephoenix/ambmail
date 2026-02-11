@@ -1,7 +1,7 @@
 'use client';
 
 import {
-  Settings, Plus, Check,
+  Settings, Plus,
   Inbox, Send, File, Archive, Trash2, AlertCircle,
   ChevronDown, ChevronRight, ChevronLeft, User, FileSignature, LogOut, CalendarDays
 } from 'lucide-react';
@@ -10,7 +10,7 @@ import { twMerge } from 'tailwind-merge';
 import Image from 'next/image';
 import { useState } from 'react';
 
-function cn(...inputs: any[]) {
+function cn(...inputs: unknown[]) {
   return twMerge(clsx(inputs));
 }
 

@@ -32,7 +32,7 @@ export async function GET(req: Request) {
   try {
     let resolvedFolder = requestedFolder;
     if (isFolderAlias(requestedFolder)) {
-      connection = await getImapConnection(account as any);
+      connection = await getImapConnection(account as unknown);
       resolvedFolder = await resolveFolderAlias(connection, requestedFolder);
     }
 
@@ -62,7 +62,7 @@ export async function GET(req: Request) {
     }
 
     if (!connection) {
-      connection = await getImapConnection(account as any);
+      connection = await getImapConnection(account as unknown);
     }
     await openMailbox(connection, resolvedFolder);
     
@@ -89,7 +89,7 @@ export async function GET(req: Request) {
     const parsed = await simpleParser(source);
 
     // Helper to extract structured recipients
-    const getRecipients = (addrObj: any): any[] => {
+    const getRecipients = (addrObj: unknown): unknown[] => {
       if (!addrObj) return [];
       if (Array.isArray(addrObj)) {
         return addrObj.flatMap(obj => obj.value || []);
@@ -184,7 +184,7 @@ export async function GET(req: Request) {
       body,
       attachments: attachmentsMeta,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[API] IMAP Body Fetch Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   } finally {

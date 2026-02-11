@@ -2,12 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import TiptapEditor from './TiptapEditor';
-import { clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-function cn(...inputs: any[]) {
-  return twMerge(clsx(inputs));
-}
 
 interface SignatureModalProps {
   isOpen: boolean;

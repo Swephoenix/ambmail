@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     const account = await prisma.account.findFirst({ where: { id: accountId, userId: user.id } });
     if (!account) return NextResponse.json({ error: 'Account not found' }, { status: 404 });
 
-    const connection = await getImapConnection(account as any);
+    const connection = await getImapConnection(account as unknown);
     const resolvedSource = isFolderAlias(sourceFolder)
       ? await resolveFolderAlias(connection, sourceFolder)
       : sourceFolder;
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
 
     // Copy messages to the target folder
     await new Promise((resolve, reject) => {
-      connection.imap.copy(uids, resolvedTarget, (err: any) => {
+      connection.imap.copy(uids, resolvedTarget, (err: unknown) => {
         if (err) {
           reject(err);
         } else {
@@ -45,7 +45,7 @@ export async function POST(req: Request) {
     // Delete messages from the source folder (this moves them)
     await connection.addFlags(uids, '\\Deleted');
     await new Promise((resolve, reject) => {
-      connection.imap.expunge((err: any) => {
+      connection.imap.expunge((err: unknown) => {
         if (err) {
           reject(err);
         } else {
@@ -78,7 +78,7 @@ export async function POST(req: Request) {
       movedCount: uids.length,
       message: `Moved ${uids.length} message(s) from ${sourceFolder} to ${targetFolder}`
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Move Email Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

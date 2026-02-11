@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     }
 
     console.log('Connecting to IMAP for account:', account.email);
-    const connection = await getImapConnection(account as any);
+    const connection = await getImapConnection(account as unknown);
 
     // Create raw email message manually with proper MIME structure
     const messageId = `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@${account.email.split('@')[1]}>`;
@@ -131,7 +131,7 @@ export async function POST(req: Request) {
     connection.end();
     console.log('Draft saved successfully with UID:', newUid);
     return NextResponse.json({ success: true, uid: newUid });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Draft Save Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

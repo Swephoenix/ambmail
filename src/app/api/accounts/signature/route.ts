@@ -30,7 +30,7 @@ export async function PUT(req: Request) {
       signature: updatedAccount.signature,
       senderName: updatedAccount.senderName,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Update signature error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -62,7 +62,7 @@ export async function GET(req: Request) {
       signature: account.signature,
       senderName: account.senderName,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Get signature error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

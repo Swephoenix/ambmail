@@ -4,7 +4,6 @@ import { prisma } from '@/lib/prisma';
 import { hashPassword, verifyPassword } from '@/lib/password';
 
 const SESSION_COOKIE = 'uxmail_session';
-const ADMIN_SESSION_COOKIE = 'uxmail_admin_session';
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export { hashPassword, verifyPassword };
 
@@ -68,24 +67,11 @@ export async function getSessionUser(cookieName: string = SESSION_COOKIE) {
 }
 
 export async function requireUser() {
-  return getSessionUser();
+  const user = await getSessionUser();
+  if (!user) return null;
+  const hasNextcloudSession = await prisma.nextcloudToken.findUnique({
+    where: { userId: user.id },
+    select: { id: true },
+  });
+  return hasNextcloudSession ? user : null;
 }
-
-export async function getAdminSessionUser() {
-  const adminUser = await getSessionUser(ADMIN_SESSION_COOKIE);
-  if (adminUser) return adminUser;
-  return getSessionUser();
-}
-
-export async function requireAdmin() {
-  const user = await getAdminSessionUser();
-  if (!user || user.role !== 'ADMIN') {
-    return null;
-  }
-  return user;
-}
-
-export const sessionCookies = {
-  user: SESSION_COOKIE,
-  admin: ADMIN_SESSION_COOKIE,
-};

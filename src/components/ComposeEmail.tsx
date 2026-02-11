@@ -8,7 +8,7 @@ import EmailInput from './EmailInput';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-function cn(...inputs: any[]) {
+function cn(...inputs: unknown[]) {
   return twMerge(clsx(inputs));
 }
 
@@ -26,6 +26,12 @@ interface ComposeEmailProps {
     uid?: number; // Add uid for draft tracking
   };
 }
+
+type ContactSuggestion = {
+  id: string;
+  email: string;
+  name: string | null;
+};
 
 export default function ComposeEmail({ accountId, windowId, onClose, onMinimize, onRestore, mode = 'modal', initialData }: ComposeEmailProps) {
   const [to, setTo] = useState<string[]>(() => {
@@ -148,13 +154,12 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
       setBody(initialData.body || '');
       setIsDraftLoaded(true); // Mark as loaded to prevent multiple insertions
     }
-  }, [initialData, draftUid, accountId, isSwitchingDraft, isDraftLoaded, accountSignature]);
+  }, [initialData, draftUid, accountId, isSwitchingDraft, isDraftLoaded, accountSignature, to, subject, body]);
 
   const [isSending, setIsSending] = useState(false);
-  const [isSavingDraft, setIsSavingDraft] = useState(false);
-  const [lastSaved, setLastSaved] = useState<number>(Date.now() - 3000); // Initialize to 3 seconds ago to avoid initial trigger
-  const [showAutoSaved, setShowAutoSaved] = useState<boolean>(false);
-  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [isSavingDraft] = useState(false);
+  const [, setLastSaved] = useState<number>(Date.now() - 3000); // Keep setter for draft switch timing
+  const [suggestions, setSuggestions] = useState<ContactSuggestion[]>([]);
   const [activeSuggestionIndex, setActiveSuggestionIndex] = useState(-1);
   const [isMaximized, setIsMaximized] = useState(false);
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
@@ -239,7 +244,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
         throw new Error(result.error || 'Upload failed');
       }
 
-      const uploaded = (result.files || []).map((file: any, index: number) => {
+      const uploaded = (result.files || []).map((file: unknown, index: number) => {
         const localFile = files[index];
         const type = file.type || localFile?.type || '';
         const inline = inlineByDefault && type.startsWith('image/');
@@ -279,7 +284,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
       });
 
       setAttachments((prev) => [...prev, ...uploaded]);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error(error.message || 'Failed to upload files');
     } finally {
       setIsUploading(false);
@@ -404,10 +409,6 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
     };
   }, []);
 
-  // Ref to store the timeout ID for proper cleanup
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
-  // Ref to store the timeout ID for the auto-saved indicator
-  const autoSavedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   // Ref to store the last saved content to avoid unnecessary saves
   const lastSavedContentRef = useRef({
     to: Array.isArray(initialData?.to) ? initialData.to :
@@ -540,7 +541,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
     setActiveSuggestionIndex(suggestions.length > 0 ? 0 : -1);
   }, [suggestions]);
 
-  const selectSuggestion = (suggestion: any) => {
+  const selectSuggestion = (suggestion: ContactSuggestion) => {
     if (!to.includes(suggestion.email)) {
       setTo([...to, suggestion.email]);
     }
@@ -636,7 +637,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
       } else {
         onClose(windowId);
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error sending email:', error);
       toast.error(error.message);
     } finally {
@@ -706,7 +707,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
       }
       setNcPath(list.path || '');
       setNcFiles(list.entries || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       setNcError(error.message || 'Kunde inte ansluta till Nextcloud');
     } finally {
       setNcLoading(false);
@@ -724,7 +725,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
       }
       setNcPath(data.path || '');
       setNcFiles(data.entries || []);
-    } catch (error: any) {
+    } catch (error: unknown) {
       setNcError(error.message || 'Kunde inte läsa filer');
     } finally {
       setNcLoading(false);
@@ -754,7 +755,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
         },
       ]);
       toast.success('Fil bifogad');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error(error.message || 'Kunde inte bifoga filen');
     } finally {
       setNcAction(null);
@@ -781,7 +782,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
         setBody((prev) => `${prev || ''}${linkHtml}`);
       }
       toast.success('Länk infogad');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error(error.message || 'Kunde inte skapa länk');
     } finally {
       setNcAction(null);

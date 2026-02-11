@@ -110,7 +110,7 @@ export async function syncFolderFromImap(account: MailAccount, folder: string, l
   }
 }
 
-function extractFolders(boxList: any, parentKey = ''): string[] {
+function extractFolders(boxList: unknown, parentKey = ''): string[] {
   const folders: string[] = [];
   for (const key of Object.keys(boxList || {})) {
     const box = boxList[key];
@@ -123,7 +123,7 @@ function extractFolders(boxList: any, parentKey = ''): string[] {
   return folders;
 }
 
-function getRecipients(addrObj: any): any[] {
+function getRecipients(addrObj: unknown): unknown[] {
   if (!addrObj) return [];
   if (Array.isArray(addrObj)) {
     return addrObj.flatMap(obj => obj.value || []);
@@ -284,7 +284,7 @@ export async function prefetchUserAccounts(userId: string) {
         completedAt: new Date(),
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     await prisma.prefetchStatus.update({
       where: { userId },
       data: {

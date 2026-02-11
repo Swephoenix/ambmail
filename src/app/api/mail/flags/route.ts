@@ -22,11 +22,11 @@ export async function POST(req: Request) {
     let resolvedFolder = requestedFolder;
     let connection;
     if (isFolderAlias(requestedFolder)) {
-      connection = await getImapConnection(account as any);
+      connection = await getImapConnection(account as unknown);
       resolvedFolder = await resolveFolderAlias(connection, requestedFolder);
     }
     if (!connection) {
-      connection = await getImapConnection(account as any);
+      connection = await getImapConnection(account as unknown);
     }
     await openMailbox(connection, resolvedFolder);
 
@@ -67,7 +67,7 @@ export async function POST(req: Request) {
       });
     }
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Flag Update Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

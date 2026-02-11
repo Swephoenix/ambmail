@@ -35,7 +35,7 @@ export async function GET(req: Request) {
 
   let connection;
   try {
-    connection = await getImapConnection(account as any);
+    connection = await getImapConnection(account as unknown);
     const resolvedFolder = isFolderAlias(requestedFolder)
       ? await resolveFolderAlias(connection, requestedFolder)
       : requestedFolder;
@@ -73,7 +73,7 @@ export async function GET(req: Request) {
         'Cache-Control': 'no-store',
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[API] Attachment Fetch Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   } finally {

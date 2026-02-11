@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import Sidebar, { Account } from '@/components/Sidebar';
 import MailList, { EmailHeader, LabelOption } from '@/components/MailList';
 import MailView from '@/components/MailView';
@@ -69,19 +69,24 @@ const getNextAvailableColor = (usedColors: Set<string>) => {
   return next ? next.hex : LABEL_COLOR_OPTIONS[0].hex;
 };
 
+const ACCOUNTS_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const EMAIL_LIST_CACHE_DURATION = 2 * 60 * 1000; // 2 minutes
+
 
 export default function Home() {
+  type SelectedEmail = EmailHeader & {
+    accountId?: string;
+    folder?: string;
+    [key: string]: unknown;
+  };
+
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
-  const [loginError, setLoginError] = useState<string | null>(null);
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [currentUser, setCurrentUser] = useState<unknown>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
   const [activeFolder, setActiveFolder] = useState<string>('INBOX');
-  const [viewMode, setViewMode] = useState<'list'>('list');
-  const [emails, setEmails] = useState<any[]>([]);
-  const [selectedEmail, setSelectedEmail] = useState<any | null>(null);
+  const [emails, setEmails] = useState<EmailHeader[]>([]);
+  const [selectedEmail, setSelectedEmail] = useState<SelectedEmail | null>(null);
   const [isLoadingList, setIsLoadingList] = useState(false);
   const [isLoadingBody, setIsLoadingBody] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -89,10 +94,9 @@ export default function Home() {
   const [composeWindows, setComposeWindows] = useState<Array<{
     id: string;
     accountId: string;
-    initialData?: any;
+    initialData?: unknown;
     minimized: boolean;
   }>>([]);
-  const [composeInitialData, setComposeInitialData] = useState<any>(null);
   // Multi-select state
   const [selectedEmails, setSelectedEmails] = useState<number[]>([]);
   const [storageUsage, setStorageUsage] = useState<{ usedBytes: number; quotaMb: number | null } | null>(null);
@@ -115,7 +119,6 @@ export default function Home() {
 
   // Cache for accounts to avoid unnecessary API calls
   const [accountsCache, setAccountsCache] = useState<{data: Account[], timestamp: number} | null>(null);
-  const ACCOUNTS_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
   const labelOptions: LabelOption[] = labelDefinitions.map(label => {
     const color = getLabelColorOption(label.color);
@@ -137,10 +140,9 @@ export default function Home() {
   });
 
   // Cache for email lists to avoid unnecessary API calls
-  const [emailCache, setEmailCache] = useState<Record<string, {data: any[], timestamp: number}>>({});
-  const EMAIL_LIST_CACHE_DURATION = 2 * 60 * 1000; // 2 minutes
+  const [emailCache, setEmailCache] = useState<Record<string, {data: unknown[], timestamp: number}>>({});
 
-  const fetchAccounts = async (forceRefresh = false) => {
+  const fetchAccounts = useCallback(async (forceRefresh = false) => {
     // Check if we have cached data that's still valid, unless forceRefresh is true
     if (!forceRefresh && accountsCache && (Date.now() - accountsCache.timestamp) < ACCOUNTS_CACHE_DURATION) {
       setAccounts(accountsCache.data);
@@ -165,7 +167,7 @@ export default function Home() {
     }
 
     return data;
-  };
+  }, [accountsCache, activeAccountId]);
 
   const fetchStorageUsage = async () => {
     try {
@@ -199,7 +201,7 @@ export default function Home() {
     }
   };
 
-  const fetchEmails = async (accountId: string, folder: string) => {
+  const fetchEmails = useCallback(async (accountId: string, folder: string) => {
     const cacheKey = `${accountId}-${folder}-list`; // Fixed to 'list' mode only
 
     // Check if we have cached data that's still valid (including pre-fetched data)
@@ -227,13 +229,13 @@ export default function Home() {
         ...prev,
         [cacheKey]: { data, timestamp: Date.now() }
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error('Failed to fetch emails: ' + error.message);
       setEmails([]);
     } finally {
       setIsLoadingList(false);
     }
-  };
+  }, [emailCache]);
 
 
   const fetchEmailBody = async (accountId: string, uid: number) => {
@@ -295,7 +297,7 @@ export default function Home() {
           body: JSON.stringify({ accountId, uid, folder: activeFolder, action: 'add', flag: '\\Seen' }),
         });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       // If it's a "Message not found" error, try to refresh the email list
       if (error.message.includes('Message not found')) {
         toast.error('Draft may have been moved or deleted. Refreshing list...');
@@ -354,7 +356,7 @@ export default function Home() {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error('Kunde inte uppdatera status: ' + error.message);
     }
   };
@@ -394,7 +396,7 @@ export default function Home() {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error('Kunde inte uppdatera stjarna: ' + error.message);
     }
   };
@@ -435,7 +437,7 @@ export default function Home() {
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error('Kunde inte uppdatera etikett: ' + error.message);
     }
   };
@@ -487,7 +489,7 @@ export default function Home() {
       const usedColors = new Set(labelDefinitions.map(label => getLabelColorOption(label.color).hex.toUpperCase()));
       setNewLabelColor(getNextAvailableColor(usedColors));
       toast.success('Etikett skapad');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error('Kunde inte skapa etikett: ' + error.message);
     }
   };
@@ -512,7 +514,7 @@ export default function Home() {
       setLabelDefinitions(prev => prev.map(label => label.id === id ? data : label).sort((a, b) => a.name.localeCompare(b.name)));
       applyLabelRename(original.name, trimmed);
       toast.success('Etikett uppdaterad');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error('Kunde inte uppdatera etikett: ' + error.message);
     }
   };
@@ -532,7 +534,7 @@ export default function Home() {
       setLabelDefinitions(prev => prev.filter(label => label.id !== id));
       applyLabelRemoval(existing.name);
       toast.success('Etikett borttagen');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error('Kunde inte ta bort etikett: ' + error.message);
     }
   };
@@ -603,7 +605,7 @@ export default function Home() {
       setSelectedEmails([]); // Clear selection
       toast.success(`Deleted ${result.deletedCount} email(s)`);
       fetchStorageUsage();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Delete error:', error);
       toast.error('Failed to delete emails: ' + error.message);
     }
@@ -657,7 +659,7 @@ export default function Home() {
       ));
 
       toast.success('Signatur sparad!');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Save signature error:', error);
       toast.error('Kunde inte spara signaturen: ' + error.message);
     }
@@ -700,12 +702,12 @@ export default function Home() {
       }
 
       toast.success('Kontot borttaget');
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error('Kunde inte ta bort kontot: ' + error.message);
     }
   };
 
-  const handleMoveSelected = async (targetFolder: string) => {
+  const handleMoveSelected = async () => {
     if (selectedEmails.length === 0 || !activeAccountId) return;
 
     // Fetch available folders
@@ -718,7 +720,7 @@ export default function Home() {
       } else {
         throw new Error(folders.error || 'Failed to fetch folders');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Fetch folders error:', error);
       toast.error('Failed to fetch folders: ' + error.message);
     }
@@ -746,7 +748,7 @@ export default function Home() {
       setSelectedEmail(null); // Deselect the email
       toast.success('Email deleted');
       fetchStorageUsage();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Delete error:', error);
       toast.error('Failed to delete email: ' + error.message);
     }
@@ -786,7 +788,7 @@ export default function Home() {
       });
       toast.success(`Tömde papperskorgen (${result.deletedCount} email)`);
       fetchStorageUsage();
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Empty trash error:', error);
       toast.error('Misslyckades att tömma papperskorgen: ' + error.message);
     }
@@ -821,7 +823,7 @@ export default function Home() {
       setEmails(prev => prev.filter(email => email.uid !== uid));
       setSelectedEmail(null); // Deselect the email
       toast.success(result.message);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Move error:', error);
       toast.error('Failed to move email: ' + error.message);
     }
@@ -857,7 +859,7 @@ export default function Home() {
       setSelectedEmails([]); // Clear selection
       setShowMoveModal(false);
       toast.success(result.message);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Move error:', error);
       toast.error('Failed to move emails: ' + error.message);
     }
@@ -895,7 +897,7 @@ export default function Home() {
       } else {
         throw new Error(folders.error || 'Failed to fetch updated folders');
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Create folder error:', error);
       toast.error('Failed to create folder: ' + error.message);
     }
@@ -915,31 +917,6 @@ export default function Home() {
     } catch {
       setAuthStatus('unauthenticated');
       setCurrentUser(null);
-    }
-  };
-
-  const handleLogin = async () => {
-    setLoginError(null);
-    setIsLoggingIn(true);
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(loginForm),
-      });
-      if (!res.ok) {
-        const err = await res.json();
-        setLoginError(err.error || 'Inloggning misslyckades');
-        return;
-      }
-      const data = await res.json();
-      setCurrentUser(data);
-      setAuthStatus('authenticated');
-      await fetchAccounts(true);
-    } catch (error: any) {
-      setLoginError('Inloggning misslyckades');
-    } finally {
-      setIsLoggingIn(false);
     }
   };
 
@@ -987,13 +964,11 @@ export default function Home() {
     };
 
     initializeApp();
-  }, [authStatus]);
+  }, [authStatus, fetchAccounts]);
 
   // Polling function to check for new emails every minute
   useEffect(() => {
     if (!activeAccountId) return; // Only poll if we have an active account
-
-    let pollInterval: NodeJS.Timeout;
 
     const pollForNewEmails = async () => {
       if (!activeAccountId) return;
@@ -1013,7 +988,7 @@ export default function Home() {
         const currentEmailUids = new Set(emails.map(email => email.uid));
 
         // Find new emails by checking which ones aren't in the current list
-        const newEmailsOnly = newEmails.filter((email: any) => !currentEmailUids.has(email.uid));
+        const newEmailsOnly = newEmails.filter((email: unknown) => !currentEmailUids.has(email.uid));
 
         if (newEmailsOnly.length > 0) {
           // There are new emails, update the state
@@ -1029,8 +1004,7 @@ export default function Home() {
       }
     };
 
-    // Start polling every minute (60,000 ms)
-    pollInterval = setInterval(pollForNewEmails, 60000);
+    const pollInterval: NodeJS.Timeout = setInterval(pollForNewEmails, 60000);
 
     // Clean up interval on component unmount or when activeAccountId changes
     return () => {
@@ -1061,7 +1035,7 @@ export default function Home() {
     return () => {
       window.removeEventListener('uxmail:sent', handleSent as EventListener);
     };
-  }, [activeAccountId, activeFolder]);
+  }, [activeAccountId, activeFolder, fetchEmails]);
 
   useEffect(() => {
     if (activeAccountId) {
@@ -1074,7 +1048,7 @@ export default function Home() {
           fetchEmails(activeAccountId, activeFolder);
       }
     }
-  }, [activeAccountId]);
+  }, [activeAccountId, activeFolder, emails.length, fetchEmails, isLoadingList]);
 
   if (authStatus === 'loading') {
     return (
@@ -1096,39 +1070,15 @@ export default function Home() {
               height={120}
               priority
             />
-            <h1 className="text-2xl font-bold mt-4">Logga in</h1>
-            <p className="text-gray-500 text-sm">Använd ditt användarnamn och lösenord</p>
+            <h1 className="text-2xl font-bold mt-4">Logga in via Nextcloud</h1>
+            <p className="text-gray-500 text-sm">Du måste vara inloggad i Nextcloud för att använda UxMail</p>
           </div>
-          <form
-            className="space-y-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              handleLogin();
-            }}
+          <a
+            href="/api/nextcloud/auth/start"
+            className="block w-full py-3 bg-blue-600 text-white text-center font-bold rounded-2xl hover:bg-blue-700 transition-all"
           >
-            <input
-              type="text"
-              placeholder="Användarnamn"
-              value={loginForm.username}
-              onChange={(e) => setLoginForm({ ...loginForm, username: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-            />
-            <input
-              type="password"
-              placeholder="Lösenord"
-              value={loginForm.password}
-              onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-            />
-            {loginError && <div className="text-sm text-red-600">{loginError}</div>}
-            <button
-              type="submit"
-              disabled={isLoggingIn}
-              className="w-full py-3 bg-blue-600 text-white font-bold rounded-2xl hover:bg-blue-700 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {isLoggingIn ? 'Loggar in...' : 'Logga in'}
-            </button>
-          </form>
+            Fortsätt med Nextcloud
+          </a>
         </div>
       </main>
     );
@@ -1146,7 +1096,7 @@ export default function Home() {
         onEditSignature={handleEditSignature}
         onOpenCalendar={() => setShowCalendar(true)}
         onLogout={handleLogout}
-        currentUserName={currentUser?.name || currentUser?.username}
+        currentUserName={currentUser?.name || currentUser?.email || currentUser?.username}
         storageUsage={storageUsage || undefined}
       />
 
@@ -1582,7 +1532,7 @@ export default function Home() {
                   </button>
                 </div>
                 <p className="text-xs text-gray-500">
-                  Note: Use dots (.) to create subfolders, e.g., "INBOX.Archive" or just "Archive" to create "INBOX.Archive"
+                  Note: Use dots (.) to create subfolders, e.g., &quot;INBOX.Archive&quot; or just &quot;Archive&quot; to create &quot;INBOX.Archive&quot;
                 </p>
               </div>
             </div>

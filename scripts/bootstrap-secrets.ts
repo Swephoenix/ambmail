@@ -4,11 +4,8 @@ import path from 'path';
 
 const DEFAULT_KEY_FILE = '.uxmail.key';
 const DEFAULT_SECRETS_FILE = '.uxmail.secrets';
-const ADMIN_PLACEHOLDER = 'replace-with-a-strong-password';
 const BASIC_AUTH_PLACEHOLDER = 'replace-with-a-strong-password';
 const ENCRYPTION_KEY_PLACEHOLDER = 'replace-with-a-long-random-string-at-least-32-chars';
-const DEFAULT_ADMIN_USERNAME = 'admin';
-const DEFAULT_ADMIN_PASSWORD = 'admin';
 
 function randomHex(bytes: number) {
   return crypto.randomBytes(bytes).toString('hex');
@@ -76,25 +73,6 @@ function writeSecretsFile(secrets: Record<string, string>) {
   console.log(`[bootstrap] Wrote secrets to ${filePath}`);
 }
 
-function ensureAdminPassword(lines: string[], secrets: Record<string, string>) {
-  const current = getEnvValue(lines, 'ADMIN_PASSWORD');
-  if (current && current !== ADMIN_PLACEHOLDER) return lines;
-
-  const next = setEnvValue(lines, 'ADMIN_PASSWORD', DEFAULT_ADMIN_PASSWORD);
-  secrets.ADMIN_PASSWORD = DEFAULT_ADMIN_PASSWORD;
-  console.log('[bootstrap] Ensured ADMIN_PASSWORD in .env');
-  return next;
-}
-
-function ensureAdminUsername(lines: string[], secrets: Record<string, string>) {
-  const current = getEnvValue(lines, 'ADMIN_USERNAME');
-  if (current) return lines;
-  const next = setEnvValue(lines, 'ADMIN_USERNAME', DEFAULT_ADMIN_USERNAME);
-  secrets.ADMIN_USERNAME = DEFAULT_ADMIN_USERNAME;
-  console.log('[bootstrap] Ensured ADMIN_USERNAME in .env');
-  return next;
-}
-
 function ensureBasicAuthPassword(lines: string[], secrets: Record<string, string>) {
   const value = randomHex(16);
   const next = setEnvValue(lines, 'BASIC_AUTH_PASSWORD', value, BASIC_AUTH_PLACEHOLDER);
@@ -124,20 +102,14 @@ function main() {
   }
 
   const secrets: Record<string, string> = {};
-  const adminUsername = getEnvValue(lines, 'ADMIN_USERNAME');
   const basicAuthUser = getEnvValue(lines, 'BASIC_AUTH_USER');
 
-  if (adminUsername) {
-    secrets.ADMIN_USERNAME = adminUsername;
-  }
   if (basicAuthUser) {
     secrets.BASIC_AUTH_USER = basicAuthUser;
   }
   let nextLines = lines.slice();
   nextLines = ensureKeyFile(envPath, nextLines);
   nextLines = ensureEncryptionKey(nextLines, secrets);
-  nextLines = ensureAdminUsername(nextLines, secrets);
-  nextLines = ensureAdminPassword(nextLines, secrets);
   nextLines = ensureBasicAuthPassword(nextLines, secrets);
 
   if (nextLines.join('\n') !== lines.join('\n')) {

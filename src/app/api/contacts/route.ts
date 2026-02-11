@@ -42,7 +42,7 @@ export async function POST(req: Request) {
       create: { email, name, userId: user.id },
     });
     return NextResponse.json(contact);
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 }

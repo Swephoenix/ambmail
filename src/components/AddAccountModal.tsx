@@ -22,7 +22,7 @@ export default function AddAccountModal({ onClose, onSuccess }: AddAccountModalP
     }
   });
 
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: unknown) => {
     try {
       const res = await fetch('/api/accounts', {
         method: 'POST',
@@ -37,7 +37,7 @@ export default function AddAccountModal({ onClose, onSuccess }: AddAccountModalP
 
       toast.success('Account added successfully');
       onSuccess();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.error(error.message);
     }
   };

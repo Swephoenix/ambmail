@@ -44,7 +44,7 @@ export async function GET() {
     }
 
     return NextResponse.json(existing);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Label Definitions Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -72,7 +72,7 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json(created);
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error?.code === 'P2002') {
       return NextResponse.json({ error: 'Label already exists' }, { status: 409 });
     }
@@ -127,7 +127,7 @@ export async function PATCH(req: Request) {
     }
 
     return NextResponse.json(updated);
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (error?.code === 'P2002') {
       return NextResponse.json({ error: 'Label already exists' }, { status: 409 });
     }
@@ -169,7 +169,7 @@ export async function DELETE(req: Request) {
     await prisma.label.delete({ where: { id } });
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Label Delete Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

@@ -61,7 +61,7 @@ async function exchangeCodeForToken(code: string, redirectUri: string) {
   });
 
   const text = await res.text();
-  let data: any = {};
+  let data: unknown = {};
   try {
     data = JSON.parse(text);
   } catch {
@@ -93,7 +93,7 @@ async function refreshAccessToken(refreshToken: string) {
   });
 
   const text = await res.text();
-  let data: any = {};
+  let data: unknown = {};
   try {
     data = JSON.parse(text);
   } catch {
@@ -106,7 +106,13 @@ async function refreshAccessToken(refreshToken: string) {
   return data;
 }
 
-async function fetchCurrentUser(accessToken: string) {
+type NextcloudUserProfile = {
+  ncUserId: string;
+  email: string | null;
+  displayName: string | null;
+};
+
+async function fetchCurrentUserProfile(accessToken: string): Promise<NextcloudUserProfile> {
   const res = await fetch(`${getBaseUrl()}/ocs/v2.php/cloud/user?format=json`, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -117,11 +123,17 @@ async function fetchCurrentUser(accessToken: string) {
   if (!res.ok) {
     throw new Error('user lookup failed');
   }
-  const userId = data?.ocs?.data?.id || data?.ocs?.data?.uid;
-  if (!userId) {
+  const ncUserId = data?.ocs?.data?.id || data?.ocs?.data?.uid;
+  if (!ncUserId) {
     throw new Error('could not read user id');
   }
-  return String(userId);
+  const email = data?.ocs?.data?.email ? String(data.ocs.data.email).toLowerCase() : null;
+  const displayName = data?.ocs?.data?.displayname ? String(data.ocs.data.displayname) : null;
+  return {
+    ncUserId: String(ncUserId),
+    email,
+    displayName,
+  };
 }
 
 function normalizePath(rawPath?: string | null) {
@@ -131,7 +143,7 @@ function normalizePath(rawPath?: string | null) {
     .replace(/^\//, '');
 }
 
-async function upsertToken(userId: string, token: any, ncUserId?: string | null) {
+async function upsertToken(userId: string, token: unknown, ncUserId?: string | null) {
   const expiresIn = Number(token.expires_in || 0);
   const expiresAt = expiresIn ? new Date(Date.now() + Math.max(expiresIn - 60, 0) * 1000) : null;
 
@@ -177,9 +189,20 @@ export async function getClientId() {
 
 export async function handleOAuthCallback(userId: string, code: string, requestUrl: string) {
   const token = await exchangeCodeForToken(code, getRedirectUri(requestUrl));
-  const ncUserId = await fetchCurrentUser(token.access_token);
+  const profile = await fetchCurrentUserProfile(token.access_token);
+  const ncUserId = profile.ncUserId;
   await upsertToken(userId, token, ncUserId);
   return ncUserId;
+}
+
+export async function exchangeOAuthCodeForProfile(code: string, requestUrl: string) {
+  const token = await exchangeCodeForToken(code, getRedirectUri(requestUrl));
+  const profile = await fetchCurrentUserProfile(token.access_token);
+  return { token, profile };
+}
+
+export async function upsertOAuthTokenForUser(userId: string, token: unknown, ncUserId: string) {
+  await upsertToken(userId, token, ncUserId);
 }
 
 export async function getValidToken(userId: string) {
@@ -196,7 +219,8 @@ export async function getValidToken(userId: string) {
   }
   if (!tokenRecord.ncUserId) {
     try {
-      const ncUserId = await fetchCurrentUser(tokenRecord.accessToken);
+      const profile = await fetchCurrentUserProfile(tokenRecord.accessToken);
+      const ncUserId = profile.ncUserId;
       await prisma.nextcloudToken.update({
         where: { userId },
         data: { ncUserId },

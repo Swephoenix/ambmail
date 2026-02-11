@@ -51,7 +51,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     });
 
     return NextResponse.json(updated);
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 }
@@ -74,7 +74,7 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
 
     await prisma.calendarEvent.delete({ where: { id: eventId } });
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 }

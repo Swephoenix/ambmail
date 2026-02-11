@@ -71,7 +71,7 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json(event);
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 }

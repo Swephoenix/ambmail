@@ -5,7 +5,7 @@ import { X } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
-function cn(...inputs: any[]) {
+function cn(...inputs: unknown[]) {
   return twMerge(clsx(inputs));
 }
 
@@ -195,7 +195,7 @@ export default function EmailInput({ value, onChange, placeholder, className, on
         type="email"
         value={currentInputValue}
         onChange={handleInputChange}
-        onKeyDown={handleKeyDown as any}
+        onKeyDown={handleKeyDown as unknown}
         onPaste={handlePaste}
         onFocus={handleFocus}
         onBlur={handleBlur}

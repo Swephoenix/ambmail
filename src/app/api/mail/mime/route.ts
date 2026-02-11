@@ -30,12 +30,12 @@ export async function GET(req: Request) {
   try {
     let resolvedFolder = requestedFolder;
     if (isFolderAlias(requestedFolder)) {
-      connection = await getImapConnection(account as any);
+      connection = await getImapConnection(account as unknown);
       resolvedFolder = await resolveFolderAlias(connection, requestedFolder);
     }
 
     if (!connection) {
-      connection = await getImapConnection(account as any);
+      connection = await getImapConnection(account as unknown);
     }
     await openMailbox(connection, resolvedFolder);
 
@@ -59,7 +59,7 @@ export async function GET(req: Request) {
     return new Response(mimeText, {
       headers: { 'Content-Type': 'text/plain; charset=utf-8' },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   } finally {
     if (typeof connection !== 'undefined' && connection) {

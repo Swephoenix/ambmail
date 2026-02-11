@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     const account = await prisma.account.findFirst({ where: { id: accountId, userId: user.id } });
     if (!account) return NextResponse.json({ error: 'Account not found' }, { status: 404 });
 
-    connection = await getImapConnection(account as any);
+    connection = await getImapConnection(account as unknown);
     const trashFolder = await getTrashFolder(connection);
     await openMailbox(connection, trashFolder);
 
@@ -33,7 +33,7 @@ export async function POST(req: Request) {
 
     await connection.addFlags(uids, '\\Deleted');
     await new Promise((resolve, reject) => {
-      connection.imap.expunge((err: any) => {
+      connection.imap.expunge((err: unknown) => {
         if (err) {
           reject(err);
         } else {
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ success: true, deletedCount: uids.length });
-  } catch (error: any) {
+  } catch (error: unknown) {
     if (connection) connection.end();
     console.error('Empty Trash Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });

@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     }
 
     console.log('Connecting to SMTP for account:', account.email);
-    const transporter = await getSmtpTransporter(account as any);
+    const transporter = await getSmtpTransporter(account as unknown);
 
     const fromName = account.senderName || account.name || account.email;
     const fromHeader = `"${fromName}" <${account.email}>`;
@@ -86,7 +86,7 @@ export async function POST(req: Request) {
     let sentConnection;
     let appendedSentFolder: string | null = null;
     try {
-      sentConnection = await getImapConnection(account as any);
+      sentConnection = await getImapConnection(account as unknown);
       const mail = new MailComposer({
         from: fromHeader,
         to,
@@ -97,7 +97,7 @@ export async function POST(req: Request) {
       });
       const raw = await mail.compile().build();
       appendedSentFolder = await appendSent(sentConnection, raw.toString('utf8'));
-      await syncFolderFromImap(account as any, appendedSentFolder, 20);
+      await syncFolderFromImap(account as unknown, appendedSentFolder, 20);
     } catch (error) {
       console.error('Failed to append sent mail:', error);
     } finally {
@@ -141,7 +141,7 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ success: true, sentFolder: appendedSentFolder });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('SMTP Error:', error);
     console.error('Error details:', {
       message: error.message,

@@ -5,14 +5,14 @@ import { format } from 'date-fns';
 import { Reply, ReplyAll, Forward, Trash2, MoreHorizontal, FolderInput, User, ChevronDown, ChevronUp, File, FileArchive, FileImage, FileSpreadsheet, FileText, Mail, ZoomIn, ZoomOut, RefreshCcw, X } from 'lucide-react';
 
 interface MailViewProps {
-  email: any | null;
+  email: unknown | null;
   isLoading: boolean;
-  onReply?: (email: any) => void;
-  onReplyAll?: (email: any) => void;
-  onForward?: (email: any) => void;
-  onDelete?: (email: any) => void;
-  onMoveToFolder?: (email: any) => void;
-  onMarkUnread?: (email: any) => void;
+  onReply?: (email: unknown) => void;
+  onReplyAll?: (email: unknown) => void;
+  onForward?: (email: unknown) => void;
+  onDelete?: (email: unknown) => void;
+  onMoveToFolder?: (email: unknown) => void;
+  onMarkUnread?: (email: unknown) => void;
   onComposeTo?: (address: string) => void;
 }
 
@@ -246,7 +246,7 @@ export default function MailView({
       }
       const text = await res.text();
       setMimeContent(text);
-    } catch (error: any) {
+    } catch (error: unknown) {
       setMimeError(error?.message || 'Failed to fetch MIME');
     } finally {
       setMimeLoading(false);

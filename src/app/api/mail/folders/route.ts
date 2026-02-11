@@ -20,13 +20,13 @@ export async function GET(req: Request) {
     const account = await prisma.account.findFirst({ where: { id: accountId, userId: user.id } });
     if (!account) return NextResponse.json({ error: 'Account not found' }, { status: 404 });
 
-    const connection = await getImapConnection(account as any);
+    const connection = await getImapConnection(account as unknown);
     const boxes = await connection.getBoxes();
     
     // Convert the nested object structure to a flat array
     const folders: string[] = [];
     
-    const extractFolders = (boxList: any, parentKey = '') => {
+    const extractFolders = (boxList: unknown, parentKey = '') => {
       for (const key of Object.keys(boxList)) {
         const box = boxList[key];
         const fullPath = parentKey ? `${parentKey}${box.delimiter}${key}` : key;
@@ -43,7 +43,7 @@ export async function GET(req: Request) {
     connection.end();
     
     return NextResponse.json(folders);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Get Folders Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
@@ -65,12 +65,12 @@ export async function POST(req: Request) {
     const account = await prisma.account.findFirst({ where: { id: accountId, userId: user.id } });
     if (!account) return NextResponse.json({ error: 'Account not found' }, { status: 404 });
 
-    const connection = await getImapConnection(account as any);
+    const connection = await getImapConnection(account as unknown);
     
     // Create the new folder
     // For subfolders, we need to use the correct delimiter (usually '.')
     await new Promise((resolve, reject) => {
-      connection.imap.addBox(folderName, (err: any) => {
+      connection.imap.addBox(folderName, (err: unknown) => {
         if (err) {
           reject(err);
         } else {
@@ -82,7 +82,7 @@ export async function POST(req: Request) {
     connection.end();
     
     return NextResponse.json({ success: true, folderName });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('Create Folder Error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

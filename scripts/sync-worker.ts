@@ -10,7 +10,7 @@ type ImapConnection = Awaited<ReturnType<typeof getImapConnection>>;
 const DEFAULT_INTERVAL_MS = 5 * 60 * 1000;
 const DEFAULT_FETCH_LIMIT = Number.MAX_SAFE_INTEGER;
 
-function extractFolders(boxList: any, parentKey = ''): string[] {
+function extractFolders(boxList: unknown, parentKey = ''): string[] {
   const folders: string[] = [];
   for (const key of Object.keys(boxList)) {
     const box = boxList[key];
