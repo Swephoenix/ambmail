@@ -48,7 +48,7 @@ Vanliga nycklar:
 Beteende:
 - `UXMAIL_RESET=1|0` (standard: 1)
 - `UXMAIL_START_POSTGRES=1|0` (standard: 1)
-- `UXMAIL_SETUP_DB=1|0` (standard: 1)
+- `UXMAIL_SETUP_DB=1|0` (standard: 0)
 
 ## Nextcloud
 
@@ -58,7 +58,8 @@ Krav:
 - Nextcloud OAuth2 app aktiverad
 - `NC_BASE_URL`, `NC_PUBLIC_URL`, `NC_OAUTH_DATA_PATH` och `UXMAIL_PUBLIC_URL` satta i `.env`
 
-Se `NEXTCLOUD.md` for fulla detaljer om flodet och endpoints.
+Se `Nextclouddemo/NEXTCLOUD.md` for fulla detaljer om flodet och endpoints.
+For lokal Nextcloud-demo, kör `./Nextclouddemo/start_nextcloud.sh`.
 
 ## Inloggning
 

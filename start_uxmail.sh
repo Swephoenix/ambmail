@@ -135,7 +135,11 @@ ensure_cmd node nodejs
 ensure_cmd npm nodejs npm
 check_node_version
 
-RESET_STATE="${UXMAIL_RESET:-1}"
+RESET_STATE="${UXMAIL_RESET:-}"
+if [ -z "$RESET_STATE" ] && [ -f .env ]; then
+  RESET_STATE="$(sed -n 's/^UXMAIL_RESET=//p' .env | head -n1 | tr -d '"')"
+fi
+RESET_STATE="${RESET_STATE:-1}"
 if [ "$RESET_STATE" = "1" ] || [ "$RESET_STATE" = "true" ]; then
   log_step "Resetting local state"
   echo "WARNING: This will wipe the database and regenerate secrets."
@@ -200,6 +204,24 @@ run_prisma() {
   "${PRISMA_CMD[@]}" "$@"
 }
 
+resolve_migration_if_needed() {
+  local migration_name="$1"
+  local output
+  set +e
+  output="$(run_prisma migrate resolve --applied "$migration_name" 2>&1)"
+  local status=$?
+  set -e
+  if [ $status -eq 0 ]; then
+    return 0
+  fi
+  if printf '%s' "$output" | grep -q "P3008"; then
+    echo "Migration ${migration_name} already marked as applied; skipping."
+    return 0
+  fi
+  printf '%s\n' "$output"
+  return $status
+}
+
 log_step "Generating Prisma client"
 run_prisma generate
 
@@ -215,7 +237,7 @@ source ./.env
 set +a
 
 START_POSTGRES="${UXMAIL_START_POSTGRES:-1}"
-SETUP_DB="${UXMAIL_SETUP_DB:-1}"
+SETUP_DB="${UXMAIL_SETUP_DB:-0}"
 if [ "$START_POSTGRES" = "1" ] || [ "$START_POSTGRES" = "true" ]; then
   log_step "Ensuring PostgreSQL is running"
   ensure_cmd psql postgresql-client
@@ -258,6 +280,8 @@ if [ "$SETUP_DB" = "1" ] || [ "$SETUP_DB" = "true" ]; then
     echo "Missing scripts/setup_postgres_local.sh. Cannot auto-setup DB."
     exit 1
   fi
+else
+  echo "Skipping automatic DB role/database creation (UXMAIL_SETUP_DB=${SETUP_DB})."
 fi
 
 DB_USER="${POSTGRES_USER:-uxmail}"
@@ -338,7 +362,7 @@ if [ "$RESET_DB_DONE" = "0" ]; then
       run_prisma db push --accept-data-loss
       for dir in prisma/migrations/*; do
         if [ -d "$dir" ]; then
-          run_prisma migrate resolve --applied "$(basename "$dir")"
+          resolve_migration_if_needed "$(basename "$dir")"
         fi
       done
     fi
@@ -349,7 +373,7 @@ else
   if [ -d prisma/migrations ] && [ "$(find prisma/migrations -mindepth 1 -maxdepth 1 -type d | wc -l)" -gt 0 ]; then
     for dir in prisma/migrations/*; do
       if [ -d "$dir" ]; then
-        run_prisma migrate resolve --applied "$(basename "$dir")"
+        resolve_migration_if_needed "$(basename "$dir")"
       fi
     done
   fi
