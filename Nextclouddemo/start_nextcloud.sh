@@ -69,7 +69,7 @@ export NC_PORT="${port}"
 export NC_PASSWORD="${pw}"
 
 # Start core services
-docker compose up -d db nextcloud
+docker compose up -d db nextcloud nginx
 
 # Re-run init to (re)create users and wait until it is done
 docker compose up --force-recreate nextcloud-init

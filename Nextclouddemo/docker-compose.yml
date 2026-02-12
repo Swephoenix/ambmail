@@ -13,8 +13,6 @@ services:
   nextcloud:
     image: nextcloud:29-apache
     restart: unless-stopped
-    ports:
-      - "${NC_PORT:-8084}:80"
     environment:
       MYSQL_DATABASE: nextcloud
       MYSQL_USER: nextcloud
@@ -27,6 +25,16 @@ services:
       - nextcloud:/var/www/html
     depends_on:
       - db
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - nextcloud
+    ports:
+      - "${NC_PORT:-8084}:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
 
   nextcloud-init:
     image: nextcloud:29-apache
