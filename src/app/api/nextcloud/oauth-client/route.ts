@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
+import { hasAdminAccess } from '@/lib/admin-access';
 import { readRuntimeOAuthConfig, writeRuntimeOAuthConfig } from '@/lib/nextcloud-oauth-config';
 
 export async function GET() {
+  const canAccess = await hasAdminAccess();
+  if (!canAccess) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   const envClientId = process.env.NC_OAUTH_CLIENT_ID?.trim() || '';
   const envClientSecret = process.env.NC_OAUTH_CLIENT_SECRET?.trim() || '';
   const runtime = await readRuntimeOAuthConfig();
@@ -17,6 +23,11 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  const canAccess = await hasAdminAccess();
+  if (!canAccess) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   try {
     const body = await req.json().catch(() => ({}));
     const clientId = typeof body.clientId === 'string' ? body.clientId.trim() : '';

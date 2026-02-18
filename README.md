@@ -44,6 +44,8 @@ Vanliga nycklar:
 - `DATABASE_URL` (t.ex. `postgresql://ambmail:ambmailpassword@localhost:5432/ambmail_db?schema=public`)
 - `ENCRYPTION_KEY` (skapad automatiskt om tom)
 - `BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD`
+- `ADMIN_PANEL_SECRET` (losenord till adminpanelen)
+- `ADMIN_PANEL_PATH` (url-path till adminpanelen, t.ex. `ostmedsmorochskinka999`)
 
 Beteende:
 - `AMBMAIL_RESET=1|0` (standard: 1)
