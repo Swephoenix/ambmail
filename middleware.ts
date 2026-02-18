@@ -1,7 +1,7 @@
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 
-const REALM = 'UxMail';
+const REALM = 'Ambmail';
 
 function getBasicAuthCredentials(authHeader: string | null) {
   if (!authHeader || !authHeader.startsWith('Basic ')) return null;

@@ -1,6 +1,6 @@
-# UxMail
+# Ambmail
 
-UxMail ar en modern e-postklient med flera konton, forhamtning, automatisk sync och SPA-flode.
+Ambmail ar en modern e-postklient med flera konton, forhamtning, automatisk sync och SPA-flode.
 
 ## Snabbstart
 
@@ -12,10 +12,10 @@ cd Uxmail
 
 2. Starta allt med ett kommando:
 ```bash
-./start_uxmail.sh
+./start_ambmail.sh
 ```
 
-`start_uxmail.sh` gor foljande:
+`start_ambmail.sh` gor foljande:
 - Skapar `.env` fran `.env.example` om den saknas
 - Genererar nycklar och hemligheter
 - Startar PostgreSQL (kraver sudo) och skapar roll/databas
@@ -26,10 +26,10 @@ Appen finns pa http://localhost:3000
 
 ## Viktigt om reset
 
-Som standard rensar `start_uxmail.sh` databasen och hemligheter varje start.
+Som standard rensar `start_ambmail.sh` databasen och hemligheter varje start.
 Om du vill behalla data, satt i `.env`:
 ```
-UXMAIL_RESET=0
+AMBMAIL_RESET=0
 ```
 
 ## Forutsattningar
@@ -41,14 +41,14 @@ UXMAIL_RESET=0
 ## Konfiguration (.env)
 
 Vanliga nycklar:
-- `DATABASE_URL` (t.ex. `postgresql://uxmail:uxmailpassword@localhost:5432/uxmail_db?schema=public`)
+- `DATABASE_URL` (t.ex. `postgresql://ambmail:ambmailpassword@localhost:5432/ambmail_db?schema=public`)
 - `ENCRYPTION_KEY` (skapad automatiskt om tom)
 - `BASIC_AUTH_USER` / `BASIC_AUTH_PASSWORD`
 
 Beteende:
-- `UXMAIL_RESET=1|0` (standard: 1)
-- `UXMAIL_START_POSTGRES=1|0` (standard: 1)
-- `UXMAIL_SETUP_DB=1|0` (standard: 0)
+- `AMBMAIL_RESET=1|0` (standard: 1)
+- `AMBMAIL_START_POSTGRES=1|0` (standard: 1)
+- `AMBMAIL_SETUP_DB=1|0` (standard: 0)
 
 ## Nextcloud
 
@@ -56,7 +56,7 @@ Uxmail kan kopplas till Nextcloud via OAuth2 for att lista filer, bifoga dem ell
 
 Krav:
 - Nextcloud OAuth2 app aktiverad
-- `NC_BASE_URL`, `NC_PUBLIC_URL`, `NC_OAUTH_DATA_PATH` och `UXMAIL_PUBLIC_URL` satta i `.env`
+- `NC_BASE_URL`, `NC_PUBLIC_URL`, `NC_OAUTH_DATA_PATH` och `AMBMAIL_PUBLIC_URL` satta i `.env`
 
 Se `Nextclouddemo/NEXTCLOUD.md` for fulla detaljer om flodet och endpoints.
 For lokal Nextcloud-demo, kör `./Nextclouddemo/start_nextcloud.sh`.
@@ -94,4 +94,4 @@ npm start
 
 - Om Postgres inte startar automatiskt: starta manuellt (t.ex. `sudo systemctl start postgresql`).
 - Om DB saknas: kör `./scripts/setup_postgres_local.sh`.
-- Om du vill stanga av reset: satt `UXMAIL_RESET=0` i `.env`.
+- Om du vill stanga av reset: satt `AMBMAIL_RESET=0` i `.env`.

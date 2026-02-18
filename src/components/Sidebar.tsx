@@ -100,7 +100,7 @@ export default function Sidebar({ accounts, activeAccountId, activeFolder, onSel
             isCollapsed ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-90 translate-y-8 pointer-events-none"
           )}>
             <Image
-              src="/uxmail_mini_final.png"
+              src="/ambmail_mini_final.png"
               alt="Mini Logo"
               width={40}
               height={40}

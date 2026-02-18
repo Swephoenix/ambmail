@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$ROOT_DIR"
 
-AUTO_INSTALL="${UXMAIL_AUTO_INSTALL:-0}"
+AUTO_INSTALL="${AMBMAIL_AUTO_INSTALL:-0}"
 STEP_NUM=0
 
 log_step() {
@@ -52,7 +52,7 @@ version_major() {
 }
 
 ensure_prisma_latest() {
-  local update_flag="${UXMAIL_PRISMA_UPDATE:-0}"
+  local update_flag="${AMBMAIL_PRISMA_UPDATE:-0}"
   if [ "$update_flag" != "1" ] && [ "$update_flag" != "true" ]; then
     return 0
   fi
@@ -135,16 +135,16 @@ ensure_cmd node nodejs
 ensure_cmd npm nodejs npm
 check_node_version
 
-RESET_STATE="${UXMAIL_RESET:-}"
+RESET_STATE="${AMBMAIL_RESET:-}"
 if [ -z "$RESET_STATE" ] && [ -f .env ]; then
-  RESET_STATE="$(sed -n 's/^UXMAIL_RESET=//p' .env | head -n1 | tr -d '"')"
+  RESET_STATE="$(sed -n 's/^AMBMAIL_RESET=//p' .env | head -n1 | tr -d '"')"
 fi
 RESET_STATE="${RESET_STATE:-1}"
 if [ "$RESET_STATE" = "1" ] || [ "$RESET_STATE" = "true" ]; then
   log_step "Resetting local state"
   echo "WARNING: This will wipe the database and regenerate secrets."
   echo "Resetting local state (database + secrets)..."
-  rm -f .uxmail.key .uxmail.secrets
+  rm -f .ambmail.key .ambmail.secrets
   if [ -f .env ]; then
     rm -f .env
     echo "Removed .env to regenerate secrets."
@@ -227,8 +227,8 @@ run_prisma generate
 
 log_step "Bootstrapping secrets"
 "$TS_NODE" --compiler-options "$TS_NODE_COMPILER_OPTIONS" scripts/bootstrap-secrets.ts
-if [ -f .uxmail.secrets ]; then
-  echo "Generated secrets stored in .uxmail.secrets"
+if [ -f .ambmail.secrets ]; then
+  echo "Generated secrets stored in .ambmail.secrets"
 fi
 
 log_step "Reloading environment with secrets"
@@ -236,8 +236,8 @@ set -a
 source ./.env
 set +a
 
-START_POSTGRES="${UXMAIL_START_POSTGRES:-1}"
-SETUP_DB="${UXMAIL_SETUP_DB:-0}"
+START_POSTGRES="${AMBMAIL_START_POSTGRES:-1}"
+SETUP_DB="${AMBMAIL_SETUP_DB:-0}"
 if [ "$START_POSTGRES" = "1" ] || [ "$START_POSTGRES" = "true" ]; then
   log_step "Ensuring PostgreSQL is running"
   ensure_cmd psql postgresql-client
@@ -281,11 +281,11 @@ if [ "$SETUP_DB" = "1" ] || [ "$SETUP_DB" = "true" ]; then
     exit 1
   fi
 else
-  echo "Skipping automatic DB role/database creation (UXMAIL_SETUP_DB=${SETUP_DB})."
+  echo "Skipping automatic DB role/database creation (AMBMAIL_SETUP_DB=${SETUP_DB})."
 fi
 
-DB_USER="${POSTGRES_USER:-uxmail}"
-DB_NAME="${POSTGRES_DB:-uxmail_db}"
+DB_USER="${POSTGRES_USER:-ambmail}"
+DB_NAME="${POSTGRES_DB:-ambmail_db}"
 
 log_step "Checking database readiness"
 if command -v pg_isready >/dev/null 2>&1; then

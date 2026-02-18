@@ -19,9 +19,9 @@ set -a
 source ./.env
 set +a
 
-DB_USER="${POSTGRES_USER:-uxmail}"
-DB_PASSWORD="${POSTGRES_PASSWORD:-uxmailpassword}"
-DB_NAME="${POSTGRES_DB:-uxmail_db}"
+DB_USER="${POSTGRES_USER:-ambmail}"
+DB_PASSWORD="${POSTGRES_PASSWORD:-ambmailpassword}"
+DB_NAME="${POSTGRES_DB:-ambmail_db}"
 
 if [ -z "$DB_USER" ] || [ -z "$DB_NAME" ]; then
   echo "POSTGRES_USER/POSTGRES_DB missing in .env."

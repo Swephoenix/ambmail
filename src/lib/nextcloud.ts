@@ -42,7 +42,7 @@ async function readClientCreds() {
 }
 
 function getRedirectUri(requestUrl: string) {
-  const configured = process.env.UXMAIL_PUBLIC_URL;
+  const configured = process.env.AMBMAIL_PUBLIC_URL;
   if (configured) {
     return `${configured.replace(/\/+$/, '')}/api/nextcloud/auth/callback`;
   }

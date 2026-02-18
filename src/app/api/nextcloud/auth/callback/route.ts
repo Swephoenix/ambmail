@@ -29,8 +29,8 @@ export async function GET(req: Request) {
   }
 
   const cookieStore = await cookies();
-  const expectedState = cookieStore.get('uxmail_nc_state')?.value;
-  cookieStore.set('uxmail_nc_state', '', {
+  const expectedState = cookieStore.get('ambmail_nc_state')?.value;
+  cookieStore.set('ambmail_nc_state', '', {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',

@@ -4,7 +4,7 @@ import fs from 'fs';
 import path from 'path';
 
 const MIN_KEY_LENGTH = 32;
-const DEFAULT_KEY_FILE = '.uxmail.key';
+const DEFAULT_KEY_FILE = '.ambmail.key';
 
 function getKeyFilePath(): string {
   const envPath = process.env.ENCRYPTION_KEY_FILE;

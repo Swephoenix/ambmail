@@ -167,7 +167,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
   const [showHtmlImport, setShowHtmlImport] = useState(false);
   const [htmlDraft, setHtmlDraft] = useState('');
   const [showCsvExport, setShowCsvExport] = useState(false);
-  const [csvExportName, setCsvExportName] = useState('uxmail_mejllista');
+  const [csvExportName, setCsvExportName] = useState('ambmail_mejllista');
   const [showNextcloud, setShowNextcloud] = useState(false);
   const [ncPath, setNcPath] = useState('');
   const [ncFiles, setNcFiles] = useState<Array<{ path: string; name: string; isDir: boolean; size: number | null }>>([]);
@@ -266,7 +266,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
               const width = Math.round(naturalWidth * scale);
               const height = Math.round(naturalHeight * scale);
               insertContentRef.current?.(
-                `<img src="${previewUrl}" data-uxmail-cid="${cid}" width="${width}" height="${height}" alt="${file.name}">`,
+                `<img src="${previewUrl}" data-ambmail-cid="${cid}" width="${width}" height="${height}" alt="${file.name}">`,
                 insertPos
               );
             };
@@ -327,7 +327,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
       toast.error('Inga adresser att exportera.');
       return;
     }
-    const baseName = (name || 'uxmail_mejllista').trim() || 'uxmail_mejllista';
+    const baseName = (name || 'ambmail_mejllista').trim() || 'ambmail_mejllista';
     const safeName = baseName.replace(/[^\w\-]+/g, '_');
     const header = 'email';
     const rows = to.map((email) => email.replace(/"/g, '""'));
@@ -348,7 +348,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
       toast.error('Inga adresser att exportera.');
       return;
     }
-    setCsvExportName('uxmail_mejllista');
+    setCsvExportName('ambmail_mejllista');
     setShowCsvExport(true);
   };
 
@@ -375,7 +375,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
           const width = Math.round(naturalWidth * scale);
           const height = Math.round(naturalHeight * scale);
           insertContentRef.current?.(
-            `<img src="${attachment.previewUrl}" data-uxmail-cid="${cid}" width="${width}" height="${height}" alt="${attachment.name}">`
+            `<img src="${attachment.previewUrl}" data-ambmail-cid="${cid}" width="${width}" height="${height}" alt="${attachment.name}">`
           );
         };
         img.src = attachment.previewUrl;
@@ -625,7 +625,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
 
       toast.success('Email sent!');
       if (result.sentFolder) {
-        window.dispatchEvent(new CustomEvent('uxmail:sent', {
+        window.dispatchEvent(new CustomEvent('ambmail:sent', {
           detail: { accountId, folder: result.sentFolder }
         }));
       }
@@ -696,8 +696,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
     try {
       const oauthRes = await fetch('/api/nextcloud/oauth-client');
       if (oauthRes.ok) {
-        const oauth = await oauthRes.json();
-        setNcOAuthClientId(oauth.clientId || '');
+        setNcOAuthClientId('');
         setNcOAuthClientSecret('');
       }
       const statusRes = await fetch('/api/nextcloud/status');
@@ -1166,7 +1165,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
                   value={csvExportName}
                   onChange={(e) => setCsvExportName(e.target.value)}
                   className="mt-3 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="uxmail_mejllista"
+                  placeholder="ambmail_mejllista"
                 />
                 <div className="mt-4 flex items-center justify-end gap-2">
                   <button

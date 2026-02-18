@@ -4,7 +4,7 @@ import path from 'path';
 import { NextResponse } from 'next/server';
 import { requireUser } from '@/lib/auth';
 
-const UPLOAD_DIR = path.join('/tmp', 'uxmail-uploads');
+const UPLOAD_DIR = path.join('/tmp', 'ambmail-uploads');
 
 async function ensureUploadDir() {
   await fs.mkdir(UPLOAD_DIR, { recursive: true });

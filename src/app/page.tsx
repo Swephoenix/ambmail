@@ -948,7 +948,7 @@ export default function Home() {
       const res = await fetch('/api/nextcloud/oauth-client');
       if (!res.ok) return;
       const data = (await res.json()) as OAuthClientConfigResponse;
-      setLoginClientId(data.clientId || '');
+      setLoginClientId('');
       setLoginConfigSource(data.source || 'missing');
     } catch {
       // Ignore non-critical load failure in login UI.
@@ -1089,9 +1089,9 @@ export default function Home() {
       }
     };
 
-    window.addEventListener('uxmail:sent', handleSent as EventListener);
+    window.addEventListener('ambmail:sent', handleSent as EventListener);
     return () => {
-      window.removeEventListener('uxmail:sent', handleSent as EventListener);
+      window.removeEventListener('ambmail:sent', handleSent as EventListener);
     };
   }, [activeAccountId, activeFolder, fetchEmails]);
 
@@ -1123,13 +1123,13 @@ export default function Home() {
           <div className="flex flex-col items-center mb-8">
             <Image
               src="/logo.png"
-              alt="UxMail"
+              alt="Ambmail"
               width={120}
               height={120}
               priority
             />
             <h1 className="text-2xl font-bold mt-4">Logga in via Nextcloud</h1>
-            <p className="text-gray-500 text-sm">Du måste vara inloggad i Nextcloud för att använda UxMail</p>
+            <p className="text-gray-500 text-sm">Du måste vara inloggad i Nextcloud för att använda Ambmail</p>
           </div>
           <a
             href="/api/nextcloud/auth/start"
@@ -1198,7 +1198,7 @@ export default function Home() {
             <div className="mb-6">
               <Image
                 src="/logo.png"
-                alt="UxMail"
+                alt="Ambmail"
                 width={120}
                 height={120}
                 priority
@@ -1206,7 +1206,7 @@ export default function Home() {
                 blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
               />
             </div>
-            <h1 className="text-3xl font-bold mb-2">UxMail</h1>
+            <h1 className="text-3xl font-bold mb-2">Ambmail</h1>
             <p className="text-gray-500 mb-10">Modern multi-account email client for the professional user.</p>
             <button
               onClick={() => setShowAddModal(true)}

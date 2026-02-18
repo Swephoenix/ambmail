@@ -6,7 +6,7 @@ async function main() {
   const contacts = [
     { email: 'andreas@example.com', name: 'Andreas' },
     { email: 'support@oderland.se', name: 'Oderland Support' },
-    { email: 'info@uxmail.io', name: 'UxMail Info' },
+    { email: 'info@ambmail.io', name: 'Ambmail Info' },
   ];
 
   await prisma.contact.deleteMany({

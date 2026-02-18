@@ -45,7 +45,7 @@ I Nextcloud admininställningar:
 ```env
 NC_BASE_URL="http://localhost:8084"
 NC_PUBLIC_URL="http://localhost:8084"
-UXMAIL_PUBLIC_URL="http://localhost:3000"
+AMBMAIL_PUBLIC_URL="http://localhost:3000"
 
 NC_OAUTH_CLIENT_ID="DIN_CLIENT_ID"
 NC_OAUTH_CLIENT_SECRET="DIN_CLIENT_SECRET"
@@ -63,7 +63,7 @@ Om Uxmail redan kör:
 2. Starta igen med:
 
 ```bash
-./start_uxmail.sh
+./start_ambmail.sh
 ```
 
 ## 6. Koppla kontot i Uxmail

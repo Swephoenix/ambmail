@@ -35,6 +35,7 @@ export async function GET() {
           name: label.name,
           color: label.color,
         })),
+        skipDuplicates: true,
       });
       const seeded = await prisma.label.findMany({
         where: { userId: user.id },

@@ -299,7 +299,7 @@ export default function CalendarView({ mode = 'page' }: CalendarViewProps) {
         <header className="flex flex-col gap-4 rounded-3xl border border-white/70 bg-white/80 p-6 shadow-sm backdrop-blur">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-600">UxMail Calendar</p>
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-600">Ambmail Calendar</p>
               <h1 className="text-3xl font-semibold text-slate-900">{formatMonth(currentMonth)}</h1>
               <p className="text-sm text-slate-500">
                 Meet the day view that stays in sync with your mail invites.

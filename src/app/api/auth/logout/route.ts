@@ -5,7 +5,7 @@ import { cookies } from 'next/headers';
 
 export async function POST() {
   const cookieStore = await cookies();
-  const token = cookieStore.get('uxmail_session')?.value;
+  const token = cookieStore.get('ambmail_session')?.value;
 
   if (token) {
     await prisma.userSession.deleteMany({ where: { token } });

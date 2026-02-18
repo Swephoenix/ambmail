@@ -36,7 +36,7 @@ export async function POST(req: Request) {
       subject
     });
 
-    const uploadDir = path.join('/tmp', 'uxmail-uploads');
+    const uploadDir = path.join('/tmp', 'ambmail-uploads');
     const mailAttachments = [];
     for (const attachment of attachments) {
       if (!attachment?.token || !attachment?.filename) continue;

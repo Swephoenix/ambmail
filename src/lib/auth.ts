@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { prisma } from '@/lib/prisma';
 import { hashPassword, verifyPassword } from '@/lib/password';
 
-const SESSION_COOKIE = 'uxmail_session';
+const SESSION_COOKIE = 'ambmail_session';
 const SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 export { hashPassword, verifyPassword };
 

@@ -92,24 +92,24 @@ export default function TiptapEditor({ value, onChange, placeholder, signature, 
               ? { width: attributes.width }
               : {},
         },
-        'data-uxmail-cid': {
+        'data-ambmail-cid': {
           default: null,
-          parseHTML: element => element.getAttribute('data-uxmail-cid'),
+          parseHTML: element => element.getAttribute('data-ambmail-cid'),
           renderHTML: attributes =>
-            attributes['data-uxmail-cid']
-              ? { 'data-uxmail-cid': attributes['data-uxmail-cid'] }
+            attributes['data-ambmail-cid']
+              ? { 'data-ambmail-cid': attributes['data-ambmail-cid'] }
               : {},
         },
         indent: {
           default: 0,
           parseHTML: element => {
-            const raw = element.getAttribute('data-uxmail-indent') || '0';
+            const raw = element.getAttribute('data-ambmail-indent') || '0';
             const parsed = parseInt(raw, 10);
             return Number.isNaN(parsed) ? 0 : parsed;
           },
           renderHTML: attributes =>
             attributes.indent
-              ? { 'data-uxmail-indent': attributes.indent }
+              ? { 'data-ambmail-indent': attributes.indent }
               : {},
         },
         style: {
@@ -150,8 +150,8 @@ export default function TiptapEditor({ value, onChange, placeholder, signature, 
         img.src = node.attrs.src;
         if (node.attrs.alt) img.alt = node.attrs.alt;
         if (node.attrs.title) img.title = node.attrs.title;
-        if (node.attrs['data-uxmail-cid']) {
-          img.setAttribute('data-uxmail-cid', node.attrs['data-uxmail-cid']);
+        if (node.attrs['data-ambmail-cid']) {
+          img.setAttribute('data-ambmail-cid', node.attrs['data-ambmail-cid']);
         }
         img.style.width = '100%';
         img.style.height = 'auto';
@@ -296,10 +296,10 @@ export default function TiptapEditor({ value, onChange, placeholder, signature, 
             else img.removeAttribute('alt');
             if (node.attrs.title) img.title = node.attrs.title;
             else img.removeAttribute('title');
-            if (node.attrs['data-uxmail-cid']) {
-              img.setAttribute('data-uxmail-cid', node.attrs['data-uxmail-cid']);
+            if (node.attrs['data-ambmail-cid']) {
+              img.setAttribute('data-ambmail-cid', node.attrs['data-ambmail-cid']);
             } else {
-              img.removeAttribute('data-uxmail-cid');
+              img.removeAttribute('data-ambmail-cid');
             }
             if (node.attrs.indent) {
               wrapper.style.transform = `translateX(${node.attrs.indent}px)`;
@@ -572,7 +572,7 @@ export default function TiptapEditor({ value, onChange, placeholder, signature, 
 
   const insertSignature = (signature?: string) => {
     if (editor) {
-      const sigContent = signature || '<br><br>--<br><strong>Sent via UxMail</strong>';
+      const sigContent = signature || '<br><br>--<br><strong>Sent via Ambmail</strong>';
       editor.chain().focus().insertContent(sigContent).run();
     }
   };

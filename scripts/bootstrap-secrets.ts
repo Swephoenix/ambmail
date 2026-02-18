@@ -2,8 +2,8 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 
-const DEFAULT_KEY_FILE = '.uxmail.key';
-const DEFAULT_SECRETS_FILE = '.uxmail.secrets';
+const DEFAULT_KEY_FILE = '.ambmail.key';
+const DEFAULT_SECRETS_FILE = '.ambmail.secrets';
 const BASIC_AUTH_PLACEHOLDER = 'replace-with-a-strong-password';
 const ENCRYPTION_KEY_PLACEHOLDER = 'replace-with-a-long-random-string-at-least-32-chars';
 

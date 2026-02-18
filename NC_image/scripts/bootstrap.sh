@@ -34,7 +34,7 @@ DEMO_USER_1="$(dotenv_get DEMO_USER_1 demo1)"
 DEMO_USER_1_PASSWORD="$(dotenv_get DEMO_USER_1_PASSWORD demo1_password)"
 DEMO_USER_2="$(dotenv_get DEMO_USER_2 demo2)"
 DEMO_USER_2_PASSWORD="$(dotenv_get DEMO_USER_2_PASSWORD demo2_password)"
-OAUTH_CLIENT_NAME="$(dotenv_get OAUTH_CLIENT_NAME uxmail-local)"
+OAUTH_CLIENT_NAME="$(dotenv_get OAUTH_CLIENT_NAME ambmail-local)"
 OAUTH_REDIRECT_URI="$(dotenv_get OAUTH_REDIRECT_URI http://localhost:3000/api/nextcloud/auth/callback)"
 NC_PORT="$(dotenv_get NC_PORT 8084)"
 MYSQL_PASSWORD="$(dotenv_get MYSQL_PASSWORD)"
@@ -157,7 +157,7 @@ create_oauth_client_via_legacy_import() {
 
   local client_id
   local client_secret
-  client_id="uxmail-$(od -An -N10 -tx1 /dev/urandom | tr -d ' \n')"
+  client_id="ambmail-$(od -An -N10 -tx1 /dev/urandom | tr -d ' \n')"
   client_secret="$(od -An -N24 -tx1 /dev/urandom | tr -d ' \n')"
 
   echo "Using OAuth2 legacy import fallback (Nextcloud 29+ compatibility)..."

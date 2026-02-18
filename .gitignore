@@ -29,17 +29,17 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-uxmail.log
+ambmail.log
 
 # env files (can opt-in for committing if needed)
 .env*
 !.env.example
 
 # local encryption key
-.uxmail.key
+.ambmail.key
 
 # generated secrets
-.uxmail.secrets
+.ambmail.secrets
 .nextcloud-oauth.json
 
 # local artifacts
