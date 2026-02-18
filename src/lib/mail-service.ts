@@ -2,8 +2,11 @@
 import imaps from 'imap-simple';
 import type { ImapSimple, ImapSimpleOptions } from 'imap-simple';
 import { simpleParser } from 'mailparser';
-import nodemailer from 'nodemailer';
 import { decrypt } from './encryption';
+
+const nodemailer = require('nodemailer') as {
+  createTransport: (options: any) => any;
+};
 
 export interface MailAccount {
   id: string;
