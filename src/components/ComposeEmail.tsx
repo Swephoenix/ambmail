@@ -175,6 +175,9 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
   const [ncError, setNcError] = useState<string | null>(null);
   const [ncConnected, setNcConnected] = useState(false);
   const [ncAction, setNcAction] = useState<string | null>(null);
+  const [ncOAuthClientId, setNcOAuthClientId] = useState('');
+  const [ncOAuthClientSecret, setNcOAuthClientSecret] = useState('');
+  const [savingNcOAuth, setSavingNcOAuth] = useState(false);
   const [attachments, setAttachments] = useState<Array<{
     token: string;
     name: string;
@@ -691,6 +694,12 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
     setNcError(null);
     setNcLoading(true);
     try {
+      const oauthRes = await fetch('/api/nextcloud/oauth-client');
+      if (oauthRes.ok) {
+        const oauth = await oauthRes.json();
+        setNcOAuthClientId(oauth.clientId || '');
+        setNcOAuthClientSecret('');
+      }
       const statusRes = await fetch('/api/nextcloud/status');
       const status = await statusRes.json();
       if (!statusRes.ok || !status.connected) {
@@ -729,6 +738,34 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
       setNcError(error.message || 'Kunde inte läsa filer');
     } finally {
       setNcLoading(false);
+    }
+  };
+
+  const saveNextcloudOAuthClient = async () => {
+    if (!ncOAuthClientId.trim() || !ncOAuthClientSecret.trim()) {
+      toast.error('Client Identifier och Secret key krävs.');
+      return;
+    }
+    setSavingNcOAuth(true);
+    try {
+      const res = await fetch('/api/nextcloud/oauth-client', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: ncOAuthClientId.trim(),
+          clientSecret: ncOAuthClientSecret.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Kunde inte spara OAuth-uppgifter');
+      }
+      setNcOAuthClientSecret('');
+      toast.success('OAuth-uppgifter sparade.');
+    } catch (error: unknown) {
+      toast.error(error.message || 'Kunde inte spara OAuth-uppgifter');
+    } finally {
+      setSavingNcOAuth(false);
     }
   };
 
@@ -1179,6 +1216,29 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
                 {!ncConnected ? (
                   <div className="mt-6 rounded-lg border border-dashed border-gray-300 p-4 text-center">
                     <p className="text-sm text-gray-600">Du behöver logga in till Nextcloud för att se dina filer.</p>
+                    <div className="mt-4 space-y-2 text-left max-w-xl mx-auto">
+                      <input
+                        value={ncOAuthClientId}
+                        onChange={(e) => setNcOAuthClientId(e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Client Identifier"
+                      />
+                      <input
+                        type="password"
+                        value={ncOAuthClientSecret}
+                        onChange={(e) => setNcOAuthClientSecret(e.target.value)}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Secret key"
+                      />
+                      <button
+                        type="button"
+                        onClick={saveNextcloudOAuthClient}
+                        disabled={savingNcOAuth}
+                        className="inline-flex items-center justify-center px-4 py-2 rounded-lg border border-gray-300 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        {savingNcOAuth ? 'Sparar…' : 'Spara OAuth2 i Ambmail'}
+                      </button>
+                    </div>
                     <a
                       href="/api/nextcloud/auth/start"
                       className="inline-flex items-center gap-2 mt-3 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700"

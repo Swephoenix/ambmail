@@ -21,6 +21,13 @@ type LabelDefinition = {
   color: string;
 };
 
+type OAuthClientConfigResponse = {
+  source: 'env' | 'runtime' | 'missing';
+  clientId: string;
+  hasSecret: boolean;
+  error?: string;
+};
+
 const LABEL_COLOR_OPTIONS = [
   { key: 'red', name: 'Rod', hex: '#DC2626', text: '#7F1D1D' },
   { key: 'amber', name: 'Amber', hex: '#D97706', text: '#78350F' },
@@ -81,6 +88,10 @@ export default function Home() {
   };
 
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
+  const [loginClientId, setLoginClientId] = useState('');
+  const [loginClientSecret, setLoginClientSecret] = useState('');
+  const [loginConfigSource, setLoginConfigSource] = useState<'env' | 'runtime' | 'missing'>('missing');
+  const [isSavingLoginOAuth, setIsSavingLoginOAuth] = useState(false);
   const [currentUser, setCurrentUser] = useState<unknown>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
@@ -932,9 +943,56 @@ export default function Home() {
     setLabelDefinitions([]);
   };
 
+  const loadLoginOAuthConfig = useCallback(async () => {
+    try {
+      const res = await fetch('/api/nextcloud/oauth-client');
+      if (!res.ok) return;
+      const data = (await res.json()) as OAuthClientConfigResponse;
+      setLoginClientId(data.clientId || '');
+      setLoginConfigSource(data.source || 'missing');
+    } catch {
+      // Ignore non-critical load failure in login UI.
+    }
+  }, []);
+
+  const handleSaveLoginOAuth = async () => {
+    if (!loginClientId.trim() || !loginClientSecret.trim()) {
+      toast.error('Ange både Client Identifier och Secret key.');
+      return;
+    }
+    setIsSavingLoginOAuth(true);
+    try {
+      const res = await fetch('/api/nextcloud/oauth-client', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: loginClientId.trim(),
+          clientSecret: loginClientSecret.trim(),
+        }),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok) {
+        throw new Error(data.error || 'Kunde inte spara OAuth2-inställningar');
+      }
+      setLoginConfigSource('runtime');
+      setLoginClientSecret('');
+      toast.success('OAuth2-inställningar sparade.');
+    } catch (error: unknown) {
+      toast.error(error instanceof Error ? error.message : 'Kunde inte spara OAuth2-inställningar');
+    } finally {
+      setIsSavingLoginOAuth(false);
+    }
+  };
+
   useEffect(() => {
     checkAuth();
   }, []);
+
+  useEffect(() => {
+    if (authStatus === 'unauthenticated') {
+      loadLoginOAuthConfig();
+    }
+  }, [authStatus, loadLoginOAuthConfig]);
 
   useEffect(() => {
     const nextEdits: Record<string, { name: string; color: string }> = {};
@@ -1079,6 +1137,40 @@ export default function Home() {
           >
             Fortsätt med Nextcloud
           </a>
+          <div className="mt-5 pt-5 border-t border-gray-100 space-y-2">
+            <p className="text-xs text-gray-500">
+              OAuth2 i Ambmail ({loginConfigSource === 'env' ? 'läst från .env' : loginConfigSource === 'runtime' ? 'sparat i runtime' : 'saknas'}).
+            </p>
+            <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700 space-y-1">
+              <p className="font-semibold text-gray-800">Guide i Nextcloud</p>
+              <p>1. Logga in som admin i Nextcloud.</p>
+              <p>2. Gå till Inställningar - Security - OAuth 2.0 clients.</p>
+              <p>3. Skapa klient och sätt Redirect URI till:</p>
+              <p className="font-mono text-[11px] break-all">http://localhost:3000/api/nextcloud/auth/callback</p>
+              <p>4. Kopiera Client Identifier och Secret key hit.</p>
+            </div>
+            <input
+              value={loginClientId}
+              onChange={(e) => setLoginClientId(e.target.value)}
+              className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Client Identifier"
+            />
+            <input
+              type="password"
+              value={loginClientSecret}
+              onChange={(e) => setLoginClientSecret(e.target.value)}
+              className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Secret key"
+            />
+            <button
+              type="button"
+              onClick={handleSaveLoginOAuth}
+              disabled={isSavingLoginOAuth}
+              className="w-full py-2.5 bg-gray-100 text-gray-800 text-sm font-semibold rounded-xl hover:bg-gray-200 transition-all disabled:opacity-50"
+            >
+              {isSavingLoginOAuth ? 'Sparar...' : 'Spara OAuth2-inställningar'}
+            </button>
+          </div>
         </div>
       </main>
     );

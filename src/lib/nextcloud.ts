@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import { prisma } from '@/lib/prisma';
+import { readRuntimeOAuthConfig } from '@/lib/nextcloud-oauth-config';
 
 const DEFAULT_BASE_URL = 'http://localhost:8080';
 
@@ -19,17 +20,25 @@ async function readClientCreds() {
     return { clientId, clientSecret };
   }
 
+  const runtime = await readRuntimeOAuthConfig();
+  if (runtime?.clientId && runtime?.clientSecret) {
+    return {
+      clientId: runtime.clientId,
+      clientSecret: runtime.clientSecret,
+    };
+  }
+
   const dataPath = process.env.NC_OAUTH_DATA_PATH;
   if (!dataPath) {
     throw new Error('Missing Nextcloud OAuth client credentials');
   }
   const raw = await fs.readFile(dataPath, 'utf8');
-  const idMatch = raw.match(/identifier\s*:?\s*([^\s]+)/i);
-  const secretMatch = raw.match(/secret\s*:?\s*([^\s]+)/i);
+  const idMatch = raw.match(/(client id|identifier)\s*:?\s*([^\s]+)/i);
+  const secretMatch = raw.match(/(client secret|secret)\s*:?\s*([^\s]+)/i);
   if (!idMatch || !secretMatch) {
     throw new Error('Could not parse Nextcloud oauth2-client.txt');
   }
-  return { clientId: idMatch[1], clientSecret: secretMatch[1] };
+  return { clientId: idMatch[2], clientSecret: secretMatch[2] };
 }
 
 function getRedirectUri(requestUrl: string) {
