@@ -17,10 +17,11 @@ NC_PORT="${NC_PORT:-8084}"
 echo "Starting Nextcloud stack..."
 docker compose up -d
 
-echo "Running bootstrap (users + oauth2)..."
-./scripts/bootstrap.sh
+echo "Running bootstrap (users, without oauth2 client auto-creation)..."
+AUTO_CREATE_OAUTH_CLIENT=false ./scripts/bootstrap.sh
 
 echo
 echo "Done."
 echo "Nextcloud: http://localhost:${NC_PORT}"
-echo "OAuth2 credentials: ${SCRIPT_DIR}/secrets/oauth2-client.txt"
+echo "OAuth2 credentials are not created automatically in start_nc.sh."
+echo "To create them manually: AUTO_CREATE_OAUTH_CLIENT=true ./scripts/bootstrap.sh"

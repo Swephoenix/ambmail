@@ -36,6 +36,7 @@ DEMO_USER_2="$(dotenv_get DEMO_USER_2 demo2)"
 DEMO_USER_2_PASSWORD="$(dotenv_get DEMO_USER_2_PASSWORD demo2_password)"
 OAUTH_CLIENT_NAME="$(dotenv_get OAUTH_CLIENT_NAME ambmail-local)"
 OAUTH_REDIRECT_URI="$(dotenv_get OAUTH_REDIRECT_URI http://localhost:3000/api/nextcloud/auth/callback)"
+AUTO_CREATE_OAUTH_CLIENT="$(dotenv_get AUTO_CREATE_OAUTH_CLIENT true)"
 NC_PORT="$(dotenv_get NC_PORT 8084)"
 MYSQL_PASSWORD="$(dotenv_get MYSQL_PASSWORD)"
 
@@ -191,8 +192,13 @@ main() {
   enable_oauth2_app
   create_user_if_missing "${DEMO_USER_1}" "${DEMO_USER_1_PASSWORD}"
   create_user_if_missing "${DEMO_USER_2}" "${DEMO_USER_2_PASSWORD}"
-  create_oauth_client_if_missing
-  print_oauth_summary
+
+  if [[ "${AUTO_CREATE_OAUTH_CLIENT}" == "true" ]]; then
+    create_oauth_client_if_missing
+    print_oauth_summary
+  else
+    echo "Skipping OAuth2 client auto-creation (AUTO_CREATE_OAUTH_CLIENT=${AUTO_CREATE_OAUTH_CLIENT})."
+  fi
 
   echo "Bootstrap done."
 }

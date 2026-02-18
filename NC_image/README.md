@@ -35,6 +35,13 @@ Scriptet gör följande:
 - skapar `demo1` och `demo2` (eller värden från `.env`)
 - skapar en OAuth2-klient och sparar output i `secrets/oauth2-client.txt`
 
+`start_nc.sh` kör bootstrap med `AUTO_CREATE_OAUTH_CLIENT=false`, så credentials skapas inte automatiskt där.
+För att skapa credentials manuellt:
+
+```bash
+AUTO_CREATE_OAUTH_CLIENT=true ./scripts/bootstrap.sh
+```
+
 ## 4. Koppla till din mejlklient
 
 Använd värdena från `secrets/oauth2-client.txt` i klienten:

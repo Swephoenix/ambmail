@@ -60,6 +60,7 @@ Krav:
 
 Se `Nextclouddemo/NEXTCLOUD.md` for fulla detaljer om flodet och endpoints.
 For lokal Nextcloud-demo, kör `./Nextclouddemo/start_nextcloud.sh`.
+Se även `NEXTCLOUD_AUTENTISERING_OCH_FILATKOMST.md` for en steg-for-steg-beskrivning av hur autentisering, WebDAV och Share API fungerar i Ambmail.
 
 ## Inloggning
 
