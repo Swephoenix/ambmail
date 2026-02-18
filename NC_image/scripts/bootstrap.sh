@@ -86,6 +86,40 @@ create_user_if_missing() {
   "${COMPOSE_CMD[@]}" exec -T --env "OC_PASS=${pass}" -u 33 app php occ user:add --password-from-env "${user}"
 }
 
+safe_filename_part() {
+  local raw="$1"
+  # Keep filename safe and readable.
+  printf "%s" "${raw}" | sed -E 's/[^A-Za-z0-9._-]+/_/g'
+}
+
+create_demo_text_file_for_user() {
+  local user="$1"
+  local label="$2"
+
+  if [[ -z "${user}" ]]; then
+    return 0
+  fi
+
+  local safe_user
+  local filename
+  local content
+  safe_user="$(safe_filename_part "${user}")"
+  filename="${label}-${safe_user}.txt"
+  content="Denna fil skapades automatiskt för användaren ${user} av start_nc.sh."
+
+  echo "Creating demo file for ${user}: ${filename}"
+  "${COMPOSE_CMD[@]}" exec -T -u 33 \
+    --env "TARGET_USER=${user}" \
+    --env "TARGET_FILENAME=${filename}" \
+    --env "TARGET_CONTENT=${content}" \
+    app sh -c 'set -eu
+target_dir="/var/www/html/data/${TARGET_USER}/files"
+mkdir -p "$target_dir"
+printf "%s\n" "$TARGET_CONTENT" > "$target_dir/$TARGET_FILENAME"'
+
+  occ files:scan --path="${user}/files/${filename}" >/dev/null
+}
+
 enable_oauth2_app() {
   if occ app:list | grep -q '^  - oauth2:'; then
     echo "oauth2 app already enabled."
@@ -192,6 +226,8 @@ main() {
   enable_oauth2_app
   create_user_if_missing "${DEMO_USER_1}" "${DEMO_USER_1_PASSWORD}"
   create_user_if_missing "${DEMO_USER_2}" "${DEMO_USER_2_PASSWORD}"
+  create_demo_text_file_for_user "${DEMO_USER_1}" "demo-user-1"
+  create_demo_text_file_for_user "${DEMO_USER_2}" "demo-user-2"
 
   if [[ "${AUTO_CREATE_OAUTH_CLIENT}" == "true" ]]; then
     create_oauth_client_if_missing

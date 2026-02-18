@@ -265,14 +265,6 @@ export default function Home() {
 
       // Check if we are in Drafts folder (using common IDs)
       if (activeFolder === 'Drafts' || activeFolder === 'Utkast') {
-        // Update the initial data for the compose window
-        setComposeInitialData({
-          to: data.to || '',
-          subject: data.subject,
-          body: data.body,
-          uid: data.uid
-        });
-
         // Add a new compose window for the draft
         const newWindow = {
           id: `compose-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -1302,8 +1294,6 @@ export default function Home() {
                   uid: undefined // New message, no UID yet
                 };
 
-                setComposeInitialData(newComposeData);
-
                 // Add a new compose window to the array
                 const newWindow = {
                   id: `compose-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -1370,8 +1360,6 @@ export default function Home() {
                   uid: undefined
                 };
 
-                setComposeInitialData(newComposeData);
-
                 // Add a new compose window to the array
                 const newWindow = {
                   id: `compose-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -1422,8 +1410,6 @@ export default function Home() {
                   uid: undefined
                 };
 
-                setComposeInitialData(newComposeData);
-
                 // Add a new compose window to the array
                 const newWindow = {
                   id: `compose-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -1470,8 +1456,6 @@ export default function Home() {
                   uid: undefined
                 };
 
-                setComposeInitialData(newComposeData);
-
                 // Add a new compose window to the array
                 const newWindow = {
                   id: `compose-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -1509,8 +1493,6 @@ export default function Home() {
                   uid: undefined
                 };
 
-                setComposeInitialData(newComposeData);
-
                 // Add a new compose window to the array
                 const newWindow = {
                   id: `compose-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -1537,9 +1519,6 @@ export default function Home() {
             accountId={window.accountId}
             onClose={(windowId) => {
               setComposeWindows(prev => prev.filter(w => w.id !== windowId));
-              if (composeWindows.length <= 1) {
-                setComposeInitialData(null);
-              }
             }}
             onMinimize={(windowId) => {
               setComposeWindows(prev =>
