@@ -238,6 +238,7 @@ set +a
 
 START_POSTGRES="${AMBMAIL_START_POSTGRES:-1}"
 SETUP_DB="${AMBMAIL_SETUP_DB:-0}"
+AUTO_SETUP_DB_ON_FAIL="${AMBMAIL_AUTO_SETUP_DB_ON_FAIL:-1}"
 if [ "$START_POSTGRES" = "1" ] || [ "$START_POSTGRES" = "true" ]; then
   log_step "Ensuring PostgreSQL is running"
   ensure_cmd psql postgresql-client
@@ -253,7 +254,18 @@ if [ "$START_POSTGRES" = "1" ] || [ "$START_POSTGRES" = "true" ]; then
       if [ -n "$SERVICE_NAME" ]; then
         sudo systemctl start "$SERVICE_NAME"
       else
-        echo "No PostgreSQL systemd service found. Install PostgreSQL or start it manually."
+        if command -v pg_lsclusters >/dev/null 2>&1 && command -v pg_ctlcluster >/dev/null 2>&1; then
+          CLUSTER_INFO="$(pg_lsclusters --no-header 2>/dev/null | awk 'NR==1 {print $1" "$2}')"
+          if [ -n "$CLUSTER_INFO" ]; then
+            CLUSTER_VERSION="$(printf '%s\n' "$CLUSTER_INFO" | awk '{print $1}')"
+            CLUSTER_NAME="$(printf '%s\n' "$CLUSTER_INFO" | awk '{print $2}')"
+            sudo pg_ctlcluster "$CLUSTER_VERSION" "$CLUSTER_NAME" start
+          else
+            echo "No PostgreSQL cluster found. Install PostgreSQL or start it manually."
+          fi
+        else
+          echo "No PostgreSQL systemd service found. Install PostgreSQL or start it manually."
+        fi
       fi
     fi
   elif command -v brew >/dev/null 2>&1; then
@@ -286,33 +298,71 @@ fi
 
 DB_USER="${POSTGRES_USER:-ambmail}"
 DB_NAME="${POSTGRES_DB:-ambmail_db}"
+DB_CHECK_INFO="$(node -e 'const u=new URL(process.env.DATABASE_URL); const db=u.pathname.startsWith("/") ? u.pathname.slice(1) : u.pathname; console.log(["host="+u.hostname,"port="+(u.port||5432),"user="+u.username,"password="+u.password,"db="+db].join("\n"))')"
+host=""
+port=""
+user=""
+password=""
+db=""
+while IFS='=' read -r key value; do
+  case "$key" in
+    host) host="$value" ;;
+    port) port="$value" ;;
+    user) user="$value" ;;
+    password) password="$value" ;;
+    db) db="$value" ;;
+  esac
+done <<< "$DB_CHECK_INFO"
+
+is_true() {
+  [ "$1" = "1" ] || [ "$1" = "true" ]
+}
+
+is_local_db_host() {
+  [ "$host" = "localhost" ] || [ "$host" = "127.0.0.1" ] || [ "$host" = "::1" ]
+}
+
+attempt_local_db_setup() {
+  if ! is_true "$AUTO_SETUP_DB_ON_FAIL"; then
+    return 1
+  fi
+  if ! is_local_db_host; then
+    return 1
+  fi
+  if [ ! -x ./scripts/setup_postgres_local.sh ]; then
+    return 1
+  fi
+  echo "Attempting automatic local DB setup..."
+  ./scripts/setup_postgres_local.sh
+}
 
 log_step "Checking database readiness"
 if command -v pg_isready >/dev/null 2>&1; then
-  DB_CHECK_INFO="$(node -e 'const u=new URL(process.env.DATABASE_URL); const db=u.pathname.startsWith("/") ? u.pathname.slice(1) : u.pathname; console.log(["host="+u.hostname,"port="+(u.port||5432),"user="+u.username,"password="+u.password,"db="+db].join("\n"))')"
-  host=""
-  port=""
-  user=""
-  password=""
-  db=""
-  while IFS='=' read -r key value; do
-    case "$key" in
-      host) host="$value" ;;
-      port) port="$value" ;;
-      user) user="$value" ;;
-      password) password="$value" ;;
-      db) db="$value" ;;
-    esac
-  done <<< "$DB_CHECK_INFO"
   if [ -n "$password" ]; then
     PGPASSWORD="$password" pg_isready -h "$host" -p "$port" -U "$user" -d "$db" >/dev/null 2>&1 || {
-      echo "Database is not ready. Ensure PostgreSQL is running and DATABASE_URL is correct ($host:$port)."
-      exit 1
+      echo "Database is not ready ($host:$port)."
+      if attempt_local_db_setup; then
+        PGPASSWORD="$password" pg_isready -h "$host" -p "$port" -U "$user" -d "$db" >/dev/null 2>&1 || {
+          echo "Database is still not ready after setup attempt. Ensure PostgreSQL is running and DATABASE_URL is correct."
+          exit 1
+        }
+      else
+        echo "Run scripts/setup_postgres_local.sh or create the role/db manually."
+        exit 1
+      fi
     }
   else
     pg_isready -h "$host" -p "$port" -U "$user" -d "$db" >/dev/null 2>&1 || {
-      echo "Database is not ready. Ensure PostgreSQL is running and DATABASE_URL is correct ($host:$port)."
-      exit 1
+      echo "Database is not ready ($host:$port)."
+      if attempt_local_db_setup; then
+        pg_isready -h "$host" -p "$port" -U "$user" -d "$db" >/dev/null 2>&1 || {
+          echo "Database is still not ready after setup attempt. Ensure PostgreSQL is running and DATABASE_URL is correct."
+          exit 1
+        }
+      else
+        echo "Run scripts/setup_postgres_local.sh or create the role/db manually."
+        exit 1
+      fi
     }
   fi
   if command -v psql >/dev/null 2>&1; then
@@ -322,13 +372,29 @@ if command -v pg_isready >/dev/null 2>&1; then
     fi
     if [ -n "$password" ]; then
       PGPASSWORD="$password" psql -h "$host" -p "$port" -U "$user" -d "$db" -c 'select 1' >/dev/null 2>&1 || {
-        echo "Cannot connect to database. Run scripts/setup_postgres_local.sh or create the role/db manually."
-        exit 1
+        echo "Cannot connect to database."
+        if attempt_local_db_setup; then
+          PGPASSWORD="$password" psql -h "$host" -p "$port" -U "$user" -d "$db" -c 'select 1' >/dev/null 2>&1 || {
+            echo "Cannot connect to database after setup attempt. Run scripts/setup_postgres_local.sh manually."
+            exit 1
+          }
+        else
+          echo "Run scripts/setup_postgres_local.sh or create the role/db manually."
+          exit 1
+        fi
       }
     else
       psql -h "$host" -p "$port" -U "$user" -d "$db" -c 'select 1' >/dev/null 2>&1 || {
-        echo "Cannot connect to database. Run scripts/setup_postgres_local.sh or create the role/db manually."
-        exit 1
+        echo "Cannot connect to database."
+        if attempt_local_db_setup; then
+          psql -h "$host" -p "$port" -U "$user" -d "$db" -c 'select 1' >/dev/null 2>&1 || {
+            echo "Cannot connect to database after setup attempt. Run scripts/setup_postgres_local.sh manually."
+            exit 1
+          }
+        else
+          echo "Run scripts/setup_postgres_local.sh or create the role/db manually."
+          exit 1
+        fi
       }
     fi
   else
