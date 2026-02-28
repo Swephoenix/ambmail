@@ -1,19 +1,31 @@
-FROM node:22-bookworm-slim
+FROM node:20-bookworm-slim
 
 WORKDIR /app
 
-# Install dependencies first for better layer caching
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    openssl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install dependencies first
 COPY package*.json ./
 COPY prisma ./prisma
+
 RUN npm ci
 
-# Copy source and build
+# Generate Prisma client explicitly
+RUN npx prisma generate
+
+# Copy rest of source
 COPY . .
+
+# Build
 RUN npm run build
 
-# Runtime defaults
+# Runtime
 ENV NODE_ENV=production
 ENV PORT=3000
+
 EXPOSE 3000
 
 COPY docker/entrypoint.sh /entrypoint.sh
