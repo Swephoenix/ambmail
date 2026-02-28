@@ -93,6 +93,33 @@ npm run build
 npm start
 ```
 
+## Kor med Docker
+
+1. Skapa en lokal `.env` om du inte redan har en:
+```bash
+cp .env.example .env
+```
+
+2. Starta app + worker + PostgreSQL:
+```bash
+docker compose up --build -d
+```
+
+3. Oppna appen:
+```text
+http://localhost:3000
+```
+
+4. Se loggar:
+```bash
+docker compose logs -f app worker db
+```
+
+5. Stoppa allt:
+```bash
+docker compose down
+```
+
 ## Felsokning
 
 - Om Postgres inte startar automatiskt: starta manuellt (t.ex. `sudo systemctl start postgresql`).
