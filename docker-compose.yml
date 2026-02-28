@@ -14,6 +14,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+    networks:
+      - ambmail_net
 
   app:
     build:
@@ -21,11 +23,18 @@ services:
       dockerfile: Dockerfile
     container_name: ambmail-app
     restart: unless-stopped
+    user: "1000:1000"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     depends_on:
       db:
         condition: service_healthy
     ports:
       - "3000:3000"
+    networks:
+      - ambmail_net
     environment:
       NODE_ENV: production
       PORT: 3000
@@ -54,9 +63,16 @@ services:
       dockerfile: Dockerfile
     container_name: ambmail-worker
     restart: unless-stopped
+    user: "1000:1000"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
     depends_on:
       db:
         condition: service_healthy
+    networks:
+      - ambmail_net
     environment:
       NODE_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER:-ambmail}:${POSTGRES_PASSWORD:-ambmailpassword}@db:5432/${POSTGRES_DB:-ambmail_db}?schema=public
@@ -81,3 +97,8 @@ services:
 
 volumes:
   ambmail_db_data:
+
+networks:
+  ambmail_net:
+    name: ambmail_net
+    driver: bridge
