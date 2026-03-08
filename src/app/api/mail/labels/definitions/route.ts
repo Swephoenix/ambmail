@@ -47,7 +47,7 @@ export async function GET() {
     return NextResponse.json(existing);
   } catch (error: unknown) {
     console.error('Label Definitions Error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }
 
@@ -74,11 +74,11 @@ export async function POST(req: Request) {
 
     return NextResponse.json(created);
   } catch (error: unknown) {
-    if (error?.code === 'P2002') {
+    if ((error as { code?: string })?.code === 'P2002') {
       return NextResponse.json({ error: 'Label already exists' }, { status: 409 });
     }
     console.error('Label Create Error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }
 
@@ -119,7 +119,7 @@ export async function PATCH(req: Request) {
         where: { userId: user.id },
         select: { id: true },
       });
-      const accountIds = accounts.map(account => account.id);
+      const accountIds = accounts.map((account: { id: string }) => account.id);
       if (accountIds.length > 0) {
         await prisma.$executeRaw(
           Prisma.sql`UPDATE "EmailMessage" SET "labels" = array_replace("labels", ${existing.name}, ${normalizedName}) WHERE "accountId" IN (${Prisma.join(accountIds)}) AND ${existing.name} = ANY("labels")`
@@ -129,11 +129,11 @@ export async function PATCH(req: Request) {
 
     return NextResponse.json(updated);
   } catch (error: unknown) {
-    if (error?.code === 'P2002') {
+    if ((error as { code?: string })?.code === 'P2002') {
       return NextResponse.json({ error: 'Label already exists' }, { status: 409 });
     }
     console.error('Label Update Error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }
 
@@ -160,7 +160,7 @@ export async function DELETE(req: Request) {
       where: { userId: user.id },
       select: { id: true },
     });
-    const accountIds = accounts.map(account => account.id);
+    const accountIds = accounts.map((account: { id: string }) => account.id);
     if (accountIds.length > 0) {
       await prisma.$executeRaw(
         Prisma.sql`UPDATE "EmailMessage" SET "labels" = array_remove("labels", ${existing.name}) WHERE "accountId" IN (${Prisma.join(accountIds)}) AND ${existing.name} = ANY("labels")`
@@ -172,6 +172,6 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
     console.error('Label Delete Error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }

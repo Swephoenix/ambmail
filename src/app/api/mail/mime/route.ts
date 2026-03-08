@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getImapConnection, isFolderAlias, openMailbox, resolveFolderAlias } from '@/lib/mail-service';
+import type { MailAccount } from '@/lib/mail-service';
+import type { ImapSimple } from 'imap-simple';
 import { requireUser } from '@/lib/auth';
 
 export async function GET(req: Request) {
@@ -26,20 +28,32 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Invalid uid' }, { status: 400 });
   }
 
-  let connection;
+  const mailAccount: MailAccount = {
+    id: account.id,
+    email: account.email,
+    password: account.password,
+    imapHost: account.imapHost,
+    imapPort: account.imapPort,
+    smtpHost: account.smtpHost,
+    smtpPort: account.smtpPort,
+    signature: account.signature,
+    name: account.name,
+  };
+
+  let connection: ImapSimple | null = null;
   try {
     let resolvedFolder = requestedFolder;
     if (isFolderAlias(requestedFolder)) {
-      connection = await getImapConnection(account as unknown);
+      connection = await getImapConnection(mailAccount);
       resolvedFolder = await resolveFolderAlias(connection, requestedFolder);
     }
 
     if (!connection) {
-      connection = await getImapConnection(account as unknown);
+      connection = await getImapConnection(mailAccount);
     }
     await openMailbox(connection, resolvedFolder);
 
-    const messages = await connection.search([['UID', uid]], {
+    const messages = await connection!.search([['UID', uid]], {
       bodies: [''],
       struct: true,
     });
@@ -60,7 +74,7 @@ export async function GET(req: Request) {
       headers: { 'Content-Type': 'text/plain; charset=utf-8' },
     });
   } catch (error: unknown) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   } finally {
     if (typeof connection !== 'undefined' && connection) {
       connection.end();

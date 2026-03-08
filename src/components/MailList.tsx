@@ -10,13 +10,34 @@ export interface EmailHeader {
   subject: string;
   from: string;
   to?: string;
+  cc?: string;
   date: string | Date | null;
   flags: string[];
   labels?: string[];
   preview?: string;
+  body?: string;
   messageId?: string;
   inReplyTo?: string;
   references?: string;
+  folder?: string;
+  accountId?: string;
+  toRecipients?: Recipient[];
+  attachments?: AttachmentMeta[];
+}
+
+export interface Recipient {
+  name?: string;
+  address: string;
+}
+
+export interface AttachmentMeta {
+  filename?: string;
+  contentType?: string;
+  size?: number;
+  id?: string;
+  contentId?: string | null;
+  contentDisposition?: string | null;
+  isInline?: boolean;
 }
 
 export interface LabelOption {

@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import { createPrismaClient } from '../src/lib/prisma-client';
 import type { MailAccount } from '../src/lib/mail-service';
 import { fetchEmails, getImapConnection } from '../src/lib/mail-service';

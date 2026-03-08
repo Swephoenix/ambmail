@@ -37,6 +37,15 @@ function ComposeContent() {
     );
   }
 
+  // Ensure required fields have default values
+  const safeInitialData = {
+    to: initialData.to || '',
+    subject: initialData.subject || '',
+    body: initialData.body || '',
+    accountId: initialData.accountId,
+    uid: initialData.uid,
+  };
+
   return (
     <ComposeEmail
       mode="standalone"
@@ -45,7 +54,7 @@ function ComposeContent() {
       onClose={() => window.close()}
       onMinimize={() => {}} // No-op for standalone windows
       onRestore={() => {}} // No-op for standalone windows
-      initialData={initialData}
+      initialData={safeInitialData}
     />
   );
 }

@@ -248,6 +248,7 @@ export async function fetchEmails(connection: ImapSimple, folder = 'INBOX', limi
     let subject = 'No Subject';
     let from = 'Unknown';
     let to = '';
+    let cc = '';
     let messageId = '';
     let inReplyTo = '';
     let references = '';
@@ -298,6 +299,7 @@ export async function fetchEmails(connection: ImapSimple, folder = 'INBOX', limi
 
           // Extract other headers
           to = (headerObj.to && Array.isArray(headerObj.to) && headerObj.to.length > 0) ? headerObj.to[0] : '';
+          cc = (headerObj.cc && Array.isArray(headerObj.cc) && headerObj.cc.length > 0) ? headerObj.cc[0] : '';
           messageId = (headerObj['message-id'] && Array.isArray(headerObj['message-id']) && headerObj['message-id'].length > 0) ? headerObj['message-id'][0] : '';
           inReplyTo = (headerObj['in-reply-to'] && Array.isArray(headerObj['in-reply-to']) && headerObj['in-reply-to'].length > 0) ? headerObj['in-reply-to'][0] : '';
           references = (headerObj.references && Array.isArray(headerObj.references) && headerObj.references.length > 0) ? headerObj.references[0] : '';
@@ -338,6 +340,7 @@ export async function fetchEmails(connection: ImapSimple, folder = 'INBOX', limi
           console.log('After cleanup - subject:', subject, 'from:', from);
 
           to = headers.to || '';
+          cc = headers.cc || '';
           messageId = headers['message-id'] || '';
           inReplyTo = headers['in-reply-to'] || '';
           references = headers.references || '';
@@ -373,13 +376,16 @@ export async function fetchEmails(connection: ImapSimple, folder = 'INBOX', limi
 
     console.log('Final values - subject:', subject, 'from:', from);
 
+    let bodyContent: string | undefined;
     if (bodyPart?.body) {
       try {
         const parsed = await simpleParser(bodyPart.body);
         const plainText = parsed.text || (parsed.html ? parsed.html.replace(/<[^>]*>?/gm, ' ') : '');
         preview = plainText.trim().substring(0, 280).replace(/\s+/g, ' ');
+        bodyContent = parsed.text || parsed.html || undefined;
       } catch {
         preview = 'Preview unavailable';
+        bodyContent = undefined;
       }
     }
 
@@ -390,7 +396,9 @@ export async function fetchEmails(connection: ImapSimple, folder = 'INBOX', limi
       subject,
       from,
       to,
+      cc,
       preview,
+      body: bodyContent,
       messageId,
       inReplyTo,
       references,

@@ -36,6 +36,19 @@ export function middleware(req: NextRequest) {
   const configuredAdminPath = getConfiguredAdminPanelPath();
   const requestPath = req.nextUrl.pathname.replace(/\/+$/g, '') || '/';
 
+  // Skip Basic Auth for these paths - allow public access
+  const publicPaths = [
+    '/',
+    '/api/auth/login',
+    '/api/auth/logout',
+    '/api/nextcloud/auth',
+    '/api/nextcloud/external',
+  ];
+  
+  if (publicPaths.some(path => requestPath.startsWith(path))) {
+    return NextResponse.next();
+  }
+
   if (requestPath === configuredAdminPath && configuredAdminPath !== INTERNAL_ADMIN_PANEL_PATH) {
     const rewriteUrl = req.nextUrl.clone();
     rewriteUrl.pathname = INTERNAL_ADMIN_PANEL_PATH;

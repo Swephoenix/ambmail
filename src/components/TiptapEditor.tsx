@@ -1,6 +1,6 @@
 'use client';
 
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import { StarterKit } from '@tiptap/starter-kit';
 import { Underline } from '@tiptap/extension-underline';
 import { TextAlign } from '@tiptap/extension-text-align';
@@ -33,7 +33,7 @@ interface TiptapEditorProps {
 export default function TiptapEditor({ value, onChange, placeholder, signature, onRegisterInsert, onFilesDropped }: TiptapEditorProps) {
   const [isDragActive, setIsDragActive] = useState(false);
   const [dragDepth, setDragDepth] = useState(0);
-  const findImageToRight = (state: unknown, pos: number) => {
+  const findImageToRight = (state: { doc: any }, pos: number) => {
     const direct = state.doc.nodeAt(pos);
     if (direct?.type?.name === 'image') return { pos, node: direct };
     const $pos = state.doc.resolve(pos);
@@ -54,7 +54,7 @@ export default function TiptapEditor({ value, onChange, placeholder, signature, 
     return null;
   };
 
-  const findImageToLeft = (state: unknown, pos: number) => {
+  const findImageToLeft = (state: { doc: any }, pos: number) => {
     const direct = pos > 0 ? state.doc.nodeAt(pos - 1) : null;
     if (direct?.type?.name === 'image') return { pos: pos - 1, node: direct };
     const $pos = state.doc.resolve(pos);

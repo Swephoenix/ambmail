@@ -53,6 +53,7 @@ export async function POST(req: Request) {
       type: file.contentType,
     });
   } catch (err: unknown) {
-    return NextResponse.json({ error: err.message || 'Download failed' }, { status: 500 });
+    const message = err instanceof Error ? err.message : 'Download failed';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

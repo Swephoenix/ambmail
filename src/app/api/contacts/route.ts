@@ -43,6 +43,6 @@ export async function POST(req: Request) {
     });
     return NextResponse.json(contact);
   } catch (error: unknown) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 400 });
   }
 }

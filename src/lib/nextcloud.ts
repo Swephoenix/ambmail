@@ -13,11 +13,23 @@ function getPublicUrl() {
   return process.env.NC_PUBLIC_URL || getBaseUrl();
 }
 
-async function readClientCreds() {
+async function readClientCreds(requestUrl?: string, hostHeader?: string) {
+  // Always use the primary (external) OAuth credentials by default
+  // The localhost credentials are only used if explicitly configured as primary
   const clientId = process.env.NC_OAUTH_CLIENT_ID;
   const clientSecret = process.env.NC_OAUTH_CLIENT_SECRET;
+  
   if (clientId && clientSecret) {
+    console.log('[readClientCreds] Using EXTERNAL OAuth client:', clientId.substring(0, 20) + '...');
     return { clientId, clientSecret };
+  }
+
+  // Fallback to localhost credentials only if external is not configured
+  const clientIdLocal = process.env.NC_OAUTH_CLIENT_ID_LOCAL;
+  const clientSecretLocal = process.env.NC_OAUTH_CLIENT_SECRET_LOCAL;
+  if (clientIdLocal && clientSecretLocal) {
+    console.log('[readClientCreds] Using LOCALHOST OAuth client (fallback):', clientIdLocal.substring(0, 20) + '...');
+    return { clientId: clientIdLocal, clientSecret: clientSecretLocal };
   }
 
   const runtime = await readRuntimeOAuthConfig();
@@ -42,16 +54,34 @@ async function readClientCreds() {
 }
 
 function getRedirectUri(requestUrl: string) {
-  const configured = process.env.AMBMAIL_PUBLIC_URL;
-  if (configured) {
-    return `${configured.replace(/\/+$/, '')}/api/nextcloud/auth/callback`;
+  // Use the request origin for redirect_uri to match where the user is accessing from
+  // For localhost, ensure we use http instead of https to avoid SSL issues
+  const url = new URL(requestUrl);
+  let origin = url.origin;
+  
+  console.log('[getRedirectUri] requestUrl:', requestUrl);
+  console.log('[getRedirectUri] url.hostname:', url.hostname);
+  console.log('[getRedirectUri] computed origin:', origin);
+
+  // If accessing via localhost, force http protocol
+  if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
+    origin = `http://${url.host}`;
+    console.log('[getRedirectUri] Localhost detected, using http origin:', origin);
   }
-  const origin = new URL(requestUrl).origin;
+  
+  console.log('[getRedirectUri] final redirect_uri:', `${origin}/api/nextcloud/auth/callback`);
   return `${origin}/api/nextcloud/auth/callback`;
 }
 
-async function exchangeCodeForToken(code: string, redirectUri: string) {
-  const { clientId, clientSecret } = await readClientCreds();
+async function exchangeCodeForToken(code: string, redirectUri: string, requestUrl?: string) {
+  const { clientId, clientSecret } = await readClientCreds(requestUrl);
+  console.log('[NC OAuth] Exchanging code for token:', {
+    clientId: clientId.substring(0, 20) + '...',
+    clientSecret: clientSecret.substring(0, 20) + '...',
+    code: code.substring(0, 20) + '...',
+    redirectUri,
+    baseUrl: getBaseUrl(),
+  });
   const params = new URLSearchParams();
   params.set('grant_type', 'authorization_code');
   params.set('client_id', clientId);
@@ -60,7 +90,10 @@ async function exchangeCodeForToken(code: string, redirectUri: string) {
   params.set('redirect_uri', redirectUri);
 
   const basic = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
-  const res = await fetch(`${getBaseUrl()}/index.php/apps/oauth2/api/v1/token`, {
+  const tokenUrl = `${getBaseUrl()}/index.php/apps/oauth2/api/v1/token`;
+  console.log('[NC OAuth] POST to:', tokenUrl);
+  
+  const res = await fetch(tokenUrl, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -69,8 +102,11 @@ async function exchangeCodeForToken(code: string, redirectUri: string) {
     body: params.toString(),
   });
 
+  console.log('[NC OAuth] Token response status:', res.status, res.statusText);
   const text = await res.text();
-  let data: unknown = {};
+  console.log('[NC OAuth] Token response body:', text.substring(0, 500));
+  
+  let data: { error_description?: string; error?: string; access_token?: string; refresh_token?: string; expires_in?: number; token_type?: string; scope?: string } = {};
   try {
     data = JSON.parse(text);
   } catch {
@@ -78,13 +114,15 @@ async function exchangeCodeForToken(code: string, redirectUri: string) {
   }
   if (!res.ok) {
     const err = data.error_description || data.error || text || `token request failed (${res.status})`;
+    console.error('[NC OAuth] Token exchange failed:', err);
     throw new Error(err);
   }
+  console.log('[NC OAuth] Token exchange successful');
   return data;
 }
 
-async function refreshAccessToken(refreshToken: string) {
-  const { clientId, clientSecret } = await readClientCreds();
+async function refreshAccessToken(refreshToken: string, requestUrl?: string) {
+  const { clientId, clientSecret } = await readClientCreds(requestUrl);
   const params = new URLSearchParams();
   params.set('grant_type', 'refresh_token');
   params.set('client_id', clientId);
@@ -102,7 +140,7 @@ async function refreshAccessToken(refreshToken: string) {
   });
 
   const text = await res.text();
-  let data: unknown = {};
+  let data: { error_description?: string; error?: string; access_token?: string; refresh_token?: string; expires_in?: number; token_type?: string; scope?: string } = {};
   try {
     data = JSON.parse(text);
   } catch {
@@ -128,7 +166,7 @@ async function fetchCurrentUserProfile(accessToken: string): Promise<NextcloudUs
       'OCS-APIREQUEST': 'true',
     },
   });
-  const data = await res.json().catch(() => ({}));
+  const data = await res.json().catch(() => ({})) as { ocs?: { data?: { id?: string; uid?: string; email?: string; displayname?: string } } };
   if (!res.ok) {
     throw new Error('user lookup failed');
   }
@@ -152,7 +190,13 @@ function normalizePath(rawPath?: string | null) {
     .replace(/^\//, '');
 }
 
-async function upsertToken(userId: string, token: unknown, ncUserId?: string | null) {
+async function upsertToken(userId: string, token: {
+  access_token: string;
+  refresh_token?: string;
+  expires_in?: number;
+  token_type?: string;
+  scope?: string;
+}, ncUserId?: string | null) {
   const expiresIn = Number(token.expires_in || 0);
   const expiresAt = expiresIn ? new Date(Date.now() + Math.max(expiresIn - 60, 0) * 1000) : null;
 
@@ -191,26 +235,28 @@ export function buildAuthorizeUrl(requestUrl: string, state: string, clientId: s
   return `${getPublicUrl()}/index.php/apps/oauth2/authorize?${params.toString()}`;
 }
 
-export async function getClientId() {
-  const { clientId } = await readClientCreds();
+export async function getClientId(requestUrl?: string, hostHeader?: string) {
+  const { clientId } = await readClientCreds(requestUrl, hostHeader);
   return clientId;
 }
 
 export async function handleOAuthCallback(userId: string, code: string, requestUrl: string) {
-  const token = await exchangeCodeForToken(code, getRedirectUri(requestUrl));
+  const token = await exchangeCodeForToken(code, getRedirectUri(requestUrl), requestUrl);
+  if (!token.access_token) throw new Error('No access token received');
   const profile = await fetchCurrentUserProfile(token.access_token);
   const ncUserId = profile.ncUserId;
-  await upsertToken(userId, token, ncUserId);
+  await upsertToken(userId, token as { access_token: string; refresh_token?: string; expires_in?: number; token_type?: string; scope?: string }, ncUserId);
   return ncUserId;
 }
 
 export async function exchangeOAuthCodeForProfile(code: string, requestUrl: string) {
-  const token = await exchangeCodeForToken(code, getRedirectUri(requestUrl));
+  const token = await exchangeCodeForToken(code, getRedirectUri(requestUrl), requestUrl);
+  if (!token.access_token) throw new Error('No access token received');
   const profile = await fetchCurrentUserProfile(token.access_token);
   return { token, profile };
 }
 
-export async function upsertOAuthTokenForUser(userId: string, token: unknown, ncUserId: string) {
+export async function upsertOAuthTokenForUser(userId: string, token: { access_token: string; refresh_token?: string; expires_in?: number; token_type?: string; scope?: string }, ncUserId: string) {
   await upsertToken(userId, token, ncUserId);
 }
 
@@ -221,7 +267,8 @@ export async function getValidToken(userId: string) {
   if (tokenRecord.expiresAt && tokenRecord.expiresAt.getTime() <= Date.now()) {
     if (!tokenRecord.refreshToken) return null;
     const refreshed = await refreshAccessToken(tokenRecord.refreshToken);
-    await upsertToken(userId, refreshed, tokenRecord.ncUserId);
+    if (!refreshed.access_token) return null;
+    await upsertToken(userId, refreshed as { access_token: string; refresh_token?: string; expires_in?: number; token_type?: string; scope?: string }, tokenRecord.ncUserId);
     const updated = await prisma.nextcloudToken.findUnique({ where: { userId } });
     if (!updated) return null;
     tokenRecord = updated;

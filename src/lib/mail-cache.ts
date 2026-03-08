@@ -2,6 +2,8 @@ import { prisma } from '@/lib/prisma';
 import { fetchEmails, getImapConnection, MailAccount, openMailbox } from '@/lib/mail-service';
 import { simpleParser } from 'mailparser';
 import { buildContactRows, extractContactsFromHeader, uniqueContacts } from '@/lib/contact-utils';
+import type { EmailHeader } from '@/components/MailList';
+import { Prisma } from '@prisma/client';
 
 const SYNC_INTERVAL_MS = 30 * 1000;
 const DEFAULT_LIST_LIMIT = 50;
@@ -110,25 +112,30 @@ export async function syncFolderFromImap(account: MailAccount, folder: string, l
   }
 }
 
-function extractFolders(boxList: unknown, parentKey = ''): string[] {
+function extractFolders(boxList: Record<string, unknown>, parentKey = ''): string[] {
   const folders: string[] = [];
   for (const key of Object.keys(boxList || {})) {
-    const box = boxList[key];
-    const fullPath = parentKey ? `${parentKey}${box.delimiter}${key}` : key;
+    const box = boxList[key] as { delimiter?: string; children?: unknown };
+    const delimiter = typeof box.delimiter === 'string' ? box.delimiter : '.';
+    const fullPath = parentKey ? `${parentKey}${delimiter}${key}` : key;
     folders.push(fullPath);
     if (box.children) {
-      folders.push(...extractFolders(box.children, fullPath));
+      folders.push(...extractFolders(box.children as Record<string, unknown>, fullPath));
     }
   }
   return folders;
 }
 
-function getRecipients(addrObj: unknown): unknown[] {
+function getRecipients(addrObj: unknown): { email: string; name?: string | null }[] {
   if (!addrObj) return [];
   if (Array.isArray(addrObj)) {
-    return addrObj.flatMap(obj => obj.value || []);
+    return addrObj.flatMap((obj: unknown) => {
+      const typedObj = obj as { value?: { email: string; name?: string | null }[] };
+      return typedObj.value || [];
+    });
   }
-  return addrObj.value || [];
+  const typedObj = addrObj as { value?: { email: string; name?: string | null }[] };
+  return typedObj.value || [];
 }
 
 async function prefetchBodiesForFolder(account: MailAccount, folder: string, limit: number) {
@@ -136,7 +143,7 @@ async function prefetchBodiesForFolder(account: MailAccount, folder: string, lim
     where: {
       accountId: account.id,
       folder,
-      OR: [{ hasBody: false }, { attachments: null }],
+      OR: [{ hasBody: false }, { attachments: { equals: Prisma.JsonNull } }],
     },
     orderBy: { uid: 'desc' },
     take: limit,
@@ -236,8 +243,8 @@ async function prefetchBodiesForFolder(account: MailAccount, folder: string, lim
           ...toRecipients,
           ...ccRecipients,
           ...bccRecipients,
-        ].map((entry) => ({
-          email: entry.address,
+        ].map((entry: { email: string; name?: string | null }) => ({
+          email: entry.email,
           name: entry.name || null,
         }));
         const unique = uniqueContacts(contactCandidates, [account.email]);
@@ -285,11 +292,12 @@ export async function prefetchUserAccounts(userId: string) {
       },
     });
   } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : 'Prefetch failed';
     await prisma.prefetchStatus.update({
       where: { userId },
       data: {
         status: 'failed',
-        error: error?.message || 'Prefetch failed',
+        error: errorMessage,
         completedAt: new Date(),
       },
     });
@@ -339,7 +347,7 @@ export function mapCachedEmail(email: {
   messageId: string | null;
   inReplyTo: string | null;
   references: string | null;
-}) {
+}): EmailHeader {
   return {
     uid: email.uid,
     date: email.date,

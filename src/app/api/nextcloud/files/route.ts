@@ -20,6 +20,7 @@ export async function GET(req: Request) {
     const entries = await listNextcloudFiles(token.accessToken, token.ncUserId, path);
     return NextResponse.json({ path, entries });
   } catch (err: unknown) {
-    return NextResponse.json({ error: err.message || 'Failed to list files' }, { status: 500 });
+    const message = err instanceof Error ? err.message : 'Failed to list files';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

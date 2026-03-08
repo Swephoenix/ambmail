@@ -38,7 +38,8 @@ export default function AddAccountModal({ onClose, onSuccess }: AddAccountModalP
       toast.success('Account added successfully');
       onSuccess();
     } catch (error: unknown) {
-      toast.error(error.message);
+      const message = error instanceof Error ? error.message : 'An unexpected error occurred';
+      toast.error(message);
     }
   };
 

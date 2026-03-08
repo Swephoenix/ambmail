@@ -65,8 +65,9 @@ export async function GET(req: Request) {
     await setSessionCookie(sessionToken);
     return NextResponse.redirect(new URL('/?nc=connected', req.url));
   } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'failed';
     return NextResponse.redirect(
-      new URL(`/?nc=error&message=${encodeURIComponent((err as Error)?.message || 'failed')}`, req.url),
+      new URL(`/?nc=error&message=${encodeURIComponent(message)}`, req.url),
     );
   }
 }

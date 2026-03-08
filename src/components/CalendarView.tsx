@@ -95,7 +95,7 @@ export default function CalendarView({ mode = 'page' }: CalendarViewProps) {
       }
       const data = await res.json();
       const mapped = Array.isArray(data)
-        ? data.map((event: unknown) => ({
+        ? data.map((event: { id: string; title: string; startAt: string; endAt: string; location?: string; color?: string }) => ({
             id: event.id,
             title: event.title,
             start: new Date(event.startAt),
@@ -106,7 +106,8 @@ export default function CalendarView({ mode = 'page' }: CalendarViewProps) {
         : [];
       setEvents(mapped);
     } catch (error: unknown) {
-      setLoadError(error.message || 'Failed to load events');
+      const message = error instanceof Error ? error.message : 'Failed to load events';
+      setLoadError(message);
     } finally {
       setIsLoading(false);
     }
@@ -244,7 +245,8 @@ export default function CalendarView({ mode = 'page' }: CalendarViewProps) {
         ]);
       }
     } catch (error: unknown) {
-      setLoadError(error.message || 'Failed to save event');
+      const message = error instanceof Error ? error.message : 'Failed to save event';
+      setLoadError(message);
       return;
     }
 
@@ -267,7 +269,8 @@ export default function CalendarView({ mode = 'page' }: CalendarViewProps) {
       }
       setEvents(prev => prev.filter(event => event.id !== eventId));
     } catch (error: unknown) {
-      setLoadError(error.message || 'Failed to delete event');
+      const message = error instanceof Error ? error.message : 'Failed to delete event';
+      setLoadError(message);
       return;
     }
     if (editingId === eventId) {

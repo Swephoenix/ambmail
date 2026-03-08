@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { appendSent, getImapConnection, getSmtpTransporter } from '@/lib/mail-service';
+import type { MailAccount } from '@/lib/mail-service';
 import { syncFolderFromImap } from '@/lib/mail-cache';
 import { requireUser } from '@/lib/auth';
 import { buildContactRows, extractContactsFromHeader, uniqueContacts } from '@/lib/contact-utils';
@@ -25,8 +26,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Account not found' }, { status: 404 });
     }
 
+    const mailAccount: MailAccount = {
+      id: account.id,
+      email: account.email,
+      password: account.password,
+      imapHost: account.imapHost,
+      imapPort: account.imapPort,
+      smtpHost: account.smtpHost,
+      smtpPort: account.smtpPort,
+      signature: account.signature,
+      name: account.name,
+    };
+
     console.log('Connecting to SMTP for account:', account.email);
-    const transporter = await getSmtpTransporter(account as unknown);
+    const transporter = await getSmtpTransporter(mailAccount);
 
     const fromName = account.senderName || account.name || account.email;
     const fromHeader = `"${fromName}" <${account.email}>`;
@@ -86,7 +99,7 @@ export async function POST(req: Request) {
     let sentConnection;
     let appendedSentFolder: string | null = null;
     try {
-      sentConnection = await getImapConnection(account as unknown);
+      sentConnection = await getImapConnection(mailAccount);
       const mail = new MailComposer({
         from: fromHeader,
         to,
@@ -96,8 +109,8 @@ export async function POST(req: Request) {
         attachments: mailAttachments,
       });
       const raw = await mail.compile().build();
-      appendedSentFolder = await appendSent(sentConnection, raw.toString('utf8'));
-      await syncFolderFromImap(account as unknown, appendedSentFolder, 20);
+      appendedSentFolder = await appendSent(sentConnection!, (raw as Buffer).toString('utf8'));
+      await syncFolderFromImap(mailAccount, appendedSentFolder, 20);
     } catch (error) {
       console.error('Failed to append sent mail:', error);
     } finally {
@@ -144,10 +157,10 @@ export async function POST(req: Request) {
   } catch (error: unknown) {
     console.error('SMTP Error:', error);
     console.error('Error details:', {
-      message: error.message,
-      stack: error.stack,
-      code: error.code
+      message: (error as Error).message,
+      stack: (error as Error).stack,
+      code: (error as { code?: string })?.code
     });
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }

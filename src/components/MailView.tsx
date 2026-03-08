@@ -3,31 +3,18 @@
 import { useEffect, useRef, useState, type WheelEvent, type MouseEvent as ReactMouseEvent } from 'react';
 import { format } from 'date-fns';
 import { Reply, ReplyAll, Forward, Trash2, MoreHorizontal, FolderInput, User, ChevronDown, ChevronUp, File, FileArchive, FileImage, FileSpreadsheet, FileText, Mail, ZoomIn, ZoomOut, RefreshCcw, X } from 'lucide-react';
+import type { EmailHeader, Recipient, AttachmentMeta } from './MailList';
 
 interface MailViewProps {
-  email: unknown | null;
+  email: EmailHeader | null;
   isLoading: boolean;
-  onReply?: (email: unknown) => void;
-  onReplyAll?: (email: unknown) => void;
-  onForward?: (email: unknown) => void;
-  onDelete?: (email: unknown) => void;
-  onMoveToFolder?: (email: unknown) => void;
-  onMarkUnread?: (email: unknown) => void;
+  onReply?: (email: EmailHeader) => void;
+  onReplyAll?: (email: EmailHeader) => void;
+  onForward?: (email: EmailHeader) => void;
+  onDelete?: (email: EmailHeader) => void;
+  onMoveToFolder?: (email: EmailHeader) => void;
+  onMarkUnread?: (email: EmailHeader) => void;
   onComposeTo?: (address: string) => void;
-}
-
-interface Recipient {
-  name: string;
-  address: string;
-}
-
-interface AttachmentMeta {
-  filename: string;
-  contentType?: string;
-  size?: number;
-  contentId?: string | null;
-  contentDisposition?: string | null;
-  isInline?: boolean;
 }
 
 function parseAddress(input: string): Recipient {
@@ -36,9 +23,9 @@ function parseAddress(input: string): Recipient {
   if (match) {
     const name = (match[1] || '').trim();
     const address = (match[2] || input).trim();
-    return { name: name || address, address };
+    return { name: name || undefined, address };
   }
-  return { name: input, address: input };
+  return { name: undefined, address: input };
 }
 
 function parseRecipients(input: string): Recipient[] {
@@ -238,7 +225,7 @@ export default function MailView({
     setMimeError('');
     try {
       const res = await fetch(
-        `/api/mail/mime?accountId=${encodeURIComponent(email.accountId)}&uid=${email.uid}&folder=${encodeURIComponent(email.folder)}`
+        `/api/mail/mime?accountId=${encodeURIComponent(email.accountId || '')}&uid=${email.uid}&folder=${encodeURIComponent(email.folder || '')}`
       );
       if (!res.ok) {
         const message = await res.text();
@@ -247,7 +234,8 @@ export default function MailView({
       const text = await res.text();
       setMimeContent(text);
     } catch (error: unknown) {
-      setMimeError(error?.message || 'Failed to fetch MIME');
+      const message = error instanceof Error ? error.message : 'Failed to fetch MIME';
+      setMimeError(message);
     } finally {
       setMimeLoading(false);
     }
@@ -339,12 +327,12 @@ export default function MailView({
             <div className="bg-gray-50 rounded-lg p-4 mb-8">
           <div className="flex items-start">
             <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold mr-4 shrink-0">
-              {from.name[0]?.toUpperCase()}
+              {from.name?.[0]?.toUpperCase() || from.address[0]?.toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex justify-between items-baseline flex-wrap gap-2">
                 <div className="font-semibold text-gray-900 truncate">
-                  {from.name}
+                  {from.name || from.address}
                   <span className="text-gray-500 font-normal ml-2 text-sm hidden sm:inline">&lt;{from.address}&gt;</span>
                 </div>
                 <span className="text-sm text-gray-500 whitespace-nowrap">{formatTimestamp(email.date)}</span>
@@ -426,7 +414,7 @@ export default function MailView({
                       </button>
                     )}
                     <a
-                      href={`/api/mail/attachment?accountId=${encodeURIComponent(email.accountId)}&folder=${encodeURIComponent(email.folder)}&uid=${email.uid}&index=${index}`}
+                      href={`/api/mail/attachment?accountId=${encodeURIComponent(email.accountId || '')}&folder=${encodeURIComponent(email.folder || '')}&uid=${email.uid}&index=${index}`}
                       className="text-xs font-semibold text-gray-700 hover:text-gray-900 px-3 py-1.5 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors"
                     >
                       Download
@@ -434,7 +422,7 @@ export default function MailView({
                   </div>
                   {expandedAttachments.includes(index) && attachment.contentType?.startsWith('image/') && (
                     <img
-                      src={`/api/mail/attachment?accountId=${encodeURIComponent(email.accountId)}&folder=${encodeURIComponent(email.folder)}&uid=${email.uid}&index=${index}&inline=1`}
+                      src={`/api/mail/attachment?accountId=${encodeURIComponent(email.accountId || '')}&folder=${encodeURIComponent(email.folder || '')}&uid=${email.uid}&index=${index}&inline=1`}
                       alt={displayName}
                       className="max-w-full max-h-96 rounded-lg border border-gray-200"
                       loading="lazy"
@@ -442,7 +430,7 @@ export default function MailView({
                   )}
                   {expandedAttachments.includes(index) && attachment.contentType === 'application/pdf' && (
                     <iframe
-                      src={`/api/mail/attachment?accountId=${encodeURIComponent(email.accountId)}&folder=${encodeURIComponent(email.folder)}&uid=${email.uid}&index=${index}&inline=1`}
+                      src={`/api/mail/attachment?accountId=${encodeURIComponent(email.accountId || '')}&folder=${encodeURIComponent(email.folder || '')}&uid=${email.uid}&index=${index}&inline=1`}
                       title={displayName}
                       className="w-full h-96 rounded-lg border border-gray-200"
                     />

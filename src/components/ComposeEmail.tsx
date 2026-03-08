@@ -185,7 +185,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
     previewUrl?: string;
   }>>([]);
   const [isUploading, setIsUploading] = useState(false);
-  const insertContentRef = useRef<(html: string, insertPos?: number) => void>();
+  const insertContentRef = useRef<(html: string, insertPos?: number) => void | undefined>(undefined);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const csvInputRef = useRef<HTMLInputElement | null>(null);
   const attachmentsRef = useRef(attachments);
@@ -244,7 +244,7 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
         throw new Error(result.error || 'Upload failed');
       }
 
-      const uploaded = (result.files || []).map((file: unknown, index: number) => {
+      const uploaded = (result.files || []).map((file: { type?: string; token: string; name: string; size?: number }, index: number) => {
         const localFile = files[index];
         const type = file.type || localFile?.type || '';
         const inline = inlineByDefault && type.startsWith('image/');
@@ -285,7 +285,8 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
 
       setAttachments((prev) => [...prev, ...uploaded]);
     } catch (error: unknown) {
-      toast.error(error.message || 'Failed to upload files');
+      const message = error instanceof Error ? error.message : 'Failed to upload files';
+      toast.error(message);
     } finally {
       setIsUploading(false);
     }
@@ -639,7 +640,8 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
       }
     } catch (error: unknown) {
       console.error('Error sending email:', error);
-      toast.error(error.message);
+      const message = error instanceof Error ? error.message : 'Failed to send email';
+      toast.error(message);
     } finally {
       setIsSending(false);
     }
@@ -708,7 +710,8 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
       setNcPath(list.path || '');
       setNcFiles(list.entries || []);
     } catch (error: unknown) {
-      setNcError(error.message || 'Kunde inte ansluta till Nextcloud');
+      const message = error instanceof Error ? error.message : 'Kunde inte ansluta till Nextcloud';
+      setNcError(message);
     } finally {
       setNcLoading(false);
     }
@@ -726,7 +729,8 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
       setNcPath(data.path || '');
       setNcFiles(data.entries || []);
     } catch (error: unknown) {
-      setNcError(error.message || 'Kunde inte läsa filer');
+      const message = error instanceof Error ? error.message : 'Kunde inte läsa filer';
+      setNcError(message);
     } finally {
       setNcLoading(false);
     }
@@ -756,7 +760,8 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
       ]);
       toast.success('Fil bifogad');
     } catch (error: unknown) {
-      toast.error(error.message || 'Kunde inte bifoga filen');
+      const message = error instanceof Error ? error.message : 'Kunde inte bifoga filen';
+      toast.error(message);
     } finally {
       setNcAction(null);
     }
@@ -783,7 +788,8 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
       }
       toast.success('Länk infogad');
     } catch (error: unknown) {
-      toast.error(error.message || 'Kunde inte skapa länk');
+      const message = error instanceof Error ? error.message : 'Kunde inte skapa länk';
+      toast.error(message);
     } finally {
       setNcAction(null);
     }

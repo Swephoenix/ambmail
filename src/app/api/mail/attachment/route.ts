@@ -3,6 +3,8 @@ import { prisma } from '@/lib/prisma';
 import { getImapConnection, isFolderAlias, openMailbox, resolveFolderAlias } from '@/lib/mail-service';
 import { simpleParser } from 'mailparser';
 import { requireUser } from '@/lib/auth';
+import type { MailAccount } from '@/lib/mail-service';
+import type { ImapSimple } from 'imap-simple';
 
 function sanitizeFilename(filename: string) {
   return filename.replace(/["\\]/g, '_');
@@ -33,15 +35,26 @@ export async function GET(req: Request) {
   const account = await prisma.account.findFirst({ where: { id: accountId, userId: user.id } });
   if (!account) return NextResponse.json({ error: 'Account not found' }, { status: 404 });
 
-  let connection;
+  let connection: ImapSimple | null = null;
   try {
-    connection = await getImapConnection(account as unknown);
+    const mailAccount: MailAccount = {
+      id: account.id,
+      email: account.email,
+      password: account.password,
+      imapHost: account.imapHost,
+      imapPort: account.imapPort,
+      smtpHost: account.smtpHost,
+      smtpPort: account.smtpPort,
+      signature: account.signature,
+      name: account.name,
+    };
+    connection = await getImapConnection(mailAccount);
     const resolvedFolder = isFolderAlias(requestedFolder)
       ? await resolveFolderAlias(connection, requestedFolder)
       : requestedFolder;
     await openMailbox(connection, resolvedFolder);
 
-    const messages = await connection.search([['UID', uid]], {
+    const messages = await connection!.search([['UID', uid]], {
       bodies: [''],
       struct: true,
     });
@@ -66,7 +79,9 @@ export async function GET(req: Request) {
     const contentType = attachment.contentType || 'application/octet-stream';
     const disposition = inlineParam === '1' ? 'inline' : (attachment.contentDisposition || 'attachment');
 
-    return new NextResponse(attachment.content, {
+    // Convert Buffer to Uint8Array for NextResponse
+    const content = attachment.content as Buffer;
+    return new NextResponse(new Uint8Array(content), {
       headers: {
         'Content-Type': contentType,
         'Content-Disposition': `${disposition}; filename="${filename}"`,
@@ -75,7 +90,7 @@ export async function GET(req: Request) {
     });
   } catch (error: unknown) {
     console.error('[API] Attachment Fetch Error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   } finally {
     if (connection) {
       connection.end();

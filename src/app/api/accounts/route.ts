@@ -51,7 +51,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ id: account.id, email: account.email });
   } catch (error: unknown) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 400 });
   }
 }
 
@@ -81,6 +81,6 @@ export async function DELETE(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 400 });
   }
 }

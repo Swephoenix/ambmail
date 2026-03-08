@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getImapConnection, isFolderAlias, openMailbox, resolveFolderAlias } from '@/lib/mail-service';
+import type { MailAccount } from '@/lib/mail-service';
+import type { ImapSimple } from 'imap-simple';
 import { simpleParser } from 'mailparser';
 import { requireUser } from '@/lib/auth';
 
@@ -28,11 +30,23 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Invalid uid' }, { status: 400 });
   }
 
-  let connection;
+  const mailAccount: MailAccount = {
+    id: account.id,
+    email: account.email,
+    password: account.password,
+    imapHost: account.imapHost,
+    imapPort: account.imapPort,
+    smtpHost: account.smtpHost,
+    smtpPort: account.smtpPort,
+    signature: account.signature,
+    name: account.name,
+  };
+
+  let connection: ImapSimple | null = null;
   try {
     let resolvedFolder = requestedFolder;
     if (isFolderAlias(requestedFolder)) {
-      connection = await getImapConnection(account as unknown);
+      connection = await getImapConnection(mailAccount);
       resolvedFolder = await resolveFolderAlias(connection, requestedFolder);
     }
 
@@ -62,13 +76,13 @@ export async function GET(req: Request) {
     }
 
     if (!connection) {
-      connection = await getImapConnection(account as unknown);
+      connection = await getImapConnection(mailAccount);
     }
     await openMailbox(connection, resolvedFolder);
-    
+
     console.log(`[API] Searching for UID ${uid} in ${resolvedFolder}`);
 
-    const messages = await connection.search([['UID', uid]], {
+    const messages = await connection!.search([['UID', uid]], {
       bodies: [''], // Fetch full body
       struct: true
     });
@@ -89,12 +103,20 @@ export async function GET(req: Request) {
     const parsed = await simpleParser(source);
 
     // Helper to extract structured recipients
-    const getRecipients = (addrObj: unknown): unknown[] => {
+    const getRecipients = (addrObj: unknown): string[] => {
       if (!addrObj) return [];
       if (Array.isArray(addrObj)) {
-        return addrObj.flatMap(obj => obj.value || []);
+        return addrObj.flatMap((obj: unknown) => {
+          if (obj && typeof obj === 'object' && 'value' in obj) {
+            return (obj as { value?: string[] }).value || [];
+          }
+          return [];
+        });
       }
-      return addrObj.value || [];
+      if (addrObj && typeof addrObj === 'object' && 'value' in addrObj) {
+        return (addrObj as { value?: string[] }).value || [];
+      }
+      return [];
     };
 
     const toRecipients = getRecipients(parsed.to);
@@ -186,7 +208,7 @@ export async function GET(req: Request) {
     });
   } catch (error: unknown) {
     console.error('[API] IMAP Body Fetch Error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   } finally {
     if (typeof connection !== 'undefined' && connection) {
       connection.end();

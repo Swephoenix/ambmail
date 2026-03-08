@@ -81,7 +81,7 @@ export default function Home() {
   };
 
   const [authStatus, setAuthStatus] = useState<'loading' | 'authenticated' | 'unauthenticated'>('loading');
-  const [currentUser, setCurrentUser] = useState<unknown>(null);
+  const [currentUser, setCurrentUser] = useState<{ id: string; username: string; name: string; email?: string } | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [activeAccountId, setActiveAccountId] = useState<string | null>(null);
   const [activeFolder, setActiveFolder] = useState<string>('INBOX');
@@ -94,7 +94,7 @@ export default function Home() {
   const [composeWindows, setComposeWindows] = useState<Array<{
     id: string;
     accountId: string;
-    initialData?: unknown;
+    initialData?: { to: string; subject: string; body: string; uid?: number };
     minimized: boolean;
   }>>([]);
   // Multi-select state
@@ -140,7 +140,7 @@ export default function Home() {
   });
 
   // Cache for email lists to avoid unnecessary API calls
-  const [emailCache, setEmailCache] = useState<Record<string, {data: unknown[], timestamp: number}>>({});
+  const [emailCache, setEmailCache] = useState<Record<string, {data: EmailHeader[], timestamp: number}>>({});
 
   const fetchAccounts = useCallback(async (forceRefresh = false) => {
     // Check if we have cached data that's still valid, unless forceRefresh is true
@@ -201,11 +201,11 @@ export default function Home() {
     }
   };
 
-  const fetchEmails = useCallback(async (accountId: string, folder: string) => {
+  const fetchEmails = useCallback(async (accountId: string, folder: string, forceSync = false) => {
     const cacheKey = `${accountId}-${folder}-list`; // Fixed to 'list' mode only
 
     // Check if we have cached data that's still valid (including pre-fetched data)
-    if (emailCache[cacheKey] && (Date.now() - emailCache[cacheKey].timestamp) < EMAIL_LIST_CACHE_DURATION) {
+    if (!forceSync && emailCache[cacheKey] && (Date.now() - emailCache[cacheKey].timestamp) < EMAIL_LIST_CACHE_DURATION) {
       setEmails(emailCache[cacheKey].data);
       setIsLoadingList(false);
       return;
@@ -214,7 +214,7 @@ export default function Home() {
     setIsLoadingList(true);
     try {
       // Use encodeURIComponent for folders like "Inbox.Sent" etc if needed
-      const res = await fetch(`/api/mail?accountId=${accountId}&folder=${encodeURIComponent(folder)}&view=list`);
+      const res = await fetch(`/api/mail?accountId=${accountId}&folder=${encodeURIComponent(folder)}&view=list&forceSync=${forceSync}`);
       if (res.status === 401) {
         setAuthStatus('unauthenticated');
         setCurrentUser(null);
@@ -230,7 +230,8 @@ export default function Home() {
         [cacheKey]: { data, timestamp: Date.now() }
       }));
     } catch (error: unknown) {
-      toast.error('Failed to fetch emails: ' + error.message);
+      const message = error instanceof Error ? error.message : 'Failed to fetch emails';
+      toast.error('Failed to fetch emails: ' + message);
       setEmails([]);
     } finally {
       setIsLoadingList(false);
@@ -291,7 +292,8 @@ export default function Home() {
       }
     } catch (error: unknown) {
       // If it's a "Message not found" error, try to refresh the email list
-      if (error.message.includes('Message not found')) {
+      const errorMessage = error instanceof Error ? error.message : '';
+      if (errorMessage.includes('Message not found')) {
         toast.error('Draft may have been moved or deleted. Refreshing list...');
         // Clear cache for this folder to ensure fresh data
         const cacheKey = `${accountId}-${activeFolder}-list`;
@@ -305,7 +307,8 @@ export default function Home() {
           fetchEmails(accountId, activeFolder);
         }
       } else {
-        toast.error('Failed to fetch email body: ' + error.message);
+        const message = error instanceof Error ? error.message : 'Failed to fetch email body';
+        toast.error('Failed to fetch email body: ' + message);
       }
     } finally {
       setIsLoadingBody(false);
@@ -338,18 +341,19 @@ export default function Home() {
       const res = await fetch('/api/mail/flags', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          accountId: activeAccountId, 
-          uid, 
-          folder: activeFolder, 
-          action, 
-          flag: '\\Seen' 
+        body: JSON.stringify({
+          accountId: activeAccountId,
+          uid,
+          folder: activeFolder,
+          action,
+          flag: '\\Seen'
         }),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
     } catch (error: unknown) {
-      toast.error('Kunde inte uppdatera status: ' + error.message);
+      const message = error instanceof Error ? error.message : 'Kunde inte uppdatera status';
+      toast.error('Kunde inte uppdatera status: ' + message);
     }
   };
 
@@ -389,7 +393,8 @@ export default function Home() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
     } catch (error: unknown) {
-      toast.error('Kunde inte uppdatera stjarna: ' + error.message);
+      const message = error instanceof Error ? error.message : 'Kunde inte uppdatera stjarna';
+      toast.error('Kunde inte uppdatera stjarna: ' + message);
     }
   };
 
@@ -430,7 +435,8 @@ export default function Home() {
       const data = await res.json();
       if (data.error) throw new Error(data.error);
     } catch (error: unknown) {
-      toast.error('Kunde inte uppdatera etikett: ' + error.message);
+      const message = error instanceof Error ? error.message : 'Kunde inte uppdatera etikett';
+      toast.error('Kunde inte uppdatera etikett: ' + message);
     }
   };
 
@@ -482,7 +488,8 @@ export default function Home() {
       setNewLabelColor(getNextAvailableColor(usedColors));
       toast.success('Etikett skapad');
     } catch (error: unknown) {
-      toast.error('Kunde inte skapa etikett: ' + error.message);
+      const message = error instanceof Error ? error.message : 'Kunde inte skapa etikett';
+      toast.error('Kunde inte skapa etikett: ' + message);
     }
   };
 
@@ -507,7 +514,8 @@ export default function Home() {
       applyLabelRename(original.name, trimmed);
       toast.success('Etikett uppdaterad');
     } catch (error: unknown) {
-      toast.error('Kunde inte uppdatera etikett: ' + error.message);
+      const message = error instanceof Error ? error.message : 'Kunde inte uppdatera etikett';
+      toast.error('Kunde inte uppdatera etikett: ' + message);
     }
   };
 
@@ -527,7 +535,8 @@ export default function Home() {
       applyLabelRemoval(existing.name);
       toast.success('Etikett borttagen');
     } catch (error: unknown) {
-      toast.error('Kunde inte ta bort etikett: ' + error.message);
+      const message = error instanceof Error ? error.message : 'Kunde inte ta bort etikett';
+      toast.error('Kunde inte ta bort etikett: ' + message);
     }
   };
 
@@ -599,7 +608,8 @@ export default function Home() {
       fetchStorageUsage();
     } catch (error: unknown) {
       console.error('Delete error:', error);
-      toast.error('Failed to delete emails: ' + error.message);
+      const message = error instanceof Error ? error.message : 'Failed to delete emails';
+      toast.error('Failed to delete emails: ' + message);
     }
   };
 
@@ -653,7 +663,8 @@ export default function Home() {
       toast.success('Signatur sparad!');
     } catch (error: unknown) {
       console.error('Save signature error:', error);
-      toast.error('Kunde inte spara signaturen: ' + error.message);
+      const message = error instanceof Error ? error.message : 'Kunde inte spara signaturen';
+      toast.error('Kunde inte spara signaturen: ' + message);
     }
   };
 
@@ -695,7 +706,8 @@ export default function Home() {
 
       toast.success('Kontot borttaget');
     } catch (error: unknown) {
-      toast.error('Kunde inte ta bort kontot: ' + error.message);
+      const message = error instanceof Error ? error.message : 'Kunde inte ta bort kontot';
+      toast.error('Kunde inte ta bort kontot: ' + message);
     }
   };
 
@@ -714,7 +726,8 @@ export default function Home() {
       }
     } catch (error: unknown) {
       console.error('Fetch folders error:', error);
-      toast.error('Failed to fetch folders: ' + error.message);
+      const message = error instanceof Error ? error.message : 'Failed to fetch folders';
+      toast.error('Failed to fetch folders: ' + message);
     }
   };
 
@@ -742,7 +755,8 @@ export default function Home() {
       fetchStorageUsage();
     } catch (error: unknown) {
       console.error('Delete error:', error);
-      toast.error('Failed to delete email: ' + error.message);
+      const message = error instanceof Error ? error.message : 'Failed to delete email';
+      toast.error('Failed to delete email: ' + message);
     }
   };
 
@@ -782,7 +796,8 @@ export default function Home() {
       fetchStorageUsage();
     } catch (error: unknown) {
       console.error('Empty trash error:', error);
-      toast.error('Misslyckades att tömma papperskorgen: ' + error.message);
+      const message = error instanceof Error ? error.message : 'Misslyckades att tömma papperskorgen';
+      toast.error('Misslyckades att tömma papperskorgen: ' + message);
     }
   };
 
@@ -817,7 +832,8 @@ export default function Home() {
       toast.success(result.message);
     } catch (error: unknown) {
       console.error('Move error:', error);
-      toast.error('Failed to move email: ' + error.message);
+      const message = error instanceof Error ? error.message : 'Failed to move email';
+      toast.error('Failed to move email: ' + message);
     }
   };
 
@@ -853,7 +869,8 @@ export default function Home() {
       toast.success(result.message);
     } catch (error: unknown) {
       console.error('Move error:', error);
-      toast.error('Failed to move emails: ' + error.message);
+      const message = error instanceof Error ? error.message : 'Failed to move emails';
+      toast.error('Failed to move emails: ' + message);
     }
   };
 
@@ -891,7 +908,8 @@ export default function Home() {
       }
     } catch (error: unknown) {
       console.error('Create folder error:', error);
-      toast.error('Failed to create folder: ' + error.message);
+      const message = error instanceof Error ? error.message : 'Failed to create folder';
+      toast.error('Failed to create folder: ' + message);
     }
   };
 
@@ -980,7 +998,7 @@ export default function Home() {
         const currentEmailUids = new Set(emails.map(email => email.uid));
 
         // Find new emails by checking which ones aren't in the current list
-        const newEmailsOnly = newEmails.filter((email: unknown) => !currentEmailUids.has(email.uid));
+        const newEmailsOnly = newEmails.filter((email: EmailHeader) => !currentEmailUids.has(email.uid));
 
         if (newEmailsOnly.length > 0) {
           // There are new emails, update the state
@@ -1123,7 +1141,7 @@ export default function Home() {
         <>
           <MailList
             emails={visibleEmails}
-            selectedEmailUid={selectedEmail?.uid}
+            selectedEmailUid={selectedEmail?.uid ?? null}
             onEmailSelect={(uid) => fetchEmailBody(activeAccountId!, uid)}
             onToggleRead={handleToggleRead}
             onToggleStar={handleToggleStar}
@@ -1135,14 +1153,8 @@ export default function Home() {
             onSelectLabelFilter={setActiveLabelFilter}
             isLoading={isLoadingList}
             onRefresh={() => {
-              // Clear cache for this folder to ensure fresh data
-              const cacheKey = `${activeAccountId}-${activeFolder}-list`;
-              setEmailCache(prev => {
-                const newCache = {...prev};
-                delete newCache[cacheKey];
-                return newCache;
-              });
-              fetchEmails(activeAccountId!, activeFolder);
+              // Force sync with IMAP to get latest emails immediately
+              fetchEmails(activeAccountId!, activeFolder, true);
             }}
             folderName={activeFolder}
             selectedEmails={selectedEmails}
@@ -1162,10 +1174,10 @@ export default function Home() {
             <MailView
               email={selectedEmail}
               isLoading={isLoadingBody}
-              onMarkUnread={(email) => {
+              onMarkUnread={(email: EmailHeader) => {
                 handleToggleRead(email.uid, true);
               }}
-              onReply={async (email) => {
+              onReply={async (email: EmailHeader) => {
                 // Determine which signature to use based on recipient's domain
                 let signature = '';
                 if (activeAccountId) {
@@ -1194,9 +1206,10 @@ export default function Home() {
                 }
 
                 // Place the cursor above the signature and quoted text
+                const emailDate = email.date ? new Date(email.date).toLocaleString() : 'unknown date';
                 const bodyWithSignature = signature
-                  ? `<p></p>${signature}<br /><br /><div class="email-reply"><br /><br />On ${new Date(email.date).toLocaleString()}, ${email.from} wrote:<br />${email.body}</div>`
-                  : `<p></p><div class="email-reply"><br /><br />On ${new Date(email.date).toLocaleString()}, ${email.from} wrote:<br />${email.body}</div>`;
+                  ? `<p></p>${signature}<br /><br /><div class="email-reply"><br /><br />On ${emailDate}, ${email.from} wrote:<br />${email.body}</div>`
+                  : `<p></p><div class="email-reply"><br /><br />On ${emailDate}, ${email.from} wrote:<br />${email.body}</div>`;
 
                 const newComposeData = {
                   to: extractEmail(email.from), // Extract just the email address from "Name <email@domain.com>" format
@@ -1215,7 +1228,7 @@ export default function Home() {
 
                 setComposeWindows(prev => [...prev, newWindow]);
               }}
-              onReplyAll={async (email) => {
+              onReplyAll={async (email: EmailHeader) => {
                 // For reply all, include the sender and all recipients (to and cc)
                 const recipients = [extractEmail(email.from)]; // Always include sender
                 if (email.to) {
@@ -1260,9 +1273,10 @@ export default function Home() {
                 }
 
                 // Place the cursor above the signature and quoted text
+                const emailDate = email.date ? new Date(email.date).toLocaleString() : 'unknown date';
                 const bodyWithSignature = signature
-                  ? `<p></p>${signature}<br /><br /><div class="email-reply"><br /><br />On ${new Date(email.date).toLocaleString()}, ${email.from} wrote:<br />${email.body}</div>`
-                  : `<p></p><div class="email-reply"><br /><br />On ${new Date(email.date).toLocaleString()}, ${email.from} wrote:<br />${email.body}</div>`;
+                  ? `<p></p>${signature}<br /><br /><div class="email-reply"><br /><br />On ${emailDate}, ${email.from} wrote:<br />${email.body}</div>`
+                  : `<p></p><div class="email-reply"><br /><br />On ${emailDate}, ${email.from} wrote:<br />${email.body}</div>`;
 
                 const newComposeData = {
                   to: uniqueRecipients.join(', '),
@@ -1281,7 +1295,7 @@ export default function Home() {
 
                 setComposeWindows(prev => [...prev, newWindow]);
               }}
-              onForward={async (email) => {
+              onForward={async (email: EmailHeader) => {
                 // Determine which signature to use based on recipient's domain
                 let signature = '';
                 if (activeAccountId) {
@@ -1310,9 +1324,10 @@ export default function Home() {
                 }
 
                 // Place the cursor above the signature and forwarded content
+                const emailDate = email.date ? new Date(email.date).toLocaleString() : 'unknown date';
                 const bodyWithSignature = signature
-                  ? `<p></p>${signature}<br /><br /><div class="email-forward"><br /><br />---------- Forwarded message ----------<br />From: ${email.from}<br />Date: ${new Date(email.date).toLocaleString()}<br />Subject: ${email.subject}<br />${email.body}</div>`
-                  : `<p></p><div class="email-forward"><br /><br />---------- Forwarded message ----------<br />From: ${email.from}<br />Date: ${new Date(email.date).toLocaleString()}<br />Subject: ${email.subject}<br />${email.body}</div>`;
+                  ? `<p></p>${signature}<br /><br /><div class="email-forward"><br /><br />---------- Forwarded message ----------<br />From: ${email.from}<br />Date: ${emailDate}<br />Subject: ${email.subject}<br />${email.body || ''}</div>`
+                  : `<p></p><div class="email-forward"><br /><br />---------- Forwarded message ----------<br />From: ${email.from}<br />Date: ${emailDate}<br />Subject: ${email.subject}<br />${email.body || ''}</div>`;
 
                 const newComposeData = {
                   to: '',
@@ -1331,19 +1346,19 @@ export default function Home() {
 
                 setComposeWindows(prev => [...prev, newWindow]);
               }}
-              onDelete={(email) => {
+              onDelete={(email: EmailHeader) => {
                 if (selectedEmail && window.confirm('Are you sure you want to delete this email?')) {
                   handleDeleteEmail(email.uid);
                 }
               }}
-              onMoveToFolder={(email) => {
+              onMoveToFolder={(email: EmailHeader) => {
                 // For now, we'll implement a simple version where the user enters the folder name
                 const folderName = prompt('Enter target folder name:');
                 if (folderName && activeAccountId) {
                   handleMoveEmail(email.uid, folderName);
                 }
               }}
-              onComposeTo={async (address) => {
+              onComposeTo={async (address: string) => {
                 // For new emails, use the external signature by default
                 let signature = '';
                 if (activeAccountId) {

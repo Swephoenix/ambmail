@@ -195,7 +195,7 @@ export default function EmailInput({ value, onChange, placeholder, className, on
         type="email"
         value={currentInputValue}
         onChange={handleInputChange}
-        onKeyDown={handleKeyDown as unknown}
+        onKeyDown={handleKeyDown}
         onPaste={handlePaste}
         onFocus={handleFocus}
         onBlur={handleBlur}

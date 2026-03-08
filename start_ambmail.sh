@@ -135,6 +135,14 @@ ensure_cmd node nodejs
 ensure_cmd npm nodejs npm
 check_node_version
 
+log_step "Ensuring data directories exist"
+PERSISTENT_DATA_ROOT="${PERSISTENT_DATA_ROOT:-/mnt/data/projects/data}"
+AMBMAIL_DATA_DIR="${PERSISTENT_DATA_ROOT}/ambmail/db"
+if [ ! -d "$AMBMAIL_DATA_DIR" ]; then
+  mkdir -p "$AMBMAIL_DATA_DIR"
+  echo "Created data directory: $AMBMAIL_DATA_DIR"
+fi
+
 RESET_STATE="${AMBMAIL_RESET:-}"
 if [ -z "$RESET_STATE" ] && [ -f .env ]; then
   RESET_STATE="$(sed -n 's/^AMBMAIL_RESET=//p' .env | head -n1 | tr -d '"')"

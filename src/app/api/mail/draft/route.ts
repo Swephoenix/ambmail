@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getImapConnection, appendDraft, getDraftsFolder, openMailbox } from '@/lib/mail-service';
+import type { MailAccount } from '@/lib/mail-service';
 import { requireUser } from '@/lib/auth';
 
 export async function POST(req: Request) {
@@ -24,8 +25,20 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Account not found' }, { status: 404 });
     }
 
+    const mailAccount: MailAccount = {
+      id: account.id,
+      email: account.email,
+      password: account.password,
+      imapHost: account.imapHost,
+      imapPort: account.imapPort,
+      smtpHost: account.smtpHost,
+      smtpPort: account.smtpPort,
+      signature: account.signature,
+      name: account.name,
+    };
+
     console.log('Connecting to IMAP for account:', account.email);
-    const connection = await getImapConnection(account as unknown);
+    const connection = await getImapConnection(mailAccount);
 
     // Create raw email message manually with proper MIME structure
     const messageId = `<${Date.now()}.${Math.random().toString(36).substr(2, 9)}@${account.email.split('@')[1]}>`;
@@ -133,6 +146,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, uid: newUid });
   } catch (error: unknown) {
     console.error('Draft Save Error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }

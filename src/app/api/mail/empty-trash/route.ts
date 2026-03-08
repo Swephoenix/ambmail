@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getImapConnection, getTrashFolder, openMailbox } from '@/lib/mail-service';
+import type { MailAccount } from '@/lib/mail-service';
+import type { ImapSimple } from 'imap-simple';
 import { requireUser } from '@/lib/auth';
 
 export async function POST(req: Request) {
-  let connection;
+  let connection: ImapSimple | null = null;
   try {
     const user = await requireUser();
     if (!user) {
@@ -19,21 +21,36 @@ export async function POST(req: Request) {
     const account = await prisma.account.findFirst({ where: { id: accountId, userId: user.id } });
     if (!account) return NextResponse.json({ error: 'Account not found' }, { status: 404 });
 
-    connection = await getImapConnection(account as unknown);
+    const mailAccount: MailAccount = {
+      id: account.id,
+      email: account.email,
+      password: account.password,
+      imapHost: account.imapHost,
+      imapPort: account.imapPort,
+      smtpHost: account.smtpHost,
+      smtpPort: account.smtpPort,
+      signature: account.signature,
+      name: account.name,
+    };
+
+    connection = await getImapConnection(mailAccount);
+    if (!connection) {
+      return NextResponse.json({ error: 'Failed to connect to mail server' }, { status: 500 });
+    }
     const trashFolder = await getTrashFolder(connection);
     await openMailbox(connection, trashFolder);
 
-    const messages = await connection.search(['ALL'], { bodies: [], struct: false });
+    const messages = await connection!.search(['ALL'], { bodies: [], struct: false });
     const uids = messages.map((message) => message.attributes.uid).filter(Boolean);
 
     if (uids.length === 0) {
-      connection.end();
+      connection!.end();
       return NextResponse.json({ success: true, deletedCount: 0 });
     }
 
-    await connection.addFlags(uids, '\\Deleted');
+    await connection!.addFlags(uids, '\\Deleted');
     await new Promise((resolve, reject) => {
-      connection.imap.expunge((err: unknown) => {
+      connection!.imap.expunge((err: unknown) => {
         if (err) {
           reject(err);
         } else {
@@ -42,7 +59,7 @@ export async function POST(req: Request) {
       });
     });
 
-    connection.end();
+    connection!.end();
 
     await prisma.emailMessage.deleteMany({
       where: {
@@ -64,6 +81,6 @@ export async function POST(req: Request) {
   } catch (error: unknown) {
     if (connection) connection.end();
     console.error('Empty Trash Error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }

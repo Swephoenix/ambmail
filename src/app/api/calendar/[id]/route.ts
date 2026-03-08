@@ -10,14 +10,14 @@ const parseDateParam = (value: string | null) => {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await requireUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const eventId = params.id;
+    const { id: eventId } = await params;
     const existing = await prisma.calendarEvent.findFirst({
       where: { id: eventId, userId: user.id },
     });
@@ -52,18 +52,18 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
 
     return NextResponse.json(updated);
   } catch (error: unknown) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 400 });
   }
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await requireUser();
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const eventId = params.id;
+    const { id: eventId } = await params;
     const existing = await prisma.calendarEvent.findFirst({
       where: { id: eventId, userId: user.id },
       select: { id: true },
@@ -75,6 +75,6 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
     await prisma.calendarEvent.delete({ where: { id: eventId } });
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 400 });
   }
 }

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getImapConnection, isFolderAlias, resolveFolderAlias } from '@/lib/mail-service';
+import type { MailAccount } from '@/lib/mail-service';
+import type { ImapSimple } from 'imap-simple';
 import { requireUser } from '@/lib/auth';
 
 export async function POST(req: Request) {
@@ -32,12 +34,24 @@ export async function POST(req: Request) {
       }
     }
 
+    const mailAccount: MailAccount = {
+      id: account.id,
+      email: account.email,
+      password: account.password,
+      imapHost: account.imapHost,
+      imapPort: account.imapPort,
+      smtpHost: account.smtpHost,
+      smtpPort: account.smtpPort,
+      signature: account.signature,
+      name: account.name,
+    };
+
     const requestedFolder = folder || 'INBOX';
     let resolvedFolder = requestedFolder;
-    let connection;
+    let connection: ImapSimple | null = null;
     if (isFolderAlias(requestedFolder)) {
-      connection = await getImapConnection(account as unknown);
-      resolvedFolder = await resolveFolderAlias(connection, requestedFolder);
+      connection = await getImapConnection(mailAccount);
+      resolvedFolder = await resolveFolderAlias(connection!, requestedFolder);
     }
     if (connection) connection.end();
 
@@ -55,7 +69,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Message not found' }, { status: 404 });
     }
 
-    const nextLabels = new Set(cached.labels || []);
+    const nextLabels = new Set<string>(cached.labels || []);
     if (action === 'add') {
       nextLabels.add(normalizedLabel);
     } else if (action === 'remove') {
@@ -78,6 +92,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, labels: Array.from(nextLabels) });
   } catch (error: unknown) {
     console.error('Label Update Error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }

@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { getImapConnection, groupEmailsIntoConversations, isFolderAlias, resolveFolderAlias } from '@/lib/mail-service';
+import type { MailAccount } from '@/lib/mail-service';
+import type { ImapSimple } from 'imap-simple';
 import { getCachedEmailList, mapCachedEmail, shouldSyncFolder, syncFolderFromImap } from '@/lib/mail-cache';
 import { requireUser } from '@/lib/auth';
 
@@ -13,19 +15,32 @@ export async function GET(req: Request) {
   const accountId = searchParams.get('accountId');
   const requestedFolder = searchParams.get('folder') || 'INBOX';
   const view = searchParams.get('view') || 'list'; // 'list' or 'conversation'
+  const forceSync = searchParams.get('forceSync') === 'true'; // Force immediate sync
 
   if (!accountId) return NextResponse.json({ error: 'accountId required' }, { status: 400 });
 
   const account = await prisma.account.findFirst({ where: { id: accountId, userId: user.id } });
   if (!account) return NextResponse.json({ error: 'Account not found' }, { status: 404 });
 
+  const mailAccount: MailAccount = {
+    id: account.id,
+    email: account.email,
+    password: account.password,
+    imapHost: account.imapHost,
+    imapPort: account.imapPort,
+    smtpHost: account.smtpHost,
+    smtpPort: account.smtpPort,
+    signature: account.signature,
+    name: account.name,
+  };
+
   try {
     let folder = requestedFolder;
     if (isFolderAlias(requestedFolder)) {
-      let connection;
+      let connection: ImapSimple | null = null;
       try {
-        connection = await getImapConnection(account as unknown);
-        folder = await resolveFolderAlias(connection, requestedFolder);
+        connection = await getImapConnection(mailAccount);
+        folder = await resolveFolderAlias(connection!, requestedFolder);
       } catch (error) {
         console.error('Folder alias resolution failed:', error);
       } finally {
@@ -35,23 +50,40 @@ export async function GET(req: Request) {
 
     let cachedEmails = await getCachedEmailList(accountId, folder);
     const needsSync = cachedEmails.length === 0 || await shouldSyncFolder(accountId, folder);
-    const hasMissingDates = cachedEmails.some((email) => !email.date);
-    if (needsSync) {
+    const hasMissingDates = cachedEmails.some((email: { date: Date | null }) => !email.date);
+    
+    // Force sync waits for completion before returning
+    if (forceSync) {
+      await syncFolderFromImap(mailAccount, folder);
+      cachedEmails = await getCachedEmailList(accountId, folder);
+    } else if (needsSync) {
       if (cachedEmails.length === 0) {
-        await syncFolderFromImap(account as unknown, folder);
+        await syncFolderFromImap(mailAccount, folder);
         cachedEmails = await getCachedEmailList(accountId, folder);
       } else {
-        void syncFolderFromImap(account as unknown, folder).catch((error) => {
+        void syncFolderFromImap(mailAccount, folder).catch((error) => {
           console.error('Background sync error:', error);
         });
       }
     } else if (hasMissingDates) {
       console.info(`[mail] Resyncing ${account.email} ${folder} because cached dates are missing.`);
-      await syncFolderFromImap(account as unknown, folder);
+      await syncFolderFromImap(mailAccount, folder);
       cachedEmails = await getCachedEmailList(accountId, folder);
     }
 
-    const emails = cachedEmails.map(mapCachedEmail);
+    const emails = cachedEmails.map((email: {
+      uid: number;
+      date: Date | null;
+      flags: string[];
+      labels?: string[];
+      subject: string | null;
+      from: string | null;
+      to: string | null;
+      preview: string | null;
+      messageId: string | null;
+      inReplyTo: string | null;
+      references: string | null;
+    }) => mapCachedEmail(email));
 
     if (view === 'conversation') {
       const conversations = groupEmailsIntoConversations(emails);
@@ -61,6 +93,6 @@ export async function GET(req: Request) {
     return NextResponse.json(emails);
   } catch (error: unknown) {
     console.error('Mail cache error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: (error as Error).message }, { status: 500 });
   }
 }
