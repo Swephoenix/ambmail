@@ -1074,7 +1074,7 @@ export default function Home() {
         <div className="w-full max-w-md bg-white rounded-3xl shadow-sm border border-gray-100 p-10">
           <div className="flex flex-col items-center mb-8">
             <Image
-              src="/logo.png"
+              src="/ambmail_full_logo.png"
               alt="Ambmail"
               width={120}
               height={120}
@@ -1118,7 +1118,7 @@ export default function Home() {
           <div className="text-center p-12 bg-white rounded-3xl shadow-sm border border-gray-100 max-w-sm flex flex-col items-center">
             <div className="mb-6">
               <Image
-                src="/logo.png"
+                src="/ambmail_full_logo.png"
                 alt="Ambmail"
                 width={120}
                 height={120}

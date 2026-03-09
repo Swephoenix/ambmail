@@ -85,7 +85,7 @@ export default function Sidebar({ accounts, activeAccountId, activeFolder, onSel
             isCollapsed ? "opacity-0 scale-90 -translate-y-8 pointer-events-none" : "opacity-100 scale-100 translate-y-0"
           )}>
             <Image 
-              src="/logo.png" 
+              src="/ambmail_full_logo.png" 
               alt="Logo" 
               width={160} 
               height={40} 
@@ -100,8 +100,8 @@ export default function Sidebar({ accounts, activeAccountId, activeFolder, onSel
             isCollapsed ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-90 translate-y-8 pointer-events-none"
           )}>
             <Image
-              src="/ambmail_mini_final.png"
-              alt="Mini Logo"
+              src="/ambmail_folded_logo.png"
+              alt="Folded Logo"
               width={40}
               height={40}
               className="object-contain w-auto h-10 rounded-xl shadow-sm"
