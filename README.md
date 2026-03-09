@@ -52,7 +52,38 @@ Beteende:
 - `AMBMAIL_START_POSTGRES=1|0` (standard: 1)
 - `AMBMAIL_SETUP_DB=1|0` (standard: 0)
 
-## Nextcloud
+## Nextcloud-integration
+
+Ambmail kan kopplas till Nextcloud via OAuth2 för att:
+- 📁 Lista och bläddra i Nextcloud-filer direkt i compose-vyn
+- 📎 Bifoga filer från Nextcloud som mejlbilagor
+- 🔗 Skapa och infoga delningslänkar till Nextcloud-filer
+
+### Snabbkonfigurering av Nextcloud
+
+**Steg 1:** Skapa OAuth2-applikation i Nextcloud (Admin → Security → OAuth2)
+- Redirect URI: `http://localhost:3000/api/nextcloud/auth/callback`
+- Spara Client ID och Client Secret
+
+**Steg 2:** Uppdatera `.env`:
+```env
+NC_BASE_URL="http://localhost:8084"
+NC_PUBLIC_URL="http://localhost:8084"
+NC_OAUTH_CLIENT_ID="din-client-id"
+NC_OAUTH_CLIENT_SECRET="din-client-secret"
+```
+
+**Steg 3:** Starta om Ambmail och klicka "Anslut Nextcloud" i compose-vyn
+
+### Fullständig Nextcloud-guide
+
+För detaljerade instruktioner, inklusive Docker-nätverk och produktionsmiljö:
+- 📖 [NEXTCLOUD_SETUP.md](./NEXTCLOUD_SETUP.md) - Komplett konfigurationsguide
+- 📖 [NEXTCLOUD_AUTENTISERING_OCH_FILATKOMST.md](./NEXTCLOUD_AUTENTISERING_OCH_FILATKOMST.md) - Teknisk beskrivning av flöden
+
+För lokal Nextcloud-demo, kör `./Nextclouddemo/start_nextcloud.sh`.
+
+## Nextcloud-old
 
 Uxmail kan kopplas till Nextcloud via OAuth2 for att lista filer, bifoga dem eller skapa delningslankar direkt fran compose-fonstret.
 
