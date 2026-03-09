@@ -191,10 +191,15 @@ async function prefetchBodiesForFolder(account: MailAccount, folder: string, lim
       // If no plain text or plain text still contains HTML, extract from HTML
       if (!plainText || plainText.includes('<')) {
         const htmlSource = plainText || bodyHtml || '';
-        // Remove HTML tags and decode entities
+        // Remove HTML tags and decode entities, preserving line breaks
         plainText = htmlSource
           .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
           .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+          // Convert block elements to newlines before stripping tags
+          .replace(/<\/p>/gi, '\n')
+          .replace(/<\/div>/gi, '\n')
+          .replace(/<\/br>/gi, '\n')
+          .replace(/<br\s*\/?>/gi, '\n')
           .replace(/<[^>]*>?/gm, ' ')
           .replace(/&nbsp;/g, ' ')
           .replace(/&amp;/g, '&')
@@ -205,11 +210,17 @@ async function prefetchBodiesForFolder(account: MailAccount, folder: string, lim
           .replace(/&apos;/g, "'")
           .replace(/&[a-zA-Z]+;/g, '')
           .replace(/[<>]/g, '')
+          // Normalize multiple spaces but preserve newlines
+          .replace(/[ \t]+/g, ' ')
+          // Remove spaces at start/end of lines
+          .replace(/^[ \t]+|[ \t]+$/gm, '')
+          // Remove multiple consecutive newlines
+          .replace(/\n\s*\n/g, '\n')
           .trim();
       }
       
       preview = plainText
-        .replace(/\s+/g, ' ')
+        .replace(/\n+/g, '\n')  // Ensure single newlines
         .trim()
         .substring(0, 280);
 

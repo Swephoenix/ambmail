@@ -418,13 +418,7 @@ export default function MailList({
                             {email.subject}
                           </div>
                           <div
-                            className="text-[9px] text-gray-500 mt-1"
-                            style={{
-                              display: '-webkit-box',
-                              WebkitLineClamp: 4,
-                              WebkitBoxOrient: 'vertical',
-                              overflow: 'hidden',
-                            }}
+                            className="text-[9px] text-gray-500 mt-1 whitespace-pre-wrap break-words line-clamp-4"
                           >
                             {email.preview || 'No content'}
                           </div>
