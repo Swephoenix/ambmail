@@ -160,6 +160,15 @@ export default function EmailInput({ value, onChange, placeholder, className, on
     }
   };
 
+  // Parse group emails for display
+  const parseGroupEmail = (email: string) => {
+    const groupMatch = email.match(/^group:([^:]+):(.+)$/);
+    if (groupMatch) {
+      return { isGroup: true, name: groupMatch[2], id: groupMatch[1] };
+    }
+    return { isGroup: false, name: email };
+  };
+
   return (
     <div
       ref={containerRef}
@@ -170,26 +179,38 @@ export default function EmailInput({ value, onChange, placeholder, className, on
         className
       )}
     >
-      {value.map((email, index) => (
-        <div
-          key={index}
-          onDoubleClick={() => handleBubbleDoubleClick(email, index)}
-          className="flex items-center gap-1 bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm"
-        >
-          <span>{email}</span>
-          <span className="text-[10px] text-blue-500 translate-y-1 select-none">#{index + 1}</span>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              removeEmail(index);
-            }}
-            className="text-blue-600 hover:text-blue-800 rounded-full hover:bg-blue-200 p-0.5 transition-colors"
+      {value.map((email, index) => {
+        const parsed = parseGroupEmail(email);
+        return (
+          <div
+            key={index}
+            onDoubleClick={() => handleBubbleDoubleClick(email, index)}
+            className={cn(
+              "flex items-center gap-1 px-3 py-1 rounded-full text-sm",
+              parsed.isGroup
+                ? "bg-purple-100 text-purple-800 border border-purple-200"
+                : "bg-blue-100 text-blue-800"
+            )}
           >
-            <X size={14} />
-          </button>
-        </div>
-      ))}
+            {parsed.isGroup && <span className="text-xs">📁</span>}
+            <span>{parsed.name}</span>
+            <span className={cn("text-[10px] translate-y-1 select-none", parsed.isGroup ? "text-purple-500" : "text-blue-500")}>#{index + 1}</span>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                removeEmail(index);
+              }}
+              className={cn(
+                "rounded-full hover:bg-white/50 p-0.5 transition-colors",
+                parsed.isGroup ? "text-purple-600 hover:text-purple-800" : "text-blue-600 hover:text-blue-800"
+              )}
+            >
+              <X size={14} />
+            </button>
+          </div>
+        );
+      })}
       <input
         ref={inputRef}
         type="email"

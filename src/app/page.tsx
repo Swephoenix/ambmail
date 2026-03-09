@@ -10,7 +10,7 @@ const AddAccountModal = lazy(() => import('@/components/AddAccountModal'));
 const ComposeEmail = lazy(() => import('@/components/ComposeEmail'));
 const SignatureModal = lazy(() => import('@/components/SignatureModal'));
 const ManageAccountsModal = lazy(() => import('@/components/ManageAccountsModal'));
-const CalendarModal = lazy(() => import('@/components/CalendarModal'));
+const AddressBookModal = lazy(() => import('@/components/AddressBookModal'));
 import toast from 'react-hot-toast';
 import { PenSquare } from 'lucide-react';
 import Image from 'next/image';
@@ -115,7 +115,9 @@ export default function Home() {
     signature: string;
     senderName: string;
   } | null>(null);
-  const [showCalendar, setShowCalendar] = useState(false);
+
+  // Address book state
+  const [showAddressBook, setShowAddressBook] = useState(false);
 
   // Cache for accounts to avoid unnecessary API calls
   const [accountsCache, setAccountsCache] = useState<{data: Account[], timestamp: number} | null>(null);
@@ -1072,15 +1074,15 @@ export default function Home() {
     return (
       <main className="flex h-screen w-full items-center justify-center bg-gray-50">
         <div className="w-full max-w-md bg-white rounded-3xl shadow-sm border border-gray-100 p-10">
-          <div className="flex flex-col items-center mb-8">
+          <div className="flex flex-col items-center mb-6">
             <Image
               src="/ambmail_full_logo.png"
               alt="Ambmail"
-              width={120}
-              height={120}
+              width={80}
+              height={80}
               priority
             />
-            <h1 className="text-2xl font-bold mt-4">Logga in via Nextcloud</h1>
+            <h1 className="text-2xl font-bold mt-3">Logga in via Nextcloud</h1>
             <p className="text-gray-500 text-sm">Du måste vara inloggad i Nextcloud för att använda Ambmail</p>
           </div>
           <a
@@ -1107,7 +1109,7 @@ export default function Home() {
         onAddAccount={() => setShowAddModal(true)}
         onSettings={() => setShowManageAccounts(true)}
         onEditSignature={handleEditSignature}
-        onOpenCalendar={() => setShowCalendar(true)}
+        onOpenAddressBook={() => setShowAddressBook(true)}
         onLogout={handleLogout}
         currentUserName={currentUser?.name || currentUser?.email || currentUser?.username}
         storageUsage={storageUsage || undefined}
@@ -1115,13 +1117,13 @@ export default function Home() {
 
       {accounts.length === 0 ? (
         <div className="flex-1 flex flex-col items-center justify-center bg-gray-50">
-          <div className="text-center p-12 bg-white rounded-3xl shadow-sm border border-gray-100 max-w-sm flex flex-col items-center">
-            <div className="mb-6">
+          <div className="text-center p-8 bg-white rounded-3xl shadow-sm border border-gray-100 max-w-sm flex flex-col items-center">
+            <div className="mb-4">
               <Image
                 src="/ambmail_full_logo.png"
                 alt="Ambmail"
-                width={120}
-                height={120}
+                width={64}
+                height={64}
                 priority
                 placeholder="blur"
                 blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
@@ -1667,9 +1669,9 @@ export default function Home() {
         </Suspense>
       )}
 
-      {showCalendar && (
+      {showAddressBook && (
         <Suspense fallback={null}>
-          <CalendarModal onClose={() => setShowCalendar(false)} />
+          <AddressBookModal onClose={() => setShowAddressBook(false)} isOpen />
         </Suspense>
       )}
     </main>

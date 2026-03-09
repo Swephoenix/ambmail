@@ -31,6 +31,9 @@ type ContactSuggestion = {
   id: string;
   email: string;
   name: string | null;
+  type?: 'contact' | 'group';
+  memberCount?: number;
+  description?: string | null;
 };
 
 export default function ComposeEmail({ accountId, windowId, onClose, onMinimize, onRestore, mode = 'modal', initialData }: ComposeEmailProps) {
@@ -529,8 +532,8 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
 
   useEffect(() => {
     if (inputValue && inputValue.length > 1) {
-      // Use the current input value for suggestions
-      fetch(`/api/contacts?q=${inputValue}`)
+      // Fetch both contacts and groups for suggestions
+      fetch(`/api/contacts?q=${inputValue}&forSuggestion=true`)
         .then(res => res.json())
         .then(setSuggestions);
     } else {
@@ -543,8 +546,13 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
   }, [suggestions]);
 
   const selectSuggestion = (suggestion: ContactSuggestion) => {
-    if (!to.includes(suggestion.email)) {
-      setTo([...to, suggestion.email]);
+    // For groups, store with a special prefix
+    const emailToAdd = suggestion.type === 'group' 
+      ? `group:${suggestion.id}:${suggestion.name}`
+      : suggestion.email;
+    
+    if (!to.includes(emailToAdd)) {
+      setTo([...to, emailToAdd]);
     }
     setInputValue('');
     setSuggestions([]);
@@ -936,12 +944,27 @@ export default function ComposeEmail({ accountId, windowId, onClose, onMinimize,
                       onClick={() => selectSuggestion(s)}
                       onMouseEnter={() => setActiveSuggestionIndex(index)}
                       className={cn(
-                        "w-full text-left px-4 py-2 text-sm flex justify-between",
+                        "w-full text-left px-4 py-2 text-sm flex items-center justify-between gap-3",
                         index === activeSuggestionIndex ? "bg-gray-100" : "hover:bg-gray-50"
                       )}
                     >
-                      <span className="font-medium">{s.name}</span>
-                      <span className="text-gray-400">{s.email}</span>
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        {s.type === 'group' ? (
+                          <>
+                            <span className="text-blue-600">📁</span>
+                            <span className="font-medium truncate">{s.name}</span>
+                            <span className="text-xs text-blue-500 whitespace-nowrap">({s.memberCount} st)</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="text-gray-400">👤</span>
+                            <span className="font-medium truncate">{s.name || s.email}</span>
+                          </>
+                        )}
+                      </div>
+                      {s.type !== 'group' && (
+                        <span className="text-gray-400 text-xs whitespace-nowrap">{s.email}</span>
+                      )}
                     </button>
                   ))}
                 </div>

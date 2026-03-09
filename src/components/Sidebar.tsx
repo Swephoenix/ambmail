@@ -3,7 +3,7 @@
 import {
   Settings, Plus,
   Inbox, Send, File, Archive, Trash2, AlertCircle,
-  ChevronDown, ChevronRight, ChevronLeft, User, FileSignature, LogOut, CalendarDays
+  ChevronDown, ChevronRight, ChevronLeft, User, FileSignature, LogOut
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -30,7 +30,7 @@ interface SidebarProps {
   onAddAccount: () => void;
   onSettings: () => void;
   onEditSignature: (accountId: string, currentSignature: string) => void;
-  onOpenCalendar?: () => void;
+  onOpenAddressBook: () => void;
   onLogout?: () => void;
   currentUserName?: string;
   storageUsage?: {
@@ -39,7 +39,7 @@ interface SidebarProps {
   };
 }
 
-export default function Sidebar({ accounts, activeAccountId, activeFolder, onSelect, onAddAccount, onSettings, onEditSignature, onOpenCalendar, onLogout, currentUserName, storageUsage }: SidebarProps) {
+export default function Sidebar({ accounts, activeAccountId, activeFolder, onSelect, onAddAccount, onSettings, onEditSignature, onOpenAddressBook, onLogout, currentUserName, storageUsage }: SidebarProps) {
   // Track expanded state for accounts (default all expanded)
   const [expandedAccounts, setExpandedAccounts] = useState<Record<string, boolean>>(
     accounts.reduce((acc, curr) => ({ ...acc, [curr.id]: true }), {})
@@ -75,20 +75,20 @@ export default function Sidebar({ accounts, activeAccountId, activeFolder, onSel
     >
       {/* Header / Logo */}
       <div className={cn(
-        "flex items-center justify-center border-b border-gray-100 bg-white h-14 transition-all relative overflow-hidden",
-        isCollapsed ? "px-2" : "px-4"
+        "flex items-center justify-between border-b border-gray-100 bg-white h-14 transition-all relative overflow-hidden flex-shrink-0",
+        isCollapsed ? "px-1" : "px-4"
       )}>
-        <div className="relative w-full h-10 flex items-center justify-center">
+        <div className={cn("relative flex items-center justify-center flex-shrink-0 transition-all duration-300", isCollapsed ? "w-8 h-8" : "w-36 h-10")}>
           {/* Large Logo */}
           <div className={cn(
             "absolute transition-all duration-500 ease-in-out transform",
-            isCollapsed ? "opacity-0 scale-90 -translate-y-8 pointer-events-none" : "opacity-100 scale-100 translate-y-0"
+            isCollapsed ? "opacity-0 scale-90 -translate-x-8 pointer-events-none" : "opacity-100 scale-100 translate-x-0"
           )}>
-            <Image 
-              src="/ambmail_full_logo.png" 
-              alt="Logo" 
-              width={160} 
-              height={40} 
+            <Image
+              src="/ambmail_full_logo.png"
+              alt="Logo"
+              width={140}
+              height={40}
               className="object-contain w-auto h-auto max-h-10"
               priority
             />
@@ -97,14 +97,14 @@ export default function Sidebar({ accounts, activeAccountId, activeFolder, onSel
           {/* Mini Logo */}
           <div className={cn(
             "absolute transition-all duration-500 ease-in-out transform",
-            isCollapsed ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-90 translate-y-8 pointer-events-none"
+            isCollapsed ? "opacity-100 scale-100 translate-x-0" : "opacity-0 scale-90 translate-x-8 pointer-events-none"
           )}>
             <Image
               src="/ambmail_folded_logo.png"
               alt="Folded Logo"
-              width={40}
-              height={40}
-              className="object-contain w-auto h-10 rounded-xl shadow-sm"
+              width={32}
+              height={32}
+              className="object-contain w-auto h-8 rounded-lg shadow-sm"
               priority
             />
           </div>
@@ -112,8 +112,8 @@ export default function Sidebar({ accounts, activeAccountId, activeFolder, onSel
         <button
           onClick={() => setIsCollapsed(prev => !prev)}
           className={cn(
-            "absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-md border border-gray-200 bg-white text-gray-500 hover:text-gray-900 hover:bg-gray-50 flex items-center justify-center transition-colors",
-            isCollapsed && "right-1"
+            "h-7 w-7 rounded-md border border-gray-200 bg-white text-gray-500 hover:text-gray-900 hover:bg-gray-50 flex items-center justify-center transition-colors flex-shrink-0",
+            isCollapsed ? "ml-1" : "ml-2"
           )}
           title={isCollapsed ? "Fäll ut menyn" : "Fäll ihop menyn"}
         >
@@ -201,7 +201,7 @@ export default function Sidebar({ accounts, activeAccountId, activeFolder, onSel
                               {!isCollapsed && <span>Signatur</span>}
                             </button>
                             <button
-                              onClick={() => alert('Adressbok för detta konto kommer snart!')}
+                              onClick={onOpenAddressBook}
                               title={isCollapsed ? "Adressbok" : undefined}
                             className={cn(
                               "w-full flex items-center gap-2.5 py-1.5 rounded-md text-sm transition-all duration-200 text-gray-600 hover:bg-gray-100 hover:text-gray-900",
@@ -283,19 +283,6 @@ export default function Sidebar({ accounts, activeAccountId, activeFolder, onSel
           >
             <LogOut size={18} />
             {!isCollapsed && <span>Logga ut</span>}
-          </button>
-        )}
-        {onOpenCalendar && (
-          <button
-            onClick={onOpenCalendar}
-            title={isCollapsed ? "Kalender" : undefined}
-            className={cn(
-              "w-full flex items-center gap-2 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-colors",
-              isCollapsed ? "justify-center px-0" : "px-3"
-            )}
-          >
-            <CalendarDays size={18} />
-            {!isCollapsed && <span>Kalender</span>}
           </button>
         )}
         <button

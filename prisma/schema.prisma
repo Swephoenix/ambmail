@@ -27,6 +27,7 @@ model User {
 
   accounts     Account[]
   contacts     Contact[]
+  contactGroups ContactGroup[]
   sessions     UserSession[]
   prefetchStatus PrefetchStatus?
   addressBooks AddressBookUser[]
@@ -96,6 +97,8 @@ model Contact {
   userId    String?
   email     String
   name      String?
+  groups    ContactGroupContact[]
+  isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -103,6 +106,33 @@ model Contact {
 
   @@unique([userId, email], name: "userId_email")
   @@index([userId])
+}
+
+model ContactGroup {
+  id          String   @id @default(cuid())
+  userId      String?  // Null for global system groups
+  name        String
+  description String?
+  isSystem    Boolean  @default(false)
+  contacts    ContactGroupContact[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user        User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name], name: "userId_group_name")
+  @@index([userId])
+}
+
+model ContactGroupContact {
+  contactId   String
+  groupId     String
+  assignedAt  DateTime @default(now())
+
+  contact Contact @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  group   ContactGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+
+  @@id([contactId, groupId])
 }
 
 model EmailMessage {

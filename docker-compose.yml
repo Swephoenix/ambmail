@@ -10,7 +10,7 @@ services:
     volumes:
       - /mnt/data/projects/data/ambmail/db:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U ambmail -d ambmail_db"]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -21,9 +21,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: production
     container_name: ambmail-app
     restart: unless-stopped
-    user: "1001:1001"
     depends_on:
       db:
         condition: service_healthy
@@ -59,12 +59,9 @@ services:
       NODE_TLS_REJECT_UNAUTHORIZED: "0"
 
   worker:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ambmail-app
     container_name: ambmail-worker
     restart: unless-stopped
-    user: "1001:1001"
     depends_on:
       db:
         condition: service_healthy

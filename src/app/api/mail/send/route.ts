@@ -9,6 +9,63 @@ import fs from 'fs/promises';
 import path from 'path';
 import MailComposer from 'nodemailer/lib/mail-composer';
 
+// Expand group recipients to individual emails
+async function expandRecipients(recipients: string[], userId: string): Promise<string[]> {
+  const expanded: string[] = [];
+  
+  for (const recipient of recipients) {
+    // Check if this is a group (format: group:{id}:{name})
+    const groupMatch = recipient.match(/^group:([^:]+):(.+)$/);
+    
+    if (groupMatch) {
+      const groupId = groupMatch[1];
+      
+      // Handle dynamic system groups
+      if (groupId === 'all-active') {
+        // Get all active contacts for this user
+        const activeContacts = await prisma.contact.findMany({
+          where: { userId, isActive: true },
+          select: { email: true },
+        });
+        expanded.push(...activeContacts.map(c => c.email));
+      } else if (groupId === 'all') {
+        // Get all contacts for this user
+        const allContacts = await prisma.contact.findMany({
+          where: { userId },
+          select: { email: true },
+        });
+        expanded.push(...allContacts.map(c => c.email));
+      } else {
+        // Get regular group members
+        const group = await prisma.contactGroup.findFirst({
+          where: { id: groupId },
+          include: {
+            contacts: {
+              include: {
+                contact: true,
+              },
+            },
+          },
+        });
+        
+        if (group) {
+          // Add all active contacts from the group
+          const memberEmails = group.contacts
+            .filter(cgc => cgc.contact.isActive && cgc.contact.userId === userId)
+            .map(cgc => cgc.contact.email);
+          
+          expanded.push(...memberEmails);
+        }
+      }
+    } else {
+      // Regular email address
+      expanded.push(recipient);
+    }
+  }
+  
+  return expanded;
+}
+
 export async function POST(req: Request) {
   try {
     const user = await requireUser();
@@ -16,9 +73,15 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
     const data = await req.json();
-    const { accountId, to, subject, body, attachments = [] } = data;
+    let { accountId, to, subject, body, attachments = [] } = data;
 
     console.log('Send API called with:', { accountId, to, subject });
+
+    // Expand groups to individual emails
+    const expandedTo = await expandRecipients(to, user.id);
+    to = expandedTo;
+
+    console.log('Expanded recipients:', to);
 
     const account = await prisma.account.findFirst({ where: { id: accountId, userId: user.id } });
     if (!account) {

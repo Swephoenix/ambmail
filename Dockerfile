@@ -1,43 +1,58 @@
-FROM node:20-bookworm-slim
+# Build stage
+FROM node:20-bookworm-slim AS builder
 
 WORKDIR /app
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y \
-    openssl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create non-root user for security (use unique UID to avoid conflicts)
-RUN useradd -m -u 1001 appuser
-
-# Install dependencies first
+# Install dependencies
 COPY package*.json ./
 COPY prisma ./prisma
 
-RUN npm install
+RUN npm ci
 
-# Generate Prisma client explicitly
+# Generate Prisma client
 RUN npx prisma generate
 
-# Copy rest of source
+# Copy source and build
 COPY . .
-
-# Build
 RUN npm run build
 
-# Set ownership for app user
-RUN chown -R appuser:appuser /app
+# Production stage
+FROM node:20-bookworm-slim AS production
 
-# Runtime
-ENV NODE_ENV=production
-ENV PORT=3000
+WORKDIR /app
 
-EXPOSE 3000
+# Install runtime dependencies only
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssl \
+    && rm -rf /var/lib/apt/lists/*
 
+# Create non-root user
+RUN useradd -m -u 1001 appuser
+
+# Copy package files and install production deps only
+COPY package*.json ./
+COPY prisma ./prisma
+COPY prisma.config.ts ./prisma.config.ts
+RUN npm ci --omit=dev && npm cache clean --force
+
+# Generate Prisma client for production
+RUN npx prisma generate --config prisma.config.ts
+
+# Copy built artifacts from builder
+COPY --from=builder --chown=appuser:appuser /app/.next ./.next
+COPY --from=builder --chown=appuser:appuser /app/public ./public
+COPY --from=builder --chown=appuser:appuser /app/scripts ./scripts
+
+# Copy entrypoint
 COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 USER appuser
+
+ENV NODE_ENV=production
+ENV PORT=3000
+
+EXPOSE 3000
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["npm", "run", "start"]

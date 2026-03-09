@@ -1,5 +1,4 @@
 node_modules
-.next
 .git
 .gitignore
 npm-debug.log*
@@ -8,3 +7,7 @@ yarn-error.log*
 .env
 .ambmail.key
 .ambmail.secrets
+*.log
+coverage
+dist
+tmp
