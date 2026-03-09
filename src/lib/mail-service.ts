@@ -380,8 +380,36 @@ export async function fetchEmails(connection: ImapSimple, folder = 'INBOX', limi
     if (bodyPart?.body) {
       try {
         const parsed = await simpleParser(bodyPart.body);
-        const plainText = parsed.text || (parsed.html ? parsed.html.replace(/<[^>]*>?/gm, ' ') : '');
-        preview = plainText.trim().substring(0, 280).replace(/\s+/g, ' ');
+        let plainText = parsed.text || '';
+
+        // If no plain text or plain text still contains HTML, extract from HTML
+        if (!plainText || plainText.includes('<')) {
+          const htmlSource = plainText || parsed.html || '';
+          // Remove HTML tags and decode entities
+          plainText = htmlSource
+            .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+            .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+            .replace(/<[^>]*>?/gm, ' ')
+            // Decode common HTML entities
+            .replace(/&nbsp;/g, ' ')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/&apos;/g, "'")
+            .replace(/&[a-zA-Z]+;/g, '')
+            // Remove any remaining angle brackets
+            .replace(/[<>]/g, '')
+            .trim();
+        }
+
+        // Normalize whitespace and truncate
+        preview = plainText
+          .replace(/\s+/g, ' ')
+          .trim()
+          .substring(0, 280);
+
         bodyContent = parsed.text || parsed.html || undefined;
       } catch {
         preview = 'Preview unavailable';

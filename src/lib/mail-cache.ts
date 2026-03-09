@@ -183,9 +183,35 @@ async function prefetchBodiesForFolder(account: MailAccount, folder: string, lim
       const bodyHtml = parsed.html || parsed.textAsHtml || null;
       const bodyText = parsed.text || null;
       const body = bodyHtml || bodyText || '';
-      const preview = bodyText
-        ? bodyText.trim().substring(0, 280).replace(/\s+/g, ' ')
-        : body.replace(/<[^>]*>?/gm, ' ').trim().substring(0, 280).replace(/\s+/g, ' ');
+
+      // Generate preview text - always strip HTML to ensure clean preview
+      let preview = '';
+      let plainText = bodyText || '';
+      
+      // If no plain text or plain text still contains HTML, extract from HTML
+      if (!plainText || plainText.includes('<')) {
+        const htmlSource = plainText || bodyHtml || '';
+        // Remove HTML tags and decode entities
+        plainText = htmlSource
+          .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+          .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+          .replace(/<[^>]*>?/gm, ' ')
+          .replace(/&nbsp;/g, ' ')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&#39;/g, "'")
+          .replace(/&apos;/g, "'")
+          .replace(/&[a-zA-Z]+;/g, '')
+          .replace(/[<>]/g, '')
+          .trim();
+      }
+      
+      preview = plainText
+        .replace(/\s+/g, ' ')
+        .trim()
+        .substring(0, 280);
 
       const attachmentsMeta = parsed.attachments.map((attachment) => ({
         filename: attachment.filename || 'attachment',
