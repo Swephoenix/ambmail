@@ -3,7 +3,7 @@
 import {
   Settings, Plus,
   Inbox, Send, File, Archive, Trash2, AlertCircle,
-  ChevronDown, ChevronRight, ChevronLeft, User, FileSignature, LogOut, CalendarDays
+  ChevronDown, ChevronRight, ChevronLeft, User, FileSignature, LogOut
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
@@ -30,7 +30,6 @@ interface SidebarProps {
   onAddAccount: () => void;
   onSettings: () => void;
   onEditSignature: (accountId: string, currentSignature: string) => void;
-  onOpenCalendar?: () => void;
   onLogout?: () => void;
   currentUserName?: string;
   storageUsage?: {
@@ -39,7 +38,7 @@ interface SidebarProps {
   };
 }
 
-export default function Sidebar({ accounts, activeAccountId, activeFolder, onSelect, onAddAccount, onSettings, onEditSignature, onOpenCalendar, onLogout, currentUserName, storageUsage }: SidebarProps) {
+export default function Sidebar({ accounts, activeAccountId, activeFolder, onSelect, onAddAccount, onSettings, onEditSignature, onLogout, currentUserName, storageUsage }: SidebarProps) {
   // Track expanded state for accounts (default all expanded)
   const [expandedAccounts, setExpandedAccounts] = useState<Record<string, boolean>>(
     accounts.reduce((acc, curr) => ({ ...acc, [curr.id]: true }), {})
@@ -283,19 +282,6 @@ export default function Sidebar({ accounts, activeAccountId, activeFolder, onSel
           >
             <LogOut size={18} />
             {!isCollapsed && <span>Logga ut</span>}
-          </button>
-        )}
-        {onOpenCalendar && (
-          <button
-            onClick={onOpenCalendar}
-            title={isCollapsed ? "Kalender" : undefined}
-            className={cn(
-              "w-full flex items-center gap-2 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-lg transition-colors",
-              isCollapsed ? "justify-center px-0" : "px-3"
-            )}
-          >
-            <CalendarDays size={18} />
-            {!isCollapsed && <span>Kalender</span>}
           </button>
         )}
         <button
