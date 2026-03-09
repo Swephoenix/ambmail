@@ -21,9 +21,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: app
     container_name: ambmail-app
     restart: unless-stopped
-    user: "1001:1001"
     depends_on:
       db:
         condition: service_healthy
@@ -62,9 +62,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: worker
     container_name: ambmail-worker
     restart: unless-stopped
-    user: "1001:1001"
     depends_on:
       db:
         condition: service_healthy

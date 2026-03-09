@@ -74,36 +74,36 @@ export default function Sidebar({ accounts, activeAccountId, activeFolder, onSel
     >
       {/* Header / Logo */}
       <div className={cn(
-        "flex items-center justify-center border-b border-gray-100 bg-white h-14 transition-all relative overflow-hidden",
+        "flex items-center justify-center border-b border-gray-100 bg-white h-16 transition-all relative overflow-hidden shadow-sm",
         isCollapsed ? "px-2" : "px-4"
       )}>
-        <div className="relative w-full h-10 flex items-center justify-center">
+        <div className="relative w-full h-12 flex items-center justify-center">
           {/* Large Logo */}
           <div className={cn(
-            "absolute transition-all duration-500 ease-in-out transform",
-            isCollapsed ? "opacity-0 scale-90 -translate-y-8 pointer-events-none" : "opacity-100 scale-100 translate-y-0"
+            "absolute transition-all duration-300 ease-in-out transform",
+            isCollapsed ? "opacity-0 scale-95 -translate-y-10 pointer-events-none" : "opacity-100 scale-100 translate-y-0"
           )}>
-            <Image 
-              src="/logo.png" 
-              alt="Logo" 
-              width={160} 
-              height={40} 
-              className="object-contain w-auto h-auto max-h-10"
+            <Image
+              src="/logo.png"
+              alt="AmbMail"
+              width={180}
+              height={45}
+              className="object-contain w-auto h-auto max-h-11"
               priority
             />
           </div>
 
-          {/* Mini Logo */}
+          {/* Mini Logo - Icon */}
           <div className={cn(
-            "absolute transition-all duration-500 ease-in-out transform",
-            isCollapsed ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-90 translate-y-8 pointer-events-none"
+            "absolute transition-all duration-300 ease-in-out transform flex items-center justify-center",
+            isCollapsed ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-90 translate-y-10 pointer-events-none"
           )}>
             <Image
               src="/ambmail_mini_final.png"
-              alt="Mini Logo"
-              width={40}
-              height={40}
-              className="object-contain w-auto h-10 rounded-xl shadow-sm"
+              alt="AmbMail"
+              width={36}
+              height={36}
+              className="object-contain w-9 h-9 rounded-lg"
               priority
             />
           </div>

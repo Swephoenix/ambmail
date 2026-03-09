@@ -8,3 +8,10 @@ yarn-error.log*
 .env
 .ambmail.key
 .ambmail.secrets
+*.md
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+*.log
+coverage
+.nyc_output
