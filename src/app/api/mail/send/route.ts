@@ -77,11 +77,20 @@ export async function POST(req: Request) {
 
     console.log('Send API called with:', { accountId, to, subject });
 
-    // Expand groups to individual emails
-    const expandedTo = await expandRecipients(to, user.id);
-    to = expandedTo;
+    // Convert to to an array if it's a string (comma or semicolon separated)
+    let toArray: string[];
+    if (typeof to === 'string') {
+      toArray = to.split(/[,\s;]+/).map((email: string) => email.trim()).filter((email: string) => email !== '');
+    } else if (Array.isArray(to)) {
+      toArray = to;
+    } else {
+      toArray = [];
+    }
 
-    console.log('Expanded recipients:', to);
+    // Expand groups to individual emails
+    const expandedTo = await expandRecipients(toArray, user.id);
+
+    console.log('Expanded recipients:', expandedTo);
 
     const account = await prisma.account.findFirst({ where: { id: accountId, userId: user.id } });
     if (!account) {
@@ -108,7 +117,7 @@ export async function POST(req: Request) {
     const fromHeader = `"${fromName}" <${account.email}>`;
     console.log('Sending email with options:', {
       from: fromHeader,
-      to,
+      to: expandedTo,
       subject
     });
 
@@ -150,7 +159,7 @@ export async function POST(req: Request) {
 
     await transporter.sendMail({
       from: fromHeader,
-      to,
+      to: expandedTo,
       subject,
       text: bodyText,
       html: bodyHtml, // Simple text to html conversion
@@ -165,7 +174,7 @@ export async function POST(req: Request) {
       sentConnection = await getImapConnection(mailAccount);
       const mail = new MailComposer({
         from: fromHeader,
-        to,
+        to: expandedTo,
         subject,
         text: bodyText,
         html: bodyHtml,
@@ -184,7 +193,7 @@ export async function POST(req: Request) {
 
     // Automatically add recipients to contacts
     try {
-      const contactCandidates = extractContactsFromHeader(to || null);
+      const contactCandidates = extractContactsFromHeader(expandedTo.join(', ') || null);
       const unique = uniqueContacts(contactCandidates);
       if (unique.length > 0) {
         await prisma.contact.createMany({

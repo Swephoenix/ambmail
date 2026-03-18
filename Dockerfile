@@ -33,7 +33,7 @@ RUN useradd -m -u 1001 appuser
 COPY package*.json ./
 COPY prisma ./prisma
 COPY prisma.config.ts ./prisma.config.ts
-RUN npm ci --omit=dev && npm cache clean --force
+RUN npm ci --omit=dev && npm install ts-node typescript && npm cache clean --force
 
 # Generate Prisma client for production
 RUN npx prisma generate --config prisma.config.ts
@@ -42,6 +42,7 @@ RUN npx prisma generate --config prisma.config.ts
 COPY --from=builder --chown=appuser:appuser /app/.next ./.next
 COPY --from=builder --chown=appuser:appuser /app/public ./public
 COPY --from=builder --chown=appuser:appuser /app/scripts ./scripts
+COPY --from=builder --chown=appuser:appuser /app/src ./src
 
 # Copy entrypoint
 COPY docker/entrypoint.sh /entrypoint.sh

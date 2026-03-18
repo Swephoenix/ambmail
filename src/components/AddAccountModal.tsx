@@ -15,9 +15,9 @@ export default function AddAccountModal({ onClose, onSuccess }: AddAccountModalP
       email: '',
       password: '',
       name: '',
-      imapHost: 'mailcluster.oderland.com',
+      imapHost: 'nesaku.oderland.com',
       imapPort: 993,
-      smtpHost: 'mailcluster.oderland.com',
+      smtpHost: 'nesaku.oderland.com',
       smtpPort: 465,
     }
   });
