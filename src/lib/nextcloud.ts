@@ -316,6 +316,8 @@ export async function listNextcloudFiles(accessToken: string, ncUserId: string, 
     if (!href.startsWith(prefix)) continue;
     let itemPath = href.slice(prefix.length);
     if (!itemPath || itemPath === '/') continue;
+    // Skip the current folder itself (don't show "/IT/" when browsing "/IT/")
+    if (itemPath === cleanPath || itemPath === cleanPath.replace(/\/$/, '')) continue;
     const isDir = /<d:collection\/>/.test(block);
     if (isDir && !itemPath.endsWith('/')) itemPath += '/';
     const nameMatch = block.match(/<d:displayname>([^<]+)<\/d:displayname>/);
