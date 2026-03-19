@@ -44,7 +44,8 @@ export async function getImapConnection(account: MailAccount): Promise<ImapSimpl
       port: account.imapPort,
       tls: useImplicitTls,
       autotls: useImplicitTls ? 'never' : 'always',
-      authTimeout: 3000,
+      authTimeout: 180000,
+      connTimeout: 180000,
       tlsOptions: { rejectUnauthorized: true, minVersion: 'TLSv1.2' },
     },
   };
